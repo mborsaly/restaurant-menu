@@ -1,5 +1,399 @@
-function CheckOutScreen() {
-  return <div>Welcome</div>;
-}
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { ChevronLeft, MapPin, User, Phone } from 'lucide-react'
+import { useCart } from '../context/CartContext'
+import { useSession } from '../hooks/useSession'
 
-export default CheckOutScreen;
+export default function CheckoutScreen() {
+  const navigate = useNavigate()
+  const searchParams = window.location.search
+  const { cart, subtotal, itemCount, clearCart } = useCart()
+  const { restaurant, customer, session } = useSession()
+
+  const deliveryFee = restaurant?.delivery_fee || 3.99
+  const total = subtotal + deliveryFee
+
+  // Pre-fill from customer history if returning
+  const [name, setName] = useState(customer?.name || '')
+  const [phone, setPhone] = useState(
+    session?.customer_phone?.replace('whatsapp:+', '+') || ''
+  )
+  const [address, setAddress] = useState(customer?.last_address || '')
+  const [apt, setApt] = useState('')
+  const [notes, setNotes] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [errors, setErrors] = useState({})
+
+  function validate() {
+    const newErrors = {}
+    if (!name.trim()) newErrors.name = 'Name is required'
+    if (!phone.trim()) newErrors.phone = 'Phone is required'
+    if (!address.trim()) newErrors.address = 'Address is required'
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  async function handlePlaceOrder() {
+    if (!validate()) return
+    setSubmitting(true)
+
+    try {
+      // Build order payload
+      const orderPayload = {
+        token: session?.token || 'demo',
+        restaurant_id: restaurant?.id,
+        customer_phone: phone,
+        customer_name: name,
+        delivery_address: address + (apt ? `, ${apt}` : ''),
+        notes,
+        items: cart.map(item => ({
+          itemId:   item.itemId,
+          name:     item.name,
+          name_fr:  item.name_fr,
+          options:  item.options,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          total:    item.total,
+        })),
+        subtotal,
+        delivery_fee: deliveryFee,
+        total,
+        language: session?.language || 'en',
+      }
+
+      // Send to n8n webhook
+      const response = await fetch(
+        import.meta.env.VITE_N8N_WEBHOOK_URL,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderPayload),
+        }
+      )
+
+      if (!response.ok) throw new Error('Order failed')
+
+      const result = await response.json()
+
+      // Save order number for confirmation screen
+      sessionStorage.setItem('orderNumber', result.orderNumber || '0001')
+      sessionStorage.setItem('estimatedTime', 
+        restaurant?.delivery_time || '35-45 mins'
+      )
+      sessionStorage.setItem('customerName', name)
+
+      // Clear cart
+      clearCart()
+
+      // Go to confirmation
+      navigate('/confirmation' + searchParams)
+
+    } catch (err) {
+      console.error('Order error:', err)
+      setErrors({ submit: 'Something went wrong. Please try again.' })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+
+      {/* Header */}
+      <div className="bg-white border-b border-gray-100 
+                      px-4 py-4 flex items-center gap-3
+                      sticky top-0 z-10">
+        <button
+          onClick={() => navigate('/cart' + searchParams)}
+          className="w-9 h-9 rounded-full bg-gray-100 
+                     flex items-center justify-center
+                     active:scale-95 transition-all"
+        >
+          <ChevronLeft size={20} className="text-gray-700" />
+        </button>
+        <h1 className="font-bold text-gray-900 text-lg">
+          Delivery Details
+        </h1>
+      </div>
+
+      <div className="flex-1 overflow-y-auto pb-40">
+
+        {/* Order summary banner */}
+        <div className="mx-3 mt-3 bg-orange-50 rounded-2xl p-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-xs text-orange-500 font-medium">
+                Your order
+              </p>
+              <p className="font-bold text-orange-900">
+                {itemCount} {itemCount === 1 ? 'item' : 'items'}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-orange-500 font-medium">
+                Total
+              </p>
+              <p className="font-bold text-orange-900 text-lg">
+                ${total.toFixed(2)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Form */}
+        <div className="bg-white mt-3 mx-3 rounded-2xl 
+                        overflow-hidden shadow-sm p-5 space-y-4">
+
+          <h3 className="font-bold text-gray-900">
+            Your Information
+          </h3>
+
+          {/* Name */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 
+                              uppercase tracking-wide mb-1.5 block">
+              Full Name
+            </label>
+            <div className="relative">
+              <User size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 
+                           text-gray-400" />
+              <input
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Marie Dubois"
+                className={`w-full pl-9 pr-4 py-3 rounded-xl 
+                           border text-sm outline-none
+                           focus:border-orange-400 
+                           transition-colors
+                           ${errors.name
+                             ? 'border-red-300 bg-red-50'
+                             : 'border-gray-200 bg-gray-50'
+                           }`}
+              />
+            </div>
+            {errors.name && (
+              <p className="text-red-400 text-xs mt-1">
+                {errors.name}
+              </p>
+            )}
+          </div>
+
+          {/* Phone */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 
+                              uppercase tracking-wide mb-1.5 block">
+              Phone Number
+            </label>
+            <div className="relative">
+              <Phone size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 
+                           text-gray-400" />
+              <input
+                type="tel"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                placeholder="+1 514 000 0000"
+                className={`w-full pl-9 pr-4 py-3 rounded-xl 
+                           border text-sm outline-none
+                           focus:border-orange-400 
+                           transition-colors
+                           ${errors.phone
+                             ? 'border-red-300 bg-red-50'
+                             : 'border-gray-200 bg-gray-50'
+                           }`}
+              />
+            </div>
+            {errors.phone && (
+              <p className="text-red-400 text-xs mt-1">
+                {errors.phone}
+              </p>
+            )}
+          </div>
+
+        </div>
+
+        {/* Delivery address */}
+        <div className="bg-white mt-3 mx-3 rounded-2xl 
+                        overflow-hidden shadow-sm p-5 space-y-4">
+
+          <h3 className="font-bold text-gray-900">
+            Delivery Address
+          </h3>
+
+          {/* Street address */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 
+                              uppercase tracking-wide mb-1.5 block">
+              Street Address
+            </label>
+            <div className="relative">
+              <MapPin size={16}
+                className="absolute left-3 top-3.5 text-gray-400" />
+              <input
+                type="text"
+                value={address}
+                onChange={e => setAddress(e.target.value)}
+                placeholder="456 Rue Sherbrooke O"
+                className={`w-full pl-9 pr-4 py-3 rounded-xl 
+                           border text-sm outline-none
+                           focus:border-orange-400 
+                           transition-colors
+                           ${errors.address
+                             ? 'border-red-300 bg-red-50'
+                             : 'border-gray-200 bg-gray-50'
+                           }`}
+              />
+            </div>
+            {errors.address && (
+              <p className="text-red-400 text-xs mt-1">
+                {errors.address}
+              </p>
+            )}
+          </div>
+
+          {/* Apt/Unit */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 
+                              uppercase tracking-wide mb-1.5 block">
+              Apt / Unit
+              <span className="text-gray-300 ml-1 normal-case 
+                               font-normal">
+                (optional)
+              </span>
+            </label>
+            <input
+              type="text"
+              value={apt}
+              onChange={e => setApt(e.target.value)}
+              placeholder="Apt 4B"
+              className="w-full px-4 py-3 rounded-xl border 
+                         border-gray-200 bg-gray-50 text-sm 
+                         outline-none focus:border-orange-400 
+                         transition-colors"
+            />
+          </div>
+
+          {/* Delivery notes */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 
+                              uppercase tracking-wide mb-1.5 block">
+              Delivery Notes
+              <span className="text-gray-300 ml-1 normal-case 
+                               font-normal">
+                (optional)
+              </span>
+            </label>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Ring doorbell, leave at door..."
+              rows={2}
+              className="w-full px-4 py-3 rounded-xl border 
+                         border-gray-200 bg-gray-50 text-sm 
+                         outline-none focus:border-orange-400 
+                         transition-colors resize-none"
+            />
+          </div>
+
+        </div>
+
+        {/* Payment method */}
+        <div className="bg-white mt-3 mx-3 rounded-2xl 
+                        overflow-hidden shadow-sm p-5">
+          <h3 className="font-bold text-gray-900 mb-3">
+            Payment
+          </h3>
+          <div className="bg-gray-50 rounded-xl px-4 py-3 
+                          flex items-center gap-3">
+            <span className="text-2xl">💵</span>
+            <div>
+              <p className="text-sm font-semibold text-gray-800">
+                Cash on delivery
+              </p>
+              <p className="text-xs text-gray-400">
+                Have ${total.toFixed(2)} ready when driver arrives
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Price breakdown */}
+        <div className="bg-white mt-3 mx-3 rounded-2xl 
+                        overflow-hidden shadow-sm p-5">
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Subtotal</span>
+              <span className="font-medium">
+                ${subtotal.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Delivery fee</span>
+              <span className="font-medium">
+                ${deliveryFee.toFixed(2)}
+              </span>
+            </div>
+            <div className="h-px bg-gray-100" />
+            <div className="flex justify-between">
+              <span className="font-bold text-gray-900">Total</span>
+              <span className="font-bold text-orange-500 text-lg">
+                ${total.toFixed(2)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Submit error */}
+        {errors.submit && (
+          <div className="mx-3 mt-3 bg-red-50 rounded-2xl 
+                          px-4 py-3">
+            <p className="text-red-500 text-sm text-center">
+              {errors.submit}
+            </p>
+          </div>
+        )}
+
+      </div>
+
+      {/* Place order button */}
+      <div className="fixed bottom-0 left-0 right-0 
+                      max-w-md mx-auto p-4 bg-white 
+                      border-t border-gray-100">
+        <button
+          onClick={handlePlaceOrder}
+          disabled={submitting}
+          className={`
+            w-full rounded-2xl py-4 px-6 font-semibold
+            flex items-center justify-center gap-3
+            transition-all active:scale-95
+            ${submitting
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : 'bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-200'
+            }
+          `}
+        >
+          {submitting ? (
+            <>
+              <div className="w-5 h-5 border-2 border-gray-400 
+                              border-t-transparent rounded-full 
+                              animate-spin" />
+              <span>Placing order...</span>
+            </>
+          ) : (
+            <>
+              <span>Place Order</span>
+              <span className="font-bold">${total.toFixed(2)}</span>
+            </>
+          )}
+        </button>
+
+        <p className="text-center text-xs text-gray-300 mt-2">
+          By ordering you agree to our terms of service
+        </p>
+      </div>
+
+    </div>
+  )
+}
