@@ -1,5 +1,3 @@
-Create src/components/MenuItemCard.jsx:
-
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 
