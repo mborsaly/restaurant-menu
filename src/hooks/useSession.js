@@ -34,7 +34,8 @@ export function useSession() {
           .eq('token', token)
           .single()
 
-        if (sessionError) throw new Error('Session not found')
+        //if (sessionError) throw new Error('Session not found')
+	if (sessionError) throw new Error('Session not found')
 
         // Check if session expired
         const expiresAt = sessionData.expires_at.replace(' ', 'T').replace('+00', 'Z')
