@@ -6,6 +6,7 @@ import LoadingScreen from '../components/LoadingScreen'
 export default function WelcomeScreen() {
   const navigate = useNavigate()
   const { restaurant, customer, loading, error } = useSession()
+  console.log('SESSION ERROR:', error)
 
   // Auto-advance to menu after 2 seconds
   useEffect(() => {
@@ -19,17 +20,22 @@ export default function WelcomeScreen() {
   if (loading) return <LoadingScreen message="Getting your menu ready..." />
 
   if (error) return (
-    <div className="min-h-screen flex flex-col items-center 
-                    justify-center p-6 text-center">
-      <div className="text-5xl mb-4">😕</div>
-      <h2 className="text-xl font-bold text-gray-800 mb-2">
-        Link expired
-      </h2>
-      <p className="text-gray-500 text-sm">
-        Please call us again or visit our restaurant directly.
-      </p>
-    </div>
-  )
+  <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
+    <div className="text-5xl mb-4">😕</div>
+
+    <h2 className="text-xl font-bold text-gray-800 mb-2">
+      Link expired
+    </h2>
+
+    <p className="text-red-500 text-xs mb-2">
+      {error?.message || JSON.stringify(error)}
+    </p>
+
+    <p className="text-gray-500 text-sm">
+      Please call us again or visit our restaurant directly.
+    </p>
+  </div>
+	)
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
