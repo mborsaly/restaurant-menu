@@ -1,35 +1,54 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle, Clock, Phone } from 'lucide-react'
+import { CheckCircle, Clock, Phone, MessageCircle } from 'lucide-react'
+import { usePlatform } from '../hooks/usePlatform'
 
 export default function ConfirmationScreen() {
   const navigate = useNavigate()
   const searchParams = window.location.search
+  const { isWhatsApp, isDesktop } = usePlatform()
 
-  const [orderNumber, setOrderNumber] = useState('')
+  const [orderNumber, setOrderNumber]     = useState('')
   const [estimatedTime, setEstimatedTime] = useState('')
-  const [customerName, setCustomerName] = useState('')
+  const [customerName, setCustomerName]   = useState('')
+  const [countdown, setCountdown]         = useState(4)
 
+  // Load order data from sessionStorage
   useEffect(() => {
-    // Load from sessionStorage set by CheckoutScreen
-    setOrderNumber(sessionStorage.getItem('orderNumber') || '0001')
-    setEstimatedTime(sessionStorage.getItem('estimatedTime') || '35-45 mins')
-    setCustomerName(sessionStorage.getItem('customerName') || '')
+    setOrderNumber(sessionStorage.getItem('orderNumber')    || '0001')
+    setEstimatedTime(sessionStorage.getItem('estimatedTime')|| '35-45 mins')
+    setCustomerName(sessionStorage.getItem('customerName')  || '')
   }, [])
+
+  // Auto return to WhatsApp if opened from WhatsApp
+  useEffect(() => {
+    if (!isWhatsApp) return
+
+    const timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          window.location.href = 'whatsapp://'
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [isWhatsApp])
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-
-      {/* Success animation area */}
-      <div className="flex-1 flex flex-col items-center 
+      <div className="flex-1 flex flex-col items-center
                       justify-center p-8 text-center">
 
         {/* Animated checkmark */}
         <div className="relative mb-8">
-          <div className="w-28 h-28 rounded-full bg-green-50 
+          <div className="w-28 h-28 rounded-full bg-green-50
                           flex items-center justify-center
                           animate-pulse">
-            <div className="w-20 h-20 rounded-full bg-green-100 
+            <div className="w-20 h-20 rounded-full bg-green-100
                             flex items-center justify-center">
               <CheckCircle
                 size={48}
@@ -38,9 +57,7 @@ export default function ConfirmationScreen() {
               />
             </div>
           </div>
-
-          {/* Floating emoji */}
-          <div className="absolute -top-2 -right-2 text-3xl 
+          <div className="absolute -top-2 -right-2 text-3xl
                           animate-bounce">
             🎉
           </div>
@@ -51,7 +68,6 @@ export default function ConfirmationScreen() {
           Order Confirmed!
         </h1>
 
-        {/* Personal greeting */}
         {customerName && (
           <p className="text-gray-500 text-sm mb-1">
             Thank you, {customerName.split(' ')[0]}!
@@ -59,9 +75,9 @@ export default function ConfirmationScreen() {
         )}
 
         {/* Order number */}
-        <div className="bg-gray-50 rounded-2xl px-8 py-4 
+        <div className="bg-gray-50 rounded-2xl px-8 py-4
                         mb-8 mt-4">
-          <p className="text-xs text-gray-400 uppercase 
+          <p className="text-xs text-gray-400 uppercase
                         tracking-widest mb-1">
             Order Number
           </p>
@@ -70,14 +86,14 @@ export default function ConfirmationScreen() {
           </p>
         </div>
 
-        {/* Delivery info cards */}
+        {/* Info cards */}
         <div className="w-full space-y-3 mb-8">
 
-          {/* Estimated time */}
-          <div className="bg-orange-50 rounded-2xl px-5 py-4 
+          {/* Delivery time */}
+          <div className="bg-orange-50 rounded-2xl px-5 py-4
                           flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-orange-100 
-                            flex items-center justify-center 
+            <div className="w-10 h-10 rounded-full bg-orange-100
+                            flex items-center justify-center
                             flex-shrink-0">
               <Clock size={20} className="text-orange-500" />
             </div>
@@ -91,11 +107,11 @@ export default function ConfirmationScreen() {
             </div>
           </div>
 
-          {/* Driver will call */}
-          <div className="bg-blue-50 rounded-2xl px-5 py-4 
+          {/* Driver call */}
+          <div className="bg-blue-50 rounded-2xl px-5 py-4
                           flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-blue-100 
-                            flex items-center justify-center 
+            <div className="w-10 h-10 rounded-full bg-blue-100
+                            flex items-center justify-center
                             flex-shrink-0">
               <Phone size={20} className="text-blue-500" />
             </div>
@@ -109,11 +125,11 @@ export default function ConfirmationScreen() {
             </div>
           </div>
 
-          {/* WhatsApp update */}
-          <div className="bg-green-50 rounded-2xl px-5 py-4 
+          {/* WhatsApp confirmation */}
+          <div className="bg-green-50 rounded-2xl px-5 py-4
                           flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-green-100 
-                            flex items-center justify-center 
+            <div className="w-10 h-10 rounded-full bg-green-100
+                            flex items-center justify-center
                             flex-shrink-0 text-xl">
               💬
             </div>
@@ -129,24 +145,75 @@ export default function ConfirmationScreen() {
 
         </div>
 
-        {/* Order again button */}
-        <button
-          onClick={() => navigate('/menu' + searchParams)}
-          className="w-full bg-orange-500 hover:bg-orange-600
-                     active:scale-95 transition-all
-                     text-white rounded-2xl py-4 px-6
-                     font-semibold shadow-lg shadow-orange-200"
-        >
-          Order Again 🍕
-        </button>
+        {/* ============ PLATFORM SPECIFIC ============ */}
 
-        {/* Footer */}
+        {/* WhatsApp — countdown + return button */}
+        {isWhatsApp && (
+          <>
+            <div className="w-full bg-green-50 rounded-2xl
+                            px-5 py-3 mb-4 text-center">
+              <p className="text-sm text-green-600">
+                Returning to WhatsApp in
+                <span className="font-bold text-green-700
+                                 text-lg mx-1">
+                  {countdown}
+                </span>
+                seconds...
+              </p>
+              <div className="mt-2 h-1.5 bg-green-100
+                              rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-green-500 rounded-full
+                             transition-all duration-1000"
+                  style={{ width: `${(countdown / 4) * 100}%` }}
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={() => window.location.href = 'whatsapp://'}
+              className="w-full bg-green-500 hover:bg-green-600
+                         active:scale-95 transition-all
+                         text-white rounded-2xl py-4 px-6
+                         font-semibold shadow-lg shadow-green-200
+                         flex items-center justify-center gap-3
+                         mb-3"
+            >
+              <MessageCircle size={20} />
+              <span>Return to WhatsApp</span>
+            </button>
+          </>
+        )}
+
+        {/* Mobile or Desktop browser — order again */}
+        {!isWhatsApp && (
+          <button
+            onClick={() => navigate('/menu' + searchParams)}
+            className="w-full bg-orange-500 hover:bg-orange-600
+                       active:scale-95 transition-all
+                       text-white rounded-2xl py-4 px-6
+                       font-semibold shadow-lg shadow-orange-200
+                       mb-3"
+          >
+            Order Again 🍕
+          </button>
+        )}
+
+        {/* Desktop extra message */}
+        {isDesktop && (
+          <div className="bg-gray-50 rounded-2xl px-5 py-3
+                          text-center">
+            <p className="text-sm text-gray-500">
+              📱 Check your WhatsApp for order confirmation
+            </p>
+          </div>
+        )}
+
         <p className="text-xs text-gray-300 mt-6">
           Powered by instant ordering 🚀
         </p>
 
       </div>
-
     </div>
   )
 }
