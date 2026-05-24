@@ -38,7 +38,13 @@ export function useSession() {
 
         // Check if session expired
         const expiresAt = sessionData.expires_at.replace(' ', 'T').replace('+00', 'Z')
-        if (Date.parse(expiresAt) < Date.now()) {
+        
+	console.log('expiresAt:', expiresAt)
+	console.log('parsed date:', new Date(expiresAt))
+	console.log('timestamp:', Date.parse(expiresAt))
+	console.log('now:', Date.now())
+	
+	if (Date.parse(expiresAt) < Date.now()) {
            throw new Error('Session expired')
         }
 
