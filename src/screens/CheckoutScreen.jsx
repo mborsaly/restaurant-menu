@@ -14,20 +14,20 @@ export default function CheckoutScreen() {
   const total = subtotal + deliveryFee
 
   // Pre-fill from customer history if returning
-  const [name, setName] = useState(customer?.name || '')
-  const [phone, setPhone] = useState(
+  const [name, setName]     = useState(customer?.name || '')
+  const [phone, setPhone]   = useState(
     session?.customer_phone?.replace('whatsapp:+', '+') || ''
   )
   const [address, setAddress] = useState(customer?.last_address || '')
-  const [apt, setApt] = useState('')
-  const [notes, setNotes] = useState('')
+  const [apt, setApt]         = useState('')
+  const [notes, setNotes]     = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [errors, setErrors] = useState({})
+  const [errors, setErrors]   = useState({})
 
   function validate() {
     const newErrors = {}
-    if (!name.trim()) newErrors.name = 'Name is required'
-    if (!phone.trim()) newErrors.phone = 'Phone is required'
+    if (!name.trim())    newErrors.name    = 'Name is required'
+    if (!phone.trim())   newErrors.phone   = 'Phone is required'
     if (!address.trim()) newErrors.address = 'Address is required'
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -38,22 +38,21 @@ export default function CheckoutScreen() {
     setSubmitting(true)
 
     try {
-      // Build order payload
       const orderPayload = {
-        token: session?.token || 'demo',
-        restaurant_id: restaurant?.id,
-        customer_phone: phone,
-        customer_name: name,
+        token:            session?.token || 'demo',
+        restaurant_id:    restaurant?.id,
+        customer_phone:   phone,
+        customer_name:    name,
         delivery_address: address + (apt ? `, ${apt}` : ''),
         notes,
         items: cart.map(item => ({
-          itemId:   item.itemId,
-          name:     item.name,
-          name_fr:  item.name_fr,
-          options:  item.options,
-          quantity: item.quantity,
+          itemId:    item.itemId,
+          name:      item.name,
+          name_fr:   item.name_fr,
+          options:   item.options,
+          quantity:  item.quantity,
           unitPrice: item.unitPrice,
-          total:    item.total,
+          total:     item.total,
         })),
         subtotal,
         delivery_fee: deliveryFee,
@@ -61,36 +60,40 @@ export default function CheckoutScreen() {
         language: session?.language || 'en',
       }
 
-      // Send to n8n webhook
       const response = await fetch(
         import.meta.env.VITE_N8N_WEBHOOK_URL,
         {
-          method: 'POST',
+          method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(orderPayload),
+          body:    JSON.stringify(orderPayload),
         }
       )
 
-      if (!response.ok) throw new Error('Order failed')
-
+      console.log('Response status:', response.status)
       const result = await response.json()
+      console.log('Response body:', result)
 
-      // Save order number for confirmation screen
-      sessionStorage.setItem('orderNumber', result.orderNumber || '0001')
-      sessionStorage.setItem('estimatedTime', 
-        restaurant?.delivery_time || '35-45 mins'
-      )
-      sessionStorage.setItem('customerName', name)
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Order failed')
+      }
 
-      // Clear cart
+      // Save to sessionStorage for ConfirmationScreen
+      sessionStorage.setItem('orderNumber',
+        result.orderNumber   || '0001')
+      sessionStorage.setItem('estimatedTime',
+        result.estimatedTime || '35-45 mins')
+      sessionStorage.setItem('customerName',   name)
+      sessionStorage.setItem('twilioNumber',
+        restaurant?.twilio_number || '')
+
       clearCart()
-
-      // Go to confirmation
       navigate('/confirmation' + searchParams)
 
     } catch (err) {
       console.error('Order error:', err)
-      setErrors({ submit: 'Something went wrong. Please try again.' })
+      setErrors({
+        submit: 'Something went wrong. Please try again.'
+      })
     } finally {
       setSubmitting(false)
     }
@@ -100,12 +103,12 @@ export default function CheckoutScreen() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
 
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 
+      <div className="bg-white border-b border-gray-100
                       px-4 py-4 flex items-center gap-3
                       sticky top-0 z-10">
         <button
           onClick={() => navigate('/cart' + searchParams)}
-          className="w-9 h-9 rounded-full bg-gray-100 
+          className="w-9 h-9 rounded-full bg-gray-100
                      flex items-center justify-center
                      active:scale-95 transition-all"
         >
@@ -140,8 +143,8 @@ export default function CheckoutScreen() {
           </div>
         </div>
 
-        {/* Form */}
-        <div className="bg-white mt-3 mx-3 rounded-2xl 
+        {/* Personal info */}
+        <div className="bg-white mt-3 mx-3 rounded-2xl
                         overflow-hidden shadow-sm p-5 space-y-4">
 
           <h3 className="font-bold text-gray-900">
@@ -150,22 +153,22 @@ export default function CheckoutScreen() {
 
           {/* Name */}
           <div>
-            <label className="text-xs font-semibold text-gray-500 
+            <label className="text-xs font-semibold text-gray-500
                               uppercase tracking-wide mb-1.5 block">
               Full Name
             </label>
             <div className="relative">
               <User size={16}
-                className="absolute left-3 top-1/2 -translate-y-1/2 
+                className="absolute left-3 top-1/2 -translate-y-1/2
                            text-gray-400" />
               <input
                 type="text"
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder="Marie Dubois"
-                className={`w-full pl-9 pr-4 py-3 rounded-xl 
+                className={`w-full pl-9 pr-4 py-3 rounded-xl
                            border text-sm outline-none
-                           focus:border-orange-400 
+                           focus:border-orange-400
                            transition-colors
                            ${errors.name
                              ? 'border-red-300 bg-red-50'
@@ -182,22 +185,22 @@ export default function CheckoutScreen() {
 
           {/* Phone */}
           <div>
-            <label className="text-xs font-semibold text-gray-500 
+            <label className="text-xs font-semibold text-gray-500
                               uppercase tracking-wide mb-1.5 block">
               Phone Number
             </label>
             <div className="relative">
               <Phone size={16}
-                className="absolute left-3 top-1/2 -translate-y-1/2 
+                className="absolute left-3 top-1/2 -translate-y-1/2
                            text-gray-400" />
               <input
                 type="tel"
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
                 placeholder="+1 514 000 0000"
-                className={`w-full pl-9 pr-4 py-3 rounded-xl 
+                className={`w-full pl-9 pr-4 py-3 rounded-xl
                            border text-sm outline-none
-                           focus:border-orange-400 
+                           focus:border-orange-400
                            transition-colors
                            ${errors.phone
                              ? 'border-red-300 bg-red-50'
@@ -215,16 +218,16 @@ export default function CheckoutScreen() {
         </div>
 
         {/* Delivery address */}
-        <div className="bg-white mt-3 mx-3 rounded-2xl 
+        <div className="bg-white mt-3 mx-3 rounded-2xl
                         overflow-hidden shadow-sm p-5 space-y-4">
 
           <h3 className="font-bold text-gray-900">
             Delivery Address
           </h3>
 
-          {/* Street address */}
+          {/* Street */}
           <div>
-            <label className="text-xs font-semibold text-gray-500 
+            <label className="text-xs font-semibold text-gray-500
                               uppercase tracking-wide mb-1.5 block">
               Street Address
             </label>
@@ -236,9 +239,9 @@ export default function CheckoutScreen() {
                 value={address}
                 onChange={e => setAddress(e.target.value)}
                 placeholder="456 Rue Sherbrooke O"
-                className={`w-full pl-9 pr-4 py-3 rounded-xl 
+                className={`w-full pl-9 pr-4 py-3 rounded-xl
                            border text-sm outline-none
-                           focus:border-orange-400 
+                           focus:border-orange-400
                            transition-colors
                            ${errors.address
                              ? 'border-red-300 bg-red-50'
@@ -253,12 +256,12 @@ export default function CheckoutScreen() {
             )}
           </div>
 
-          {/* Apt/Unit */}
+          {/* Apt */}
           <div>
-            <label className="text-xs font-semibold text-gray-500 
+            <label className="text-xs font-semibold text-gray-500
                               uppercase tracking-wide mb-1.5 block">
               Apt / Unit
-              <span className="text-gray-300 ml-1 normal-case 
+              <span className="text-gray-300 ml-1 normal-case
                                font-normal">
                 (optional)
               </span>
@@ -268,19 +271,19 @@ export default function CheckoutScreen() {
               value={apt}
               onChange={e => setApt(e.target.value)}
               placeholder="Apt 4B"
-              className="w-full px-4 py-3 rounded-xl border 
-                         border-gray-200 bg-gray-50 text-sm 
-                         outline-none focus:border-orange-400 
+              className="w-full px-4 py-3 rounded-xl border
+                         border-gray-200 bg-gray-50 text-sm
+                         outline-none focus:border-orange-400
                          transition-colors"
             />
           </div>
 
-          {/* Delivery notes */}
+          {/* Notes */}
           <div>
-            <label className="text-xs font-semibold text-gray-500 
+            <label className="text-xs font-semibold text-gray-500
                               uppercase tracking-wide mb-1.5 block">
               Delivery Notes
-              <span className="text-gray-300 ml-1 normal-case 
+              <span className="text-gray-300 ml-1 normal-case
                                font-normal">
                 (optional)
               </span>
@@ -290,22 +293,22 @@ export default function CheckoutScreen() {
               onChange={e => setNotes(e.target.value)}
               placeholder="Ring doorbell, leave at door..."
               rows={2}
-              className="w-full px-4 py-3 rounded-xl border 
-                         border-gray-200 bg-gray-50 text-sm 
-                         outline-none focus:border-orange-400 
+              className="w-full px-4 py-3 rounded-xl border
+                         border-gray-200 bg-gray-50 text-sm
+                         outline-none focus:border-orange-400
                          transition-colors resize-none"
             />
           </div>
 
         </div>
 
-        {/* Payment method */}
-        <div className="bg-white mt-3 mx-3 rounded-2xl 
+        {/* Payment */}
+        <div className="bg-white mt-3 mx-3 rounded-2xl
                         overflow-hidden shadow-sm p-5">
           <h3 className="font-bold text-gray-900 mb-3">
             Payment
           </h3>
-          <div className="bg-gray-50 rounded-xl px-4 py-3 
+          <div className="bg-gray-50 rounded-xl px-4 py-3
                           flex items-center gap-3">
             <span className="text-2xl">💵</span>
             <div>
@@ -320,7 +323,7 @@ export default function CheckoutScreen() {
         </div>
 
         {/* Price breakdown */}
-        <div className="bg-white mt-3 mx-3 rounded-2xl 
+        <div className="bg-white mt-3 mx-3 rounded-2xl
                         overflow-hidden shadow-sm p-5">
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
@@ -337,7 +340,9 @@ export default function CheckoutScreen() {
             </div>
             <div className="h-px bg-gray-100" />
             <div className="flex justify-between">
-              <span className="font-bold text-gray-900">Total</span>
+              <span className="font-bold text-gray-900">
+                Total
+              </span>
               <span className="font-bold text-orange-500 text-lg">
                 ${total.toFixed(2)}
               </span>
@@ -347,7 +352,7 @@ export default function CheckoutScreen() {
 
         {/* Submit error */}
         {errors.submit && (
-          <div className="mx-3 mt-3 bg-red-50 rounded-2xl 
+          <div className="mx-3 mt-3 bg-red-50 rounded-2xl
                           px-4 py-3">
             <p className="text-red-500 text-sm text-center">
               {errors.submit}
@@ -358,8 +363,8 @@ export default function CheckoutScreen() {
       </div>
 
       {/* Place order button */}
-      <div className="fixed bottom-0 left-0 right-0 
-                      max-w-md mx-auto p-4 bg-white 
+      <div className="fixed bottom-0 left-0 right-0
+                      max-w-md mx-auto p-4 bg-white
                       border-t border-gray-100">
         <button
           onClick={handlePlaceOrder}
@@ -376,15 +381,17 @@ export default function CheckoutScreen() {
         >
           {submitting ? (
             <>
-              <div className="w-5 h-5 border-2 border-gray-400 
-                              border-t-transparent rounded-full 
+              <div className="w-5 h-5 border-2 border-gray-400
+                              border-t-transparent rounded-full
                               animate-spin" />
               <span>Placing order...</span>
             </>
           ) : (
             <>
               <span>Place Order</span>
-              <span className="font-bold">${total.toFixed(2)}</span>
+              <span className="font-bold">
+                ${total.toFixed(2)}
+              </span>
             </>
           )}
         </button>
@@ -397,3 +404,4 @@ export default function CheckoutScreen() {
     </div>
   )
 }
+

@@ -1,26 +1,52 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle, Clock, Phone, MessageCircle } from 'lucide-react'
-import { usePlatform } from '../hooks/usePlatform'
+import { useSession } from '../hooks/useSession'
 
 export default function ConfirmationScreen() {
   const navigate = useNavigate()
   const searchParams = window.location.search
-  const { isWhatsApp, isDesktop } = usePlatform()
+  const { restaurant } = useSession()
 
   const [orderNumber, setOrderNumber]     = useState('')
   const [estimatedTime, setEstimatedTime] = useState('')
   const [customerName, setCustomerName]   = useState('')
   const [countdown, setCountdown]         = useState(4)
+  const [isWhatsApp, setIsWhatsApp]       = useState(false)
+  const [isDesktop, setIsDesktop]         = useState(false)
 
-  // Load order data from sessionStorage
+  // Detect platform
   useEffect(() => {
-    setOrderNumber(sessionStorage.getItem('orderNumber')    || '0001')
-    setEstimatedTime(sessionStorage.getItem('estimatedTime')|| '35-45 mins')
-    setCustomerName(sessionStorage.getItem('customerName')  || '')
+    const ua = navigator.userAgent
+    setIsWhatsApp(/WhatsApp/i.test(ua))
+    setIsDesktop(!/Android|iPhone|iPad|iPod/i.test(ua))
   }, [])
 
-  // Auto return to WhatsApp if opened from WhatsApp
+  // Load order data
+  useEffect(() => {
+    setOrderNumber(sessionStorage.getItem('orderNumber')     || '0001')
+    setEstimatedTime(sessionStorage.getItem('estimatedTime') || '35-45 mins')
+    setCustomerName(sessionStorage.getItem('customerName')   || '')
+  }, [])
+
+  // Build return URL using Twilio number
+  function getWhatsAppReturnUrl() {
+    const twilioNumber = restaurant?.twilio_number
+      || sessionStorage.getItem('twilioNumber')
+      || ''
+
+    // Clean to digits only
+    const clean = twilioNumber.replace(/\D/g, '')
+    return clean
+      ? `https://wa.me/${clean}`
+      : 'whatsapp://'
+  }
+
+  function returnToWhatsApp() {
+    window.location.href = getWhatsAppReturnUrl()
+  }
+
+  // Auto countdown and return if from WhatsApp
   useEffect(() => {
     if (!isWhatsApp) return
 
@@ -28,7 +54,7 @@ export default function ConfirmationScreen() {
       setCountdown(prev => {
         if (prev <= 1) {
           clearInterval(timer)
-          window.location.href = 'whatsapp://'
+          returnToWhatsApp()
           return 0
         }
         return prev - 1
@@ -36,7 +62,7 @@ export default function ConfirmationScreen() {
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [isWhatsApp])
+  }, [isWhatsApp, restaurant])
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
@@ -89,7 +115,6 @@ export default function ConfirmationScreen() {
         {/* Info cards */}
         <div className="w-full space-y-3 mb-8">
 
-          {/* Delivery time */}
           <div className="bg-orange-50 rounded-2xl px-5 py-4
                           flex items-center gap-4">
             <div className="w-10 h-10 rounded-full bg-orange-100
@@ -107,7 +132,6 @@ export default function ConfirmationScreen() {
             </div>
           </div>
 
-          {/* Driver call */}
           <div className="bg-blue-50 rounded-2xl px-5 py-4
                           flex items-center gap-4">
             <div className="w-10 h-10 rounded-full bg-blue-100
@@ -125,7 +149,6 @@ export default function ConfirmationScreen() {
             </div>
           </div>
 
-          {/* WhatsApp confirmation */}
           <div className="bg-green-50 rounded-2xl px-5 py-4
                           flex items-center gap-4">
             <div className="w-10 h-10 rounded-full bg-green-100
@@ -144,8 +167,6 @@ export default function ConfirmationScreen() {
           </div>
 
         </div>
-
-        {/* ============ PLATFORM SPECIFIC ============ */}
 
         {/* WhatsApp — countdown + return button */}
         {isWhatsApp && (
@@ -171,7 +192,7 @@ export default function ConfirmationScreen() {
             </div>
 
             <button
-              onClick={() => window.location.href = 'whatsapp://'}
+              onClick={returnToWhatsApp}
               className="w-full bg-green-500 hover:bg-green-600
                          active:scale-95 transition-all
                          text-white rounded-2xl py-4 px-6
@@ -185,7 +206,7 @@ export default function ConfirmationScreen() {
           </>
         )}
 
-        {/* Mobile or Desktop browser — order again */}
+        {/* Mobile or Desktop browser */}
         {!isWhatsApp && (
           <button
             onClick={() => navigate('/menu' + searchParams)}
@@ -199,7 +220,7 @@ export default function ConfirmationScreen() {
           </button>
         )}
 
-        {/* Desktop extra message */}
+        {/* Desktop message */}
         {isDesktop && (
           <div className="bg-gray-50 rounded-2xl px-5 py-3
                           text-center">
