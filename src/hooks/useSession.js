@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+	import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
 export function useSession() {
@@ -35,7 +35,7 @@ export function useSession() {
           .single()
 
         //if (sessionError) throw new Error('Session not found')
-	if (sessionError) throw new Error(sessionError.toString())
+	if (sessionError) throw new Error(error.toString())
 
         // Check if session expired
         const expiresAt = sessionData.expires_at.replace(' ', 'T').replace('+00', 'Z')
