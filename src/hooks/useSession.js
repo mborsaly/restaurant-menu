@@ -45,7 +45,7 @@ export function useSession() {
 	console.log('now:', Date.now())
 	
 	if (Date.parse(expiresAt) < Date.now()) {
-           throw new Error('Session expired')
+        //   throw new Error('Session expired')
         }
 
         setSession(sessionData)
