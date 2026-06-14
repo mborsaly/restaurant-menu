@@ -20,7 +20,7 @@ export function useSession() {
           const { data: resto } = await supabase
             .from('restaurants')
             .select('*')
-            .eq('slug', 'marios-pizza')
+            .eq('slug', 'mechwi')
             .single()
           setRestaurant(resto)
           setLoading(false)
