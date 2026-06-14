@@ -1,49 +1,91 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, Minus, Plus } from 'lucide-react'
-import { useCart } from '../context/CartContext'
+import { useState, useEffect }        from 'react'
+import { useNavigate, useParams }     from 'react-router-dom'
+import { ChevronLeft, Minus, Plus }   from 'lucide-react'
+import { supabase }                   from '../lib/supabase'
+import { useCart }                    from '../context/CartContext'
+import { useSession }                 from '../hooks/useSession'
+import LoadingScreen                  from '../components/LoadingScreen'
 
 export default function ItemScreen() {
-  const navigate = useNavigate()
-  const { id } = useParams()
+  const navigate     = useNavigate()
+  const { id }       = useParams()
   const searchParams = window.location.search
-  const { addItem } = useCart()
+  const { addItem }  = useCart()
+  const { restaurant } = useSession()
 
-  const [item, setItem] = useState(null)
-  const [lang, setLang] = useState('en')
-  const [quantity, setQuantity] = useState(1)
+  const primary = restaurant?.primary_color || '#1A4D3E'
+  const coral   = '#FF7A47'
+
+  const [item, setItem]                   = useState(null)
+  const [loading, setLoading]             = useState(true)
+  const [lang, setLang]                   = useState('en')
+  const [quantity, setQuantity]           = useState(1)
   const [selectedOptions, setSelectedOptions] = useState({})
-  const [totalPrice, setTotalPrice] = useState(0)
+  const [totalPrice, setTotalPrice]       = useState(0)
 
-  // Load item from sessionStorage
+  // Load item — sessionStorage first, Supabase fallback
   useEffect(() => {
-    const stored = sessionStorage.getItem('selectedItem')
-    if (stored) {
-      const parsed = JSON.parse(stored)
-      setItem(parsed)
-      setTotalPrice(parsed.base_price)
-
-      // Pre-select default options
-      if (parsed.item_options) {
-        const defaults = {}
-        const groups = groupOptions(parsed.item_options)
-
-        Object.entries(groups).forEach(([group, options]) => {
-          const defaultOpt = options.find(o => o.is_default)
-          if (defaultOpt) {
-            defaults[group] = defaultOpt
+    async function loadItem() {
+      try {
+        // Try sessionStorage first (instant)
+        const stored = sessionStorage.getItem('selectedItem')
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          if (parsed.id === id) {
+            setItem(parsed)
+            initOptions(parsed)
+            setTotalPrice(parsed.base_price)
+            setLoading(false)
+            return
           }
-        })
-        setSelectedOptions(defaults)
+        }
+
+        // Fall back to Supabase
+        const { data, error } = await supabase
+          .from('menu_items')
+          .select('*, item_options(*)')
+          .eq('id', id)
+          .single()
+
+        if (error) throw error
+
+        setItem(data)
+        initOptions(data)
+        setTotalPrice(data.base_price)
+
+      } catch (err) {
+        console.error('Item load error:', err)
+      } finally {
+        setLoading(false)
       }
     }
+
+    loadItem()
   }, [id])
 
-  // Recalculate price when options change
+  // Pre-select default options
+  function initOptions(itemData) {
+    if (!itemData?.item_options?.length) return
+
+    const groups  = groupOptions(itemData.item_options)
+    const defaults = {}
+
+    Object.entries(groups).forEach(([group, options]) => {
+      const defaultOpt = options.find(o => o.is_default)
+        || options[0]
+      if (defaultOpt) defaults[group] = defaultOpt
+    })
+
+    setSelectedOptions(defaults)
+  }
+
+  // Recalculate total when options or quantity change
   useEffect(() => {
     if (!item) return
     const optionsTotal = Object.values(selectedOptions)
-      .reduce((sum, opt) => sum + (opt?.price_modifier || 0), 0)
+      .reduce((sum, opt) =>
+        sum + (opt?.price_modifier || 0), 0
+      )
     setTotalPrice((item.base_price + optionsTotal) * quantity)
   }, [selectedOptions, quantity, item])
 
@@ -60,7 +102,7 @@ export default function ItemScreen() {
   function handleOptionSelect(groupName, option) {
     setSelectedOptions(prev => ({
       ...prev,
-      [groupName]: option
+      [groupName]: option,
     }))
   }
 
@@ -69,32 +111,58 @@ export default function ItemScreen() {
     navigate('/menu' + searchParams)
   }
 
-  function handleBack() {
-    navigate('/menu' + searchParams)
-  }
+  // ─── Loading ───────────────────────────────────────
+  if (loading) return (
+    <LoadingScreen message="Loading item..." />
+  )
 
+  // ─── Not found ─────────────────────────────────────
   if (!item) return (
-    <div className="min-h-screen flex items-center 
-                    justify-center">
-      <p className="text-gray-400">Item not found</p>
+    <div className="min-h-screen flex flex-col
+                    items-center justify-center
+                    p-8 text-center"
+         style={{ background: '#FFF8F0' }}>
+      <div className="text-5xl mb-4">😕</div>
+      <h2 className="text-xl font-semibold mb-2"
+          style={{
+            fontFamily: "'Fraunces', serif",
+            color: '#1A4D3E',
+          }}>
+        Item not found
+      </h2>
+      <button
+        onClick={() => navigate('/menu' + searchParams)}
+        className="mt-4 px-6 py-3 rounded-xl
+                   text-white font-semibold
+                   active:scale-95 transition-all"
+        style={{ background: coral }}
+      >
+        Back to Menu
+      </button>
     </div>
   )
 
-  const name = lang === 'fr' && item.name_fr
-    ? item.name_fr : item.name_en
+  // ─── Derived values ────────────────────────────────
+  const name = lang === 'fr'
+    ? (item.name_fr || item.name_en)
+    : item.name_en
 
-  const description = lang === 'fr' && item.description_fr
-    ? item.description_fr : item.description_en
+  const description = lang === 'fr'
+    ? (item.description_fr || item.description_en)
+    : item.description_en
 
-  const optionGroups = item.item_options
+  const optionGroups = item.item_options?.length
     ? groupOptions(item.item_options)
     : {}
 
+  // ─── Render ────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen flex flex-col"
+         style={{ background: '#FFF8F0' }}>
 
       {/* Hero image */}
-      <div className="relative h-64 bg-gray-100 flex-shrink-0">
+      <div className="relative h-64 flex-shrink-0"
+           style={{ background: '#FFA47D22' }}>
 
         {item.image_url ? (
           <img
@@ -103,202 +171,333 @@ export default function ItemScreen() {
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full flex items-center 
-                          justify-center text-8xl">
-            🍕
+          <div className="w-full h-full flex
+                          items-center justify-center
+                          text-8xl">
+            {item.emoji || '🍽️'}
           </div>
         )}
 
         {/* Back button */}
         <button
-          onClick={handleBack}
-          className="absolute top-4 left-4 w-10 h-10 
-                     bg-white rounded-full shadow-lg 
-                     flex items-center justify-center
+          onClick={() =>
+            navigate('/menu' + searchParams)
+          }
+          className="absolute top-4 left-4 w-10 h-10
+                     rounded-full shadow-lg flex
+                     items-center justify-center
                      active:scale-95 transition-all"
+          style={{ background: 'white' }}
         >
-          <ChevronLeft size={20} className="text-gray-700" />
+          <ChevronLeft size={20}
+            style={{ color: '#2D2A26' }} />
         </button>
 
         {/* Language toggle */}
         <button
-          onClick={() => setLang(l => l === 'en' ? 'fr' : 'en')}
-          className="absolute top-4 right-4 text-xs font-bold 
-                     px-3 py-1.5 rounded-full bg-white 
-                     shadow-lg text-gray-600"
+          onClick={() =>
+            setLang(l => l === 'en' ? 'fr' : 'en')
+          }
+          className="absolute top-4 right-4
+                     text-xs font-bold px-3 py-1.5
+                     rounded-full shadow-lg
+                     active:scale-95 transition-all"
+          style={{
+            background: 'white',
+            fontFamily: "'JetBrains Mono', monospace",
+            color: '#2D2A26',
+          }}
         >
           {lang === 'en' ? 'FR' : 'EN'}
         </button>
 
+        {/* Popular badge */}
+        {item.is_popular && (
+          <div className="absolute bottom-4 left-4
+                          text-xs font-bold px-3 py-1.5
+                          rounded-full"
+               style={{
+                 background: coral,
+                 color: 'white',
+                 fontFamily:
+                   "'JetBrains Mono', monospace",
+               }}>
+            ⭐ Popular
+          </div>
+        )}
+
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto pb-32">
 
         {/* Item header */}
-        <div className="p-5 border-b border-gray-100">
-          {item.is_popular && (
-            <span className="inline-block text-xs font-bold 
-                             text-orange-500 bg-orange-50 
-                             px-2 py-0.5 rounded-full mb-2">
-              ⭐ Popular
-            </span>
-          )}
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+        <div className="p-5 bg-white border-b"
+             style={{
+               borderColor: 'rgba(45,42,38,0.06)',
+             }}>
+          <h1 className="text-2xl font-semibold
+                         leading-tight mb-2"
+              style={{
+                fontFamily: "'Fraunces', serif",
+                color: '#1A4D3E',
+                letterSpacing: '-0.01em',
+              }}>
             {name}
           </h1>
+
           {description && (
-            <p className="text-gray-500 text-sm leading-relaxed">
+            <p className="text-sm leading-relaxed mb-3"
+               style={{
+                 color: '#2D2A26',
+                 opacity: 0.6,
+               }}>
               {description}
             </p>
           )}
-          <p className="text-xl font-bold text-orange-500 mt-3">
-            ${item.base_price.toFixed(2)}
+
+          <p className="font-bold text-xl"
+             style={{
+               fontFamily:
+                 "'JetBrains Mono', monospace",
+               color: coral,
+             }}>
+            ${Number(item.base_price).toFixed(2)}
           </p>
         </div>
 
         {/* Option groups */}
-        {Object.entries(optionGroups).map(([groupName, options]) => {
-          const groupLabel = lang === 'fr' && options[0]?.group_name_fr
-            ? options[0].group_name_fr
-            : groupName
+        {Object.entries(optionGroups).map(
+          ([groupName, options]) => {
+            const groupLabel = lang === 'fr'
+              && options[0]?.group_name_fr
+              ? options[0].group_name_fr
+              : groupName
 
-          return (
-            <div key={groupName}
-              className="border-b border-gray-100">
+            return (
+              <div key={groupName}
+                   className="border-b"
+                   style={{
+                     borderColor:
+                       'rgba(45,42,38,0.06)',
+                   }}>
 
-              {/* Group header */}
-              <div className="px-5 py-3 bg-gray-50">
-                <h3 className="font-bold text-gray-800 text-sm">
-                  {groupLabel}
-                </h3>
-                <p className="text-xs text-gray-400">
-                  Choose one
-                </p>
-              </div>
+                {/* Group header */}
+                <div className="px-5 py-3"
+                     style={{
+                       background:
+                         'rgba(45,42,38,0.03)',
+                     }}>
+                  <h3 className="font-bold text-sm"
+                      style={{ color: '#2D2A26' }}>
+                    {groupLabel}
+                  </h3>
+                  <p className="text-xs mt-0.5"
+                     style={{
+                       color: '#2D2A26',
+                       opacity: 0.45,
+                     }}>
+                    Choose one
+                  </p>
+                </div>
 
-              {/* Options */}
-              {options
-                .sort((a, b) => a.sort_order - b.sort_order)
-                .map(option => {
-                  const isSelected =
-                    selectedOptions[groupName]?.id === option.id
-
-                  const optName = lang === 'fr' && option.option_name_fr
-                    ? option.option_name_fr
-                    : option.option_name_en
-
-                  return (
-                    <button
-                      key={option.id}
-                      onClick={() => handleOptionSelect(groupName, option)}
-                      className={`
-                        w-full flex items-center justify-between
-                        px-5 py-4 transition-colors
-                        active:bg-gray-50
-                        ${isSelected ? 'bg-orange-50' : 'bg-white'}
-                      `}
-                    >
-                      {/* Radio + name */}
-                      <div className="flex items-center gap-3">
-                        <div className={`
-                          w-5 h-5 rounded-full border-2 
-                          flex items-center justify-center
-                          flex-shrink-0
-                          ${isSelected
-                            ? 'border-orange-500 bg-orange-500'
-                            : 'border-gray-300'
-                          }
-                        `}>
-                          {isSelected && (
-                            <div className="w-2 h-2 rounded-full 
-                                            bg-white" />
-                          )}
-                        </div>
-                        <span className={`text-sm font-medium
-                          ${isSelected
-                            ? 'text-orange-700'
-                            : 'text-gray-700'
-                          }`}>
-                          {optName}
-                        </span>
-                      </div>
-
-                      {/* Price modifier */}
-                      <span className={`text-sm font-semibold
-                        ${isSelected
-                          ? 'text-orange-500'
-                          : 'text-gray-500'
-                        }`}>
-                        {option.price_modifier === 0
-                          ? 'Included'
-                          : `+$${option.price_modifier.toFixed(2)}`
-                        }
-                      </span>
-                    </button>
+                {/* Options */}
+                {options
+                  .sort((a, b) =>
+                    a.sort_order - b.sort_order
                   )
-                })}
-            </div>
-          )
-        })}
+                  .map(option => {
+                    const isSelected =
+                      selectedOptions[groupName]
+                        ?.id === option.id
+
+                    const optName = lang === 'fr'
+                      && option.option_name_fr
+                      ? option.option_name_fr
+                      : option.option_name_en
+
+                    return (
+                      <button
+                        key={option.id}
+                        onClick={() =>
+                          handleOptionSelect(
+                            groupName, option
+                          )
+                        }
+                        className="w-full flex
+                                   items-center
+                                   justify-between
+                                   px-5 py-4
+                                   transition-colors
+                                   active:opacity-70
+                                   bg-white"
+                        style={isSelected ? {
+                          background:
+                            `${primary}08`,
+                        } : {}}
+                      >
+                        {/* Radio + name */}
+                        <div className="flex
+                                        items-center
+                                        gap-3">
+                          <div
+                            className="w-5 h-5
+                                       rounded-full
+                                       border-2
+                                       flex items-center
+                                       justify-center
+                                       flex-shrink-0
+                                       transition-all"
+                            style={isSelected ? {
+                              borderColor: primary,
+                              background: primary,
+                            } : {
+                              borderColor:
+                                'rgba(45,42,38,0.2)',
+                            }}
+                          >
+                            {isSelected && (
+                              <div className="w-2 h-2
+                                              rounded-full
+                                              bg-white" />
+                            )}
+                          </div>
+                          <span
+                            className="text-sm
+                                       font-medium"
+                            style={{
+                              color: isSelected
+                                ? primary
+                                : '#2D2A26',
+                            }}
+                          >
+                            {optName}
+                          </span>
+                        </div>
+
+                        {/* Price */}
+                        <span
+                          className="text-sm
+                                     font-semibold"
+                          style={{
+                            fontFamily:
+                              "'JetBrains Mono'"
+                                + ", monospace",
+                            color: isSelected
+                              ? coral
+                              : '#2D2A26',
+                            opacity: isSelected
+                              ? 1 : 0.45,
+                          }}
+                        >
+                          {option.price_modifier === 0
+                            ? 'Included'
+                            : `+$${Number(
+                                option.price_modifier
+                              ).toFixed(2)}`
+                          }
+                        </span>
+
+                      </button>
+                    )
+                  })}
+              </div>
+            )
+          }
+        )}
 
         {/* Quantity selector */}
-        <div className="px-5 py-4 border-b border-gray-100">
-          <h3 className="font-bold text-gray-800 text-sm mb-3">
+        <div className="px-5 py-5 bg-white border-b"
+             style={{
+               borderColor: 'rgba(45,42,38,0.06)',
+             }}>
+          <h3 className="font-bold text-sm mb-4"
+              style={{ color: '#2D2A26' }}>
             Quantity
           </h3>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-5">
+
             <button
-              onClick={() => setQuantity(q => Math.max(1, q - 1))}
-              className="w-10 h-10 rounded-full border-2 
-                         border-gray-200 flex items-center 
-                         justify-center active:scale-95 
-                         transition-all hover:border-orange-300"
+              onClick={() =>
+                setQuantity(q => Math.max(1, q - 1))
+              }
+              className="w-10 h-10 rounded-full
+                         border-2 flex items-center
+                         justify-center
+                         active:scale-95 transition-all"
+              style={{
+                borderColor: 'rgba(45,42,38,0.15)',
+              }}
             >
-              <Minus size={16} className="text-gray-600" />
+              <Minus size={16}
+                style={{ color: '#2D2A26' }} />
             </button>
 
-            <span className="text-xl font-bold text-gray-900 
-                             w-8 text-center">
+            <span className="text-xl font-bold
+                             w-6 text-center"
+                  style={{
+                    fontFamily:
+                      "'JetBrains Mono', monospace",
+                    color: '#2D2A26',
+                  }}>
               {quantity}
             </span>
 
             <button
-              onClick={() => setQuantity(q => q + 1)}
-              className="w-10 h-10 rounded-full bg-orange-500 
-                         flex items-center justify-center 
+              onClick={() =>
+                setQuantity(q => q + 1)
+              }
+              className="w-10 h-10 rounded-full
+                         flex items-center
+                         justify-center
                          active:scale-95 transition-all
-                         hover:bg-orange-600 shadow-md 
-                         shadow-orange-200"
+                         text-white"
+              style={{
+                background: primary,
+                boxShadow:
+                  `0 4px 12px ${primary}44`,
+              }}
             >
-              <Plus size={16} className="text-white" />
+              <Plus size={16} />
             </button>
+
           </div>
         </div>
 
-        {/* Spacer for button */}
-        <div className="h-28" />
-
       </div>
 
-      {/* Add to cart button — fixed at bottom */}
-      <div className="fixed bottom-0 left-0 right-0 
-                      max-w-md mx-auto p-4 bg-white 
-                      border-t border-gray-100">
+      {/* Add to cart button */}
+      <div className="fixed bottom-0 left-0 right-0
+                      max-w-md mx-auto p-4"
+           style={{ background: '#FFF8F0' }}>
         <button
           onClick={handleAddToCart}
-          className="w-full bg-orange-500 hover:bg-orange-600 
-                     active:scale-95 transition-all
-                     text-white rounded-2xl py-4 px-6
+          className="w-full rounded-2xl py-4 px-6
+                     font-semibold text-white
                      flex items-center justify-between
-                     shadow-lg shadow-orange-200 font-semibold"
+                     active:scale-95 transition-all"
+          style={{
+            background: coral,
+            boxShadow: `0 8px 30px ${coral}44`,
+          }}
         >
-          <span className="bg-orange-400 rounded-lg px-2.5 
-                           py-1 text-sm font-bold">
+          <span className="w-8 h-8 rounded-full
+                           flex items-center
+                           justify-center font-bold
+                           text-sm"
+                style={{
+                  background: 'rgba(255,255,255,0.25)',
+                }}>
             {quantity}
           </span>
+
           <span>Add to Cart</span>
-          <span className="font-bold">
+
+          <span style={{
+            fontFamily:
+              "'JetBrains Mono', monospace",
+            fontWeight: 700,
+          }}>
             ${totalPrice.toFixed(2)}
           </span>
         </button>
@@ -307,4 +506,3 @@ export default function ItemScreen() {
     </div>
   )
 }
-
