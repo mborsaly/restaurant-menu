@@ -120,10 +120,10 @@ export default function ConfirmationScreen() {
             <div className="w-10 h-10 rounded-full bg-orange-100
                             flex items-center justify-center
                             flex-shrink-0">
-              <Clock size={20} className="text-orange-500" />
+              <Clock size={20} style={{ color: '#FF7A47' }} />
             </div>
             <div className="text-left">
-              <p className="text-xs text-orange-500 font-medium">
+              <p className="text-xs font-medium" style={{ color: '#FF7A47' }}>
                 Estimated Delivery
               </p>
               <p className="font-bold text-orange-900">
@@ -184,21 +184,17 @@ export default function ConfirmationScreen() {
               <div className="mt-2 h-1.5 bg-green-100
                               rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-green-500 rounded-full
-                             transition-all duration-1000"
-                  style={{ width: `${(countdown / 4) * 100}%` }}
+                  className="h-full rounded-full transition-all duration-1000"
+                  style={{
+                    width: `${(countdown / 4) * 100}%`,
+                    background: '#2D6E5A',
+                  }}
                 />
-              </div>
             </div>
 
             <button
               onClick={returnToWhatsApp}
-              className="w-full bg-green-500 hover:bg-green-600
-                         active:scale-95 transition-all
-                         text-white rounded-2xl py-4 px-6
-                         font-semibold shadow-lg shadow-green-200
-                         flex items-center justify-center gap-3
-                         mb-3"
+              style={{ background: '#2D6E5A' }} 
             >
               <MessageCircle size={20} />
               <span>Return to WhatsApp</span>
@@ -210,11 +206,7 @@ export default function ConfirmationScreen() {
         {!isWhatsApp && (
           <button
             onClick={() => navigate('/menu' + searchParams)}
-            className="w-full bg-orange-500 hover:bg-orange-600
-                       active:scale-95 transition-all
-                       text-white rounded-2xl py-4 px-6
-                       font-semibold shadow-lg shadow-orange-200
-                       mb-3"
+            style={{ background: '#FF7A47' }}
           >
             Order Again 🍕
           </button>

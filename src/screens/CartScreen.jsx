@@ -1,41 +1,50 @@
-import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, Minus, Plus, Trash2 } from 'lucide-react'
-import { useCart } from '../context/CartContext'
+import { useNavigate }    from 'react-router-dom'
+import { ChevronLeft,
+         Trash2, Plus,
+         Minus }          from 'lucide-react'
+import { useCart }        from '../context/CartContext'
+import { useSession }     from '../hooks/useSession'
 
 export default function CartScreen() {
-  const navigate = useNavigate()
+  const navigate    = useNavigate()
   const searchParams = window.location.search
-  const { cart, updateQuantity, removeItem, subtotal, itemCount } = useCart()
+  const { restaurant } = useSession()
+  const {
+    cart, subtotal, itemCount,
+    removeItem, updateQty,
+  } = useCart()
 
-  // Get restaurant delivery fee from sessionStorage
-  const deliveryFee = 3.99
-  const total = subtotal + deliveryFee
+  const primary     = restaurant?.primary_color
+    || '#1A4D3E'
+  const deliveryFee = restaurant?.delivery_fee || 3.99
+  const total       = subtotal + deliveryFee
 
-  function handleBack() {
-    navigate('/menu' + searchParams)
-  }
-
-  function handleCheckout() {
-    navigate('/checkout' + searchParams)
-  }
-
-  if (cart.length === 0) {
+  if (itemCount === 0) {
     return (
-      <div className="min-h-screen flex flex-col 
-                      items-center justify-center p-6 
-                      text-center bg-white">
-        <div className="text-6xl mb-4">🛒</div>
-        <h2 className="text-xl font-bold text-gray-800 mb-2">
+      <div className="min-h-screen flex flex-col
+                      items-center justify-center
+                      p-8 text-center"
+           style={{ background: '#FFF8F0' }}>
+        <div className="text-5xl mb-4">🛒</div>
+        <h2 className="text-xl font-semibold mb-2"
+            style={{
+              fontFamily: "'Fraunces', serif",
+              color: '#1A4D3E',
+            }}>
           Your cart is empty
         </h2>
-        <p className="text-gray-400 text-sm mb-6">
-          Add some items from the menu
+        <p className="text-sm mb-6"
+           style={{ color: '#2D2A26', opacity: 0.6 }}>
+          Add items from the menu to get started
         </p>
         <button
-          onClick={handleBack}
-          className="bg-orange-500 text-white px-8 py-3 
-                     rounded-2xl font-semibold 
+          onClick={() =>
+            navigate('/menu' + searchParams)
+          }
+          className="px-6 py-3 rounded-xl
+                     text-white font-semibold
                      active:scale-95 transition-all"
+          style={{ background: primary }}
         >
           Browse Menu
         </button>
@@ -44,212 +53,241 @@ export default function CartScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen flex flex-col"
+         style={{ background: '#FFF8F0' }}>
 
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 
-                      px-4 py-4 flex items-center gap-3
-                      sticky top-0 z-10">
+      <div className="sticky top-0 z-10 border-b
+                      px-4 py-4 flex items-center
+                      gap-3"
+           style={{
+             background: '#FFF8F0',
+             borderColor: 'rgba(45,42,38,0.08)',
+           }}>
         <button
-          onClick={handleBack}
-          className="w-9 h-9 rounded-full bg-gray-100 
+          onClick={() =>
+            navigate('/menu' + searchParams)
+          }
+          className="w-9 h-9 rounded-full
                      flex items-center justify-center
                      active:scale-95 transition-all"
+          style={{ background: 'rgba(45,42,38,0.06)' }}
         >
-          <ChevronLeft size={20} className="text-gray-700" />
+          <ChevronLeft size={20}
+            style={{ color: '#2D2A26' }} />
         </button>
-        <h1 className="font-bold text-gray-900 text-lg">
+        <h1 className="font-bold text-lg"
+            style={{
+              fontFamily: "'Fraunces', serif",
+              color: '#1A4D3E',
+            }}>
           Your Cart
         </h1>
-        <span className="text-gray-400 text-sm">
-          ({itemCount} {itemCount === 1 ? 'item' : 'items'})
+        <span className="ml-auto text-sm"
+              style={{
+                fontFamily:
+                  "'JetBrains Mono', monospace",
+                color: '#FF7A47',
+                fontWeight: 700,
+              }}>
+          {itemCount} item{itemCount !== 1 ? 's' : ''}
         </span>
       </div>
 
-      {/* Cart items */}
-      <div className="flex-1 overflow-y-auto pb-48">
+      <div className="flex-1 overflow-y-auto pb-40">
 
-        <div className="bg-white mt-3 mx-3 rounded-2xl 
-                        overflow-hidden shadow-sm">
-          {cart.map((cartItem, index) => {
-
-            // Build options summary string
-            const optionsSummary = Object.entries(cartItem.options)
-              .map(([group, opt]) => opt.option_name_en)
-              .join(', ')
-
-            return (
-              <div
-                key={cartItem.id}
-                className={`p-4 flex gap-3
-                  ${index < cart.length - 1
-                    ? 'border-b border-gray-50'
-                    : ''
-                  }`}
-              >
-                {/* Image */}
-                <div className="w-16 h-16 rounded-xl 
-                                bg-gray-100 flex-shrink-0 
-                                overflow-hidden">
-                  {cartItem.image_url ? (
-                    <img
-                      src={cartItem.image_url}
-                      alt={cartItem.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex 
-                                    items-center justify-center 
-                                    text-2xl">
-                      🍕
-                    </div>
-                  )}
-                </div>
-
-                {/* Info */}
+        {/* Cart items */}
+        <div className="p-4 space-y-3">
+          {cart.map(item => (
+            <div key={item.cartId}
+                 className="bg-white rounded-2xl p-4"
+                 style={{
+                   border:
+                     '1px solid rgba(45,42,38,0.06)',
+                 }}>
+              <div className="flex items-start
+                              justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900 
-                                 text-sm leading-snug">
-                    {cartItem.name}
+                  <h3 className="font-bold text-sm
+                                 mb-0.5 leading-snug"
+                      style={{ color: '#2D2A26' }}>
+                    {item.name}
                   </h3>
-                  {optionsSummary && (
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {optionsSummary}
+
+                  {item.options &&
+                   Object.keys(item.options).length > 0
+                   && (
+                    <p className="text-xs mb-2"
+                       style={{
+                         color: '#2D2A26',
+                         opacity: 0.5,
+                       }}>
+                      {Object.values(item.options)
+                        .map(o => o.option_name_en)
+                        .filter(Boolean)
+                        .join(', ')}
                     </p>
                   )}
-                  <p className="text-orange-500 font-bold 
-                                text-sm mt-1">
-                    ${cartItem.total.toFixed(2)}
-                  </p>
 
-                  {/* Quantity controls */}
-                  <div className="flex items-center gap-3 mt-2">
+                  {/* Qty controls */}
+                  <div className="flex items-center
+                                  gap-3 mt-2">
                     <button
-                      onClick={() => updateQuantity(
-                        cartItem.id,
-                        cartItem.quantity - 1
-                      )}
-                      className="w-7 h-7 rounded-full border 
-                                 border-gray-200 flex items-center 
-                                 justify-center active:scale-95 
+                      onClick={() =>
+                        updateQty(item.cartId,
+                          item.quantity - 1)
+                      }
+                      className="w-7 h-7 rounded-full
+                                 flex items-center
+                                 justify-center
+                                 active:scale-95
                                  transition-all"
+                      style={{
+                        background:
+                          'rgba(45,42,38,0.06)',
+                      }}
                     >
-                      <Minus size={12} className="text-gray-600" />
+                      <Minus size={14} />
                     </button>
 
-                    <span className="text-sm font-bold 
-                                     text-gray-900 w-4 text-center">
-                      {cartItem.quantity}
+                    <span className="font-bold
+                                     text-sm w-4
+                                     text-center"
+                          style={{
+                            fontFamily:
+                              "'JetBrains Mono'"
+                                + ", monospace",
+                          }}>
+                      {item.quantity}
                     </span>
 
                     <button
-                      onClick={() => updateQuantity(
-                        cartItem.id,
-                        cartItem.quantity + 1
-                      )}
-                      className="w-7 h-7 rounded-full bg-orange-500 
-                                 flex items-center justify-center 
-                                 active:scale-95 transition-all"
+                      onClick={() =>
+                        updateQty(item.cartId,
+                          item.quantity + 1)
+                      }
+                      className="w-7 h-7 rounded-full
+                                 flex items-center
+                                 justify-center
+                                 active:scale-95
+                                 transition-all
+                                 text-white"
+                      style={{ background: primary }}
                     >
-                      <Plus size={12} className="text-white" />
+                      <Plus size={14} />
                     </button>
                   </div>
                 </div>
 
-                {/* Delete button */}
-                <button
-                  onClick={() => removeItem(cartItem.id)}
-                  className="self-start p-1.5 rounded-lg 
-                             hover:bg-red-50 active:scale-95 
-                             transition-all"
-                >
-                  <Trash2 size={16} className="text-red-400" />
-                </button>
+                <div className="text-right
+                                flex-shrink-0">
+                  <p className="font-bold text-sm"
+                     style={{
+                       fontFamily:
+                         "'JetBrains Mono', monospace",
+                       color: primary,
+                     }}>
+                    ${Number(item.total).toFixed(2)}
+                  </p>
+                  <button
+                    onClick={() =>
+                      removeItem(item.cartId)
+                    }
+                    className="mt-2 active:scale-95
+                               transition-all"
+                    style={{
+                      color: '#2D2A26',
+                      opacity: 0.3,
+                    }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
 
               </div>
-            )
-          })}
+            </div>
+          ))}
         </div>
 
-        {/* Order summary */}
-        <div className="bg-white mt-3 mx-3 rounded-2xl 
-                        overflow-hidden shadow-sm p-4">
-          <h3 className="font-bold text-gray-900 mb-3">
-            Order Summary
-          </h3>
-
+        {/* Price summary */}
+        <div className="mx-4 bg-white rounded-2xl p-4"
+             style={{
+               border: '1px solid rgba(45,42,38,0.06)',
+             }}>
           <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Subtotal</span>
-              <span className="text-gray-900 font-medium">
+            <div className="flex justify-between
+                            text-sm">
+              <span style={{ opacity: 0.55 }}>
+                Subtotal
+              </span>
+              <span style={{
+                fontFamily:
+                  "'JetBrains Mono', monospace",
+              }}>
                 ${subtotal.toFixed(2)}
               </span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Delivery fee</span>
-              <span className="text-gray-900 font-medium">
+            <div className="flex justify-between
+                            text-sm">
+              <span style={{ opacity: 0.55 }}>
+                Delivery
+              </span>
+              <span style={{
+                fontFamily:
+                  "'JetBrains Mono', monospace",
+              }}>
                 ${deliveryFee.toFixed(2)}
               </span>
             </div>
-            <div className="h-px bg-gray-100 my-2" />
-            <div className="flex justify-between">
-              <span className="font-bold text-gray-900">Total</span>
-              <span className="font-bold text-orange-500 text-lg">
+            <div className="h-px"
+                 style={{
+                   background:
+                     'rgba(45,42,38,0.06)',
+                 }} />
+            <div className="flex justify-between
+                            font-bold">
+              <span style={{ color: '#2D2A26' }}>
+                Total
+              </span>
+              <span style={{
+                fontFamily:
+                  "'JetBrains Mono', monospace",
+                color: primary,
+                fontSize: 18,
+              }}>
                 ${total.toFixed(2)}
               </span>
             </div>
           </div>
-
-          {/* Payment method */}
-          <div className="mt-4 bg-gray-50 rounded-xl px-4 py-3 
-                          flex items-center gap-3">
-            <span className="text-xl">💵</span>
-            <div>
-              <p className="text-sm font-semibold text-gray-800">
-                Cash on delivery
-              </p>
-              <p className="text-xs text-gray-400">
-                Pay when your order arrives
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Add more items */}
-        <div className="mx-3 mt-3">
-          <button
-            onClick={handleBack}
-            className="w-full py-3 rounded-2xl border-2 
-                       border-dashed border-gray-200 
-                       text-gray-400 text-sm font-medium
-                       active:scale-95 transition-all
-                       hover:border-orange-300 
-                       hover:text-orange-400"
-          >
-            + Add more items
-          </button>
         </div>
 
       </div>
 
       {/* Checkout button */}
-      <div className="fixed bottom-0 left-0 right-0 
-                      max-w-md mx-auto p-4 bg-white 
-                      border-t border-gray-100">
+      <div className="fixed bottom-0 left-0 right-0
+                      max-w-md mx-auto p-4"
+           style={{ background: '#FFF8F0' }}>
         <button
-          onClick={handleCheckout}
-          className="w-full bg-orange-500 hover:bg-orange-600
-                     active:scale-95 transition-all
-                     text-white rounded-2xl py-4 px-6
+          onClick={() =>
+            navigate('/checkout' + searchParams)
+          }
+          className="w-full rounded-2xl py-4 px-6
+                     font-semibold text-white
                      flex items-center justify-between
-                     shadow-lg shadow-orange-200 font-semibold"
+                     active:scale-95 transition-all"
+          style={{
+            background: primary,
+            boxShadow: `0 8px 30px ${primary}44`,
+          }}
         >
-          <span className="bg-orange-400 rounded-lg px-2.5 
-                           py-1 text-sm font-bold">
-            {itemCount}
+          <span>Checkout</span>
+          <span style={{
+            fontFamily:
+              "'JetBrains Mono', monospace",
+            fontWeight: 700,
+          }}>
+            ${total.toFixed(2)}
           </span>
-          <span>Proceed to Checkout</span>
-          <span className="font-bold">${total.toFixed(2)}</span>
         </button>
       </div>
 

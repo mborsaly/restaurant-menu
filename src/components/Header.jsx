@@ -1,31 +1,60 @@
-export default function Header({ restaurant, lang, onLangToggle }) {
-  return (
-    <div className="sticky top-0 z-10 bg-white border-b 
-                    border-gray-100 shadow-sm">
-      <div className="flex items-center justify-between px-4 py-3">
+export default function Header({
+  restaurant, lang, onLangToggle
+}) {
+  const primary = restaurant?.primary_color || '#1A4D3E'
+  const emoji   = restaurant?.logo_emoji    || '🍽️'
 
-        {/* Restaurant info */}
+  return (
+    <div className="sticky top-0 z-20 border-b"
+         style={{
+           background: '#FFF8F0',
+           borderColor: 'rgba(45,42,38,0.08)',
+         }}>
+      <div className="flex items-center
+                      justify-between px-4 py-3
+                      max-w-md mx-auto">
+
+        {/* Left — logo + restaurant name */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-orange-100 
-                          flex items-center justify-center text-xl">
-            🍕
+          <div className="w-10 h-10 rounded-xl
+                          flex items-center
+                          justify-center text-xl
+                          flex-shrink-0"
+               style={{ background: `${primary}18` }}>
+            {restaurant?.logo_url ? (
+              <img src={restaurant.logo_url}
+                   alt={restaurant.name}
+                   className="w-full h-full
+                              object-cover rounded-xl" />
+            ) : emoji}
           </div>
           <div>
-            <h1 className="font-bold text-gray-900 text-sm leading-tight">
-              {restaurant?.name}
+            <h1 className="font-bold text-sm
+                           leading-tight"
+                style={{
+                  fontFamily: "'Fraunces', serif",
+                  color: '#1A4D3E',
+                }}>
+              {restaurant?.name || 'BistroVite'}
             </h1>
-            <p className="text-xs text-green-500 font-medium">
+            <p className="text-xs font-medium"
+               style={{ color: primary }}>
               ● Open now
             </p>
           </div>
         </div>
 
-        {/* Language toggle */}
+        {/* Right — language toggle */}
         <button
           onClick={onLangToggle}
-          className="text-xs font-bold px-3 py-1.5 rounded-full 
-                     border border-gray-200 text-gray-600 
-                     hover:bg-gray-50 transition-colors"
+          className="text-xs font-bold px-3 py-1.5
+                     rounded-full border
+                     transition-all active:scale-95"
+          style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            borderColor: 'rgba(45,42,38,0.15)',
+            color: '#2D2A26',
+          }}
         >
           {lang === 'en' ? 'FR' : 'EN'}
         </button>

@@ -1,62 +1,50 @@
-import { useRef } from 'react'
-
-export default function CategoryBar({ 
-  categories, 
-  activeCategory, 
-  onSelect,
-  lang 
+export default function CategoryBar({
+  categories, activeCategory,
+  onSelect, lang, restaurant
 }) {
-  const scrollRef = useRef(null)
-
-  function handleSelect(categoryId) {
-    onSelect(categoryId)
-
-    // Scroll selected tab into view
-    const el = document.getElementById(`cat-${categoryId}`)
-    if (el) {
-      el.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'nearest',
-        inline: 'center' 
-      })
-    }
-  }
+  const primary = restaurant?.primary_color || '#1A4D3E'
 
   return (
-    <div className="sticky top-[61px] z-10 bg-white 
-                    border-b border-gray-100">
-      <div
-        ref={scrollRef}
-        className="flex gap-2 px-4 py-3 overflow-x-auto 
-                   scrollbar-hide"
-        style={{ scrollbarWidth: 'none' }}
-      >
-        {categories.map(cat => {
-          const isActive = cat.id === activeCategory
-          const name = lang === 'fr' && cat.name_fr 
-            ? cat.name_fr 
-            : cat.name_en
+    <div className="border-b overflow-x-auto
+                    flex gap-2 px-4 py-3
+                    no-scrollbar"
+         style={{
+           background: 'white',
+           borderColor: 'rgba(45,42,38,0.06)',
+         }}>
+      {categories.map(cat => {
+        const active = cat.id === activeCategory
+        const name = lang === 'fr'
+          ? (cat.name_fr || cat.name_en)
+          : cat.name_en
 
-          return (
-            <button
-              key={cat.id}
-              id={`cat-${cat.id}`}
-              onClick={() => handleSelect(cat.id)}
-              className={`
-                flex items-center gap-1.5 px-4 py-2 rounded-full 
-                text-sm font-medium whitespace-nowrap transition-all
-                ${isActive
-                  ? 'bg-orange-500 text-white shadow-md shadow-orange-200'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }
-              `}
-            >
-              <span>{cat.emoji}</span>
-              <span>{name}</span>
-            </button>
-          )
-        })}
-      </div>
+        return (
+          <button
+            key={cat.id}
+            onClick={() => onSelect(cat.id)}
+            className="flex-shrink-0 flex items-center
+                       gap-1.5 px-4 py-2 rounded-full
+                       text-sm font-semibold
+                       transition-all active:scale-95
+                       whitespace-nowrap"
+            style={active ? {
+              background: primary,
+              color: '#FFF8F0',
+            } : {
+              background: '#FFF8F0',
+              color: '#2D2A26',
+              opacity: 0.7,
+            }}
+          >
+            {cat.emoji && (
+              <span className="text-base">
+                {cat.emoji}
+              </span>
+            )}
+            <span>{name}</span>
+          </button>
+        )
+      })}
     </div>
   )
 }
