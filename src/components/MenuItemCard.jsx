@@ -13,9 +13,10 @@ export default function MenuItemCard({
 
   return (
     <div
-      onClick={() => navigate(
-        `/item/${item.id}${searchParams}`
-      )}
+      onClick={() => {
+        sessionStorage.setItem('selectedItem', JSON.stringify(item))
+        navigate(`/item/${item.id}${searchParams}`)
+      }}
       className="bg-white rounded-2xl overflow-hidden
                  active:scale-[0.98] transition-all
                  cursor-pointer"
