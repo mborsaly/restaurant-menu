@@ -53,101 +53,93 @@ export default function MenuScreen() {
   if (loading || menuLoading) {
     return <LoadingScreen message="Loading menu..." />
   }
+
   return (
-  <div className="min-h-screen bg-gray-50 pb-28">
+    <div className="min-h-screen bg-gray-50 pb-28">
 
-    {/* Sticky Header */}
-    <div className="sticky top-0 z-50 bg-white shadow-sm">
-      <Header
-        restaurant={restaurant}
-        lang={lang}
-        onLangToggle={handleLangToggle}
-      />
-    </div>
+      <div className="sticky top-0 z-40 bg-white shadow-sm">
+        {/* Header */}
+        <Header
+          restaurant={restaurant}
+          lang={lang}
+          onLangToggle={handleLangToggle}
+        />
 
-    {/* Sticky Category Tabs */}
-    <div className="sticky top-16 z-40 bg-white border-b shadow-sm">
-      <CategoryBar
-        categories={categories}
-        activeCategory={activeCategory}
-        onSelect={handleCategorySelect}
-        lang={lang}
-      />
-    </div>
-
-    {/* Returning customer banner */}
-    {customer?.name && (
-      <div
-        className="mx-4 mt-4 bg-orange-50 rounded-2xl
-                   px-4 py-3 flex items-center gap-3"
-      >
-        <span className="text-2xl">👋</span>
-        <div>
-          <p className="text-sm font-semibold text-orange-800">
-            Welcome back, {customer.name.split(' ')[0]}!
-          </p>
-          <p className="text-xs text-orange-500">
-            Great to see you again
-          </p>
-        </div>
+        {/* Category tabs */}
+        <CategoryBar
+          categories={categories}
+          activeCategory={activeCategory}
+          onSelect={handleCategorySelect}
+          lang={lang}
+        />
       </div>
-    )}
+      {/* Returning customer banner */}
+      {customer?.name && (
+        <div className="mx-4 mt-4 bg-orange-50 rounded-2xl 
+                        px-4 py-3 flex items-center gap-3">
+          <span className="text-2xl">👋</span>
+          <div>
+            <p className="text-sm font-semibold text-orange-800">
+              Welcome back, {customer.name.split(' ')[0]}!
+            </p>
+            <p className="text-xs text-orange-500">
+              Great to see you again
+            </p>
+          </div>
+        </div>
+      )}
 
-    {/* Menu sections per category */}
-    <div className="mt-4">
-      {categories.map(cat => {
-        const catItems = getItemsByCategory(cat.id)
-        if (catItems.length === 0) return null
+      {/* Menu sections per category */}
+      <div className="mt-4">
+        {categories.map(cat => {
+          const catItems = getItemsByCategory(cat.id)
+          if (catItems.length === 0) return null
 
-        const catName =
-          lang === 'fr' && cat.name_fr
+          const catName = lang === 'fr' && cat.name_fr
             ? cat.name_fr
             : cat.name_en
 
-        return (
-          <div
-            key={cat.id}
-            id={`section-${cat.id}`}
-            className="mb-2 scroll-mt-32"
-          >
-            {/* Category header */}
+          return (
             <div
-              className="px-4 py-3 bg-white border-b
-                         border-gray-100"
+              key={cat.id}
+              id={`section-${cat.id}`}
+              className="mb-2"
             >
-              <h2
-                className="font-bold text-gray-900 flex
-                           items-center gap-2"
-              >
-                <span>{cat.emoji}</span>
-                <span>{catName}</span>
-              </h2>
-            </div>
+              {/* Category header */}
+              <div className="px-4 py-3 bg-white border-b 
+                              border-gray-100">
+                <h2 className="font-bold text-gray-900 flex 
+                                items-center gap-2">
+                  <span>{cat.emoji}</span>
+                  <span>{catName}</span>
+                </h2>
+              </div>
 
-            {/* Items */}
-            <div className="bg-white">
-              {catItems.map(item => (
-                <MenuItemCard
-                  key={item.id}
-                  item={item}
-                  lang={lang}
-                  onAdd={handleAddItem}
-                  onViewDetail={handleViewDetail}
-                />
-              ))}
+              {/* Items */}
+              <div className="bg-white">
+                {catItems.map(item => (
+                  <MenuItemCard
+                    key={item.id}
+                    item={item}
+                    lang={lang}
+                    onAdd={handleAddItem}
+                    onViewDetail={handleViewDetail}
+                  />
+                ))}
+              </div>
+
             </div>
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
+
+      {/* Floating cart button */}
+      <Cart
+        itemCount={itemCount}
+        subtotal={subtotal}
+        searchParams={searchParams}
+      />
+
     </div>
-
-    {/* Floating cart button */}
-    <Cart
-      itemCount={itemCount}
-      subtotal={subtotal}
-      searchParams={searchParams}
-    />
-
-  </div>
-)
-  }
+  )
+}
