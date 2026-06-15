@@ -3,41 +3,36 @@
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
 
 @theme {
-  /* BistroVite brand colors */
-  --color-bv-green:     #1A4D3E;
-  --color-bv-coral:     #FF7A47;
-  --color-bv-cream:     #FFF8F0;
-  --color-bv-espresso:  #2D2A26;
-  --color-bv-sage:      #2D6E5A;
-  --color-bv-peach:     #FFA47D;
-  --color-bv-green-10:  #1A4D3E1A;
-  --color-bv-coral-10:  #FF7A471A;
+  --color-bv-green:    #1A4D3E;
+  --color-bv-coral:    #FF7A47;
+  --color-bv-cream:    #FFF8F0;
+  --color-bv-espresso: #2D2A26;
+  --color-bv-sage:     #2D6E5A;
+  --color-bv-peach:    #FFA47D;
 
-  /* Font families */
   --font-display: 'Fraunces', Georgia, serif;
   --font-body:    'Inter', system-ui, sans-serif;
   --font-mono:    'JetBrains Mono', monospace;
 
-  /* Animations */
-  --animate-ringwave:   ringwave 2.5s cubic-bezier(0.2,0.6,0.4,1) infinite;
-  --animate-slidein:    slideIn 0.3s ease-out;
-  --animate-fadein:     fadeIn 0.4s ease-out;
+  --animate-ringwave: ringwave 2.5s
+    cubic-bezier(0.2,0.6,0.4,1) infinite;
 
   @keyframes ringwave {
     0%   { transform: scale(1);   opacity: 0.6; }
     100% { transform: scale(2.2); opacity: 0;   }
   }
+
   @keyframes slideIn {
     0%   { transform: translateY(16px); opacity: 0; }
     100% { transform: translateY(0);    opacity: 1; }
   }
+
   @keyframes fadeIn {
     0%   { opacity: 0; }
     100% { opacity: 1; }
   }
 }
 
-/* CSS custom properties for theme use in JS */
 :root {
   --bv-green:    #1A4D3E;
   --bv-coral:    #FF7A47;
@@ -53,13 +48,21 @@
 }
 
 html, body {
-  margin: 0;
-  padding: 0;
+  margin:   0;
+  padding:  0;
   background: #FFF8F0;
   font-family: 'Inter', system-ui, sans-serif;
   color: #2D2A26;
   overscroll-behavior: none;
   overflow-x: hidden;
+  /* Prevent body scroll —
+     let inner containers scroll */
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
 }
 
 input, textarea, select {
@@ -67,16 +70,19 @@ input, textarea, select {
   user-select: text;
 }
 
-/* Safe area support */
-.safe-bottom {
-  padding-bottom: max(env(safe-area-inset-bottom), 16px);
-}
-
-/* Hide scrollbar on category bar */
-.no-scrollbar::-webkit-scrollbar {
+/* Hide scrollbars everywhere */
+.no-scrollbar::-webkit-scrollbar,
+div::-webkit-scrollbar {
   display: none;
 }
 .no-scrollbar {
   -ms-overflow-style: none;
-  scrollbar-width: none;
+  scrollbar-width:    none;
+}
+
+/* Safe area support for iPhone */
+.safe-bottom {
+  padding-bottom: max(
+    env(safe-area-inset-bottom), 16px
+  );
 }

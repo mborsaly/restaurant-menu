@@ -1,143 +1,221 @@
-import { useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useSession } from '../hooks/useSession'
-import { useMenu } from '../hooks/useMenu'
-import { useCart } from '../context/CartContext'
-import Header from '../components/Header'
-import CategoryBar from '../components/CategoryBar'
-import MenuItemCard from '../components/MenuItemCard'
-import Cart from '../components/Cart'
-import LoadingScreen from '../components/LoadingScreen'
+import { useState, useEffect }  from 'react'
+import { useNavigate }          from 'react-router-dom'
+import { useSession }           from '../hooks/useSession'
+import { useCart }              from '../context/CartContext'
+import { supabase }             from '../lib/supabase'
+import Header                   from '../components/Header'
+import MenuItemCard              from '../components/MenuItemCard'
+import Cart                     from '../components/Cart'
+import LoadingScreen             from '../components/LoadingScreen'
 
 export default function MenuScreen() {
-  const navigate = useNavigate()
+  const navigate     = useNavigate()
   const searchParams = window.location.search
+  const { restaurant, loading: sessionLoading }
+    = useSession()
+  const { itemCount, subtotal } = useCart()
 
-  const { restaurant, customer, loading } = useSession()
-  const { categories, loading: menuLoading, getItemsByCategory } = useMenu(restaurant?.id)
-  const { cart, addItem, subtotal, itemCount } = useCart()
-
+  const [categories, setCategories]       = useState([])
+  const [menuItems, setMenuItems]         = useState([])
   const [activeCategory, setActiveCategory] = useState(null)
-  const [lang, setLang] = useState('en')
+  const [lang, setLang]                   = useState('fr')
+  const [loading, setLoading]             = useState(true)
 
-  // Set first category as active once loaded
-  const firstCatSet = useRef(false)
-  if (categories.length > 0 && !firstCatSet.current) {
-    setActiveCategory(categories[0].id)
-    firstCatSet.current = true
-  }
+  const primary = restaurant?.primary_color || '#1A4D3E'
 
-  function handleLangToggle() {
-    setLang(prev => prev === 'en' ? 'fr' : 'en')
-  }
+  // Load categories and items
+  useEffect(() => {
+    if (!restaurant?.id) return
 
-  function handleViewDetail(item) {
-    // Store item in sessionStorage for ItemScreen
-    sessionStorage.setItem('selectedItem', JSON.stringify(item))
-    navigate('/item/' + item.id + searchParams)
-  }
+    async function loadMenu() {
+      try {
+        // Load categories
+        const { data: cats } = await supabase
+          .from('categories')
+          .select('*')
+          .eq('restaurant_id', restaurant.id)
+          .eq('active', true)
+          .order('sort_order')
 
-  function handleAddItem(item, options, quantity) {
-    addItem(item, options, quantity)
-  }
+        // Load menu items
+        const { data: items } = await supabase
+          .from('menu_items')
+          .select('*, item_options(*)')
+          .eq('restaurant_id', restaurant.id)
+          .eq('available', true)
+          .order('sort_order')
 
-  function handleCategorySelect(categoryId) {
-    setActiveCategory(categoryId)
-    // Scroll to category section
-    const el = document.getElementById(`section-${categoryId}`)
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        setCategories(cats || [])
+        setMenuItems(items || [])
+
+        if (cats?.length > 0) {
+          setActiveCategory(cats[0].id)
+        }
+
+      } catch (err) {
+        console.error('Menu load error:', err)
+      } finally {
+        setLoading(false)
+      }
     }
-  }
 
-  if (loading || menuLoading) {
-    return <LoadingScreen message="Loading menu..." />
-  }
+    loadMenu()
+  }, [restaurant?.id])
+
+  // Filter items by active category
+  const filteredItems = activeCategory
+    ? menuItems.filter(
+        item => item.category_id === activeCategory
+      )
+    : menuItems
+
+  if (sessionLoading || loading) return (
+    <LoadingScreen message="Loading menu..." />
+  )
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-28">
+    <div style={{
+      display:        'flex',
+      flexDirection:  'column',
+      height:         '100dvh',
+      background:     '#FFF8F0',
+      overflow:       'hidden',
+      maxWidth:       '448px',
+      margin:         '0 auto',
+      position:       'relative',
+    }}>
 
-      <div className="sticky top-0 z-40 bg-white shadow-sm">
-        {/* Header */}
+      {/* ── Header — never scrolls ── */}
+      <div style={{ flexShrink: 0 }}>
         <Header
           restaurant={restaurant}
           lang={lang}
-          onLangToggle={handleLangToggle}
-        />
-
-        {/* Category tabs */}
-        <CategoryBar
-          categories={categories}
-          activeCategory={activeCategory}
-          onSelect={handleCategorySelect}
-          lang={lang}
+          onLangToggle={() =>
+            setLang(l => l === 'en' ? 'fr' : 'en')
+          }
         />
       </div>
-      {/* Returning customer banner */}
-      {customer?.name && (
-        <div className="mx-4 mt-4 bg-orange-50 rounded-2xl 
-                        px-4 py-3 flex items-center gap-3">
-          <span className="text-2xl">👋</span>
-          <div>
-            <p className="text-sm font-semibold text-orange-800">
-              Welcome back, {customer.name.split(' ')[0]}!
-            </p>
-            <p className="text-xs text-orange-500">
-              Great to see you again
+
+      {/* ── CategoryBar — never scrolls ── */}
+      <div style={{
+        flexShrink:   0,
+        background:   'white',
+        borderBottom: '1px solid rgba(45,42,38,0.06)',
+      }}>
+        <div style={{
+          display:          'flex',
+          gap:              8,
+          padding:          '12px 16px',
+          overflowX:        'auto',
+          msOverflowStyle:  'none',
+          scrollbarWidth:   'none',
+          WebkitOverflowScrolling: 'touch',
+        }}>
+          {categories.map(cat => {
+            const active = cat.id === activeCategory
+            const name   = lang === 'fr'
+              ? (cat.name_fr || cat.name_en)
+              : cat.name_en
+
+            return (
+              <button
+                key={cat.id}
+                onClick={() =>
+                  setActiveCategory(cat.id)
+                }
+                style={{
+                  flexShrink:   0,
+                  padding:      '8px 18px',
+                  borderRadius: 100,
+                  fontSize:     13,
+                  fontWeight:   600,
+                  border:       'none',
+                  cursor:       'pointer',
+                  whiteSpace:   'nowrap',
+                  transition:   'all 0.2s',
+                  background:   active
+                    ? primary : '#FFF8F0',
+                  color: active
+                    ? '#FFF8F0' : '#2D2A26',
+                  opacity: active ? 1 : 0.7,
+                }}
+              >
+                {cat.emoji && (
+                  <span style={{ marginRight: 6 }}>
+                    {cat.emoji}
+                  </span>
+                )}
+                {name}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* ── Menu items — ONLY this scrolls ── */}
+      <div style={{
+        flex:            1,
+        overflowY:       'auto',
+        overflowX:       'hidden',
+        paddingBottom:   100,
+        WebkitOverflowScrolling: 'touch',
+      }}>
+
+        {/* Items grid */}
+        {filteredItems.length > 0 ? (
+          <div style={{
+            display:               'grid',
+            gridTemplateColumns:   'repeat(2, 1fr)',
+            gap:                   12,
+            padding:               16,
+          }}>
+            {filteredItems.map(item => (
+              <MenuItemCard
+                key={item.id}
+                item={item}
+                lang={lang}
+                searchParams={searchParams}
+                restaurant={restaurant}
+              />
+            ))}
+          </div>
+        ) : (
+          // Empty state
+          <div style={{
+            display:        'flex',
+            flexDirection:  'column',
+            alignItems:     'center',
+            justifyContent: 'center',
+            padding:        '80px 24px',
+            textAlign:      'center',
+            opacity:        0.5,
+          }}>
+            <div style={{
+              fontSize:     48,
+              marginBottom: 16,
+            }}>
+              🍽️
+            </div>
+            <p style={{
+              color:      '#2D2A26',
+              fontSize:   15,
+            }}>
+              {lang === 'fr'
+                ? 'Aucun article dans cette catégorie'
+                : 'No items in this category'
+              }
             </p>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Menu sections per category */}
-      <div className="mt-4">
-        {categories.map(cat => {
-          const catItems = getItemsByCategory(cat.id)
-          if (catItems.length === 0) return null
-
-          const catName = lang === 'fr' && cat.name_fr
-            ? cat.name_fr
-            : cat.name_en
-
-          return (
-            <div
-              key={cat.id}
-              id={`section-${cat.id}`}
-              className="mb-2"
-            >
-              {/* Category header */}
-              <div className="px-4 py-3 bg-white border-b 
-                              border-gray-100">
-                <h2 className="font-bold text-gray-900 flex 
-                                items-center gap-2">
-                  <span>{cat.emoji}</span>
-                  <span>{catName}</span>
-                </h2>
-              </div>
-
-              {/* Items */}
-              <div className="bg-white">
-                {catItems.map(item => (
-                  <MenuItemCard
-                    key={item.id}
-                    item={item}
-                    lang={lang}
-                    onAdd={handleAddItem}
-                    onViewDetail={handleViewDetail}
-                  />
-                ))}
-              </div>
-
-            </div>
-          )
-        })}
       </div>
 
-      {/* Floating cart button */}
+      {/* ── Cart button — floats above scroll ── */}
       <Cart
         itemCount={itemCount}
         subtotal={subtotal}
         searchParams={searchParams}
+        restaurant={restaurant}
       />
 
     </div>
