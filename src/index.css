@@ -71,3 +71,12 @@ input, textarea, select {
 .safe-bottom {
   padding-bottom: max(env(safe-area-inset-bottom), 16px);
 }
+
+/* Hide scrollbar on category bar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

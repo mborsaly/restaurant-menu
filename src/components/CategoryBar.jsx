@@ -6,12 +6,13 @@ export default function CategoryBar({
 
   return (
     <div className="border-b overflow-x-auto
-                    flex gap-2 px-4 py-3
-                    no-scrollbar"
-         style={{
-           background: 'white',
-           borderColor: 'rgba(45,42,38,0.06)',
-         }}>
+                flex gap-2 px-4 py-3
+                no-scrollbar sticky z-10"
+     style={{
+       background: 'white',
+       borderColor: 'rgba(45,42,38,0.06)',
+       top: '57px',   // ← height of your Header
+     }}>
       {categories.map(cat => {
         const active = cat.id === activeCategory
         const name = lang === 'fr'
