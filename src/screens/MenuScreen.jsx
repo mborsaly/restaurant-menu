@@ -57,21 +57,22 @@ export default function MenuScreen() {
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
 
-      {/* Header */}
-      <Header
-        restaurant={restaurant}
-        lang={lang}
-        onLangToggle={handleLangToggle}
-      />
+      <div className="sticky top-0 z-40 bg-white shadow-sm">
+        {/* Header */}
+        <Header
+          restaurant={restaurant}
+          lang={lang}
+          onLangToggle={handleLangToggle}
+        />
 
-      {/* Category tabs */}
-      <CategoryBar
-        categories={categories}
-        activeCategory={activeCategory}
-        onSelect={handleCategorySelect}
-        lang={lang}
-      />
-
+        {/* Category tabs */}
+        <CategoryBar
+          categories={categories}
+          activeCategory={activeCategory}
+          onSelect={handleCategorySelect}
+          lang={lang}
+        />
+      </div>
       {/* Returning customer banner */}
       {customer?.name && (
         <div className="mx-4 mt-4 bg-orange-50 rounded-2xl 
