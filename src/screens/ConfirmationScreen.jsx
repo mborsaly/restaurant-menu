@@ -1,3 +1,4 @@
+import { t } from '../lib/translations'
 import { useEffect, useState } from 'react'
 import { useNavigate }         from 'react-router-dom'
 import { CheckCircle, Clock,
@@ -5,6 +6,7 @@ import { CheckCircle, Clock,
 import { useSession }          from '../hooks/useSession'
 
 export default function ConfirmationScreen() {
+  const lang = sessionStorage.getItem('lang') || 'fr'
   const navigate     = useNavigate()
   const searchParams = window.location.search
   const { restaurant } = useSession()
@@ -130,13 +132,13 @@ export default function ConfirmationScreen() {
               color: '#1A4D3E',
               letterSpacing: '-0.01em',
             }}>
-          Order Confirmed!
+          t('order_confirmed', lang)
         </h1>
 
         {customerName && (
           <p className="text-sm mb-1"
              style={{ color: '#2D2A26', opacity: 0.6 }}>
-            Thank you,{' '}
+            t('thank_you', lang),{' '}
             {customerName.split(' ')[0]}!
           </p>
         )}
@@ -156,7 +158,7 @@ export default function ConfirmationScreen() {
                color: '#2D2A26',
                opacity: 0.4,
              }}>
-            Order Number
+            t('order_number', lang)
           </p>
           <p className="font-bold"
              style={{
@@ -195,7 +197,7 @@ export default function ConfirmationScreen() {
                    letterSpacing: '0.06em',
                    textTransform: 'uppercase',
                  }}>
-                Estimated Delivery
+                t('estimated_delivery', lang)
               </p>
               <p className="font-bold text-sm mt-0.5"
                  style={{ color: '#2D2A26' }}>
@@ -229,11 +231,11 @@ export default function ConfirmationScreen() {
                    letterSpacing: '0.06em',
                    textTransform: 'uppercase',
                  }}>
-                On the way
+                t('on_the_way', lang)
               </p>
               <p className="font-bold text-sm mt-0.5"
                  style={{ color: '#2D2A26' }}>
-                Driver will call when nearby
+                t('driver_call', lang)
               </p>
             </div>
           </div>
@@ -261,11 +263,11 @@ export default function ConfirmationScreen() {
                    letterSpacing: '0.06em',
                    textTransform: 'uppercase',
                  }}>
-                WhatsApp Confirmation
+                t('whatsapp_confirmation', lang)
               </p>
               <p className="font-bold text-sm mt-0.5"
                  style={{ color: '#2D2A26' }}>
-                Check your WhatsApp for details
+                 t('check_whatsapp', lang)
               </p>
             </div>
           </div>
@@ -283,12 +285,12 @@ export default function ConfirmationScreen() {
                  }}>
               <p className="text-sm"
                  style={{ color: sage }}>
-                Returning to WhatsApp in
+                 t('returning_whatsapp', lang)
                 <span className="font-bold text-lg mx-1"
                       style={{ color: sage }}>
                   {countdown}
                 </span>
-                seconds...
+                t('seconds', lang)
               </p>
               {/* Progress bar */}
               <div className="mt-2 h-1.5 rounded-full
@@ -320,7 +322,7 @@ export default function ConfirmationScreen() {
               }}
             >
               <MessageCircle size={20} />
-              <span>Return to WhatsApp</span>
+              <span>t('return_whatsapp', lang)</span>
             </button>
           </>
         )}
@@ -340,7 +342,7 @@ export default function ConfirmationScreen() {
               boxShadow: `0 8px 24px ${coral}44`,
             }}
           >
-            Order Again 🍕
+            t('order_again', lang)
           </button>
         )}
 

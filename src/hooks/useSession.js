@@ -1,7 +1,18 @@
-	import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
 export function useSession() {
+  const [lang, setLang] = useState(() => {
+    if (typeof window === 'undefined') return 'fr'
+    return sessionStorage.getItem('lang') || 'fr'
+  })
+
+  function toggleLang() {
+    const newLang = lang === 'en' ? 'fr' : 'en'
+    setLang(newLang)
+    sessionStorage.setItem('lang', newLang)
+  }
+
   const [session, setSession] = useState(null)
   const [restaurant, setRestaurant] = useState(null)
   const [customer, setCustomer] = useState(null)
@@ -22,8 +33,8 @@ export function useSession() {
             .select('*')
             .eq('slug', 'mechwi-grillades')
             .single()
+
           setRestaurant(resto)
-          setLoading(false)
           return
         }
 
@@ -34,22 +45,32 @@ export function useSession() {
           .eq('token', token)
           .single()
 
-        if (sessionError) throw new Error('Session not found')
+        if (sessionError) {
+          throw new Error('Session not found')
+        }
 
         // Check if session expired
-        const expiresAt = sessionData.expires_at.replace(' ', 'T').replace('+00', 'Z')
-        
-	console.log('expiresAt:', expiresAt)
-	console.log('parsed date:', new Date(expiresAt))
-	console.log('timestamp:', Date.parse(expiresAt))
-	console.log('now:', Date.now())
-	
-	if (Date.parse(expiresAt) < Date.now()) {
-        //   throw new Error('Session expired')
+        const expiresAt = sessionData.expires_at
+          .replace(' ', 'T')
+          .replace('+00', 'Z')
+
+        console.log('expiresAt:', expiresAt)
+        console.log('parsed date:', new Date(expiresAt))
+        console.log('timestamp:', Date.parse(expiresAt))
+        console.log('now:', Date.now())
+
+        if (Date.parse(expiresAt) < Date.now()) {
+          // throw new Error('Session expired')
         }
 
         setSession(sessionData)
         setRestaurant(sessionData.restaurants)
+
+        // Set language from session if available
+        if (sessionData.language) {
+          setLang(sessionData.language)
+          sessionStorage.setItem('lang', sessionData.language)
+        }
 
         // Load customer if phone exists
         if (sessionData.customer_phone) {
@@ -58,9 +79,9 @@ export function useSession() {
             .select('*')
             .eq('phone', sessionData.customer_phone)
             .single()
+
           setCustomer(customerData)
         }
-
       } catch (err) {
         setError(err.message)
       } finally {
@@ -71,6 +92,13 @@ export function useSession() {
     loadSession()
   }, [])
 
-  return { session, restaurant, customer, loading, error }
+  return {
+    session,
+    restaurant,
+    customer,
+    loading,
+    error,
+    lang,
+    toggleLang
+  }
 }
-
