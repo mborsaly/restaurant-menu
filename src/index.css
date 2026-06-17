@@ -86,3 +86,13 @@ div::-webkit-scrollbar {
     env(safe-area-inset-bottom), 16px
   );
 }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-6px); }
+}

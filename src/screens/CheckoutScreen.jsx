@@ -6,6 +6,70 @@ import { useCart }                from '../context/CartContext'
 import { useSession }             from '../hooks/useSession'
 import { t }                      from '../lib/translations'
 
+// ── Field component OUTSIDE CheckoutScreen ──────
+// Critical: if defined inside, it remounts on every
+// keystroke causing inputs to lose focus
+function Field({
+  label, optional, error,
+  lang, children,
+}) {
+  return (
+    <div>
+      <label style={{
+        fontFamily:    "'JetBrains Mono', monospace",
+        fontSize:      11,
+        fontWeight:    700,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        color:         '#2D2A26',
+        opacity:       0.5,
+        display:       'block',
+        marginBottom:  8,
+      }}>
+        {label}
+        {optional && (
+          <span style={{
+            fontFamily:    'inherit',
+            textTransform: 'none',
+            fontWeight:    400,
+            marginLeft:    6,
+            opacity:       0.6,
+          }}>
+            ({t('optional', lang)})
+          </span>
+        )}
+      </label>
+      {children}
+      {error && (
+        <p style={{
+          fontSize:  12,
+          color:     '#ef4444',
+          marginTop: 4,
+          margin:    '4px 0 0',
+        }}>
+          {error}
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ── SectionTitle OUTSIDE CheckoutScreen ─────────
+function SectionTitle({ text }) {
+  return (
+    <h3 style={{
+      fontFamily: "'Fraunces', serif",
+      fontSize:   16,
+      fontWeight: 600,
+      color:      '#1A4D3E',
+      margin:     0,
+    }}>
+      {text}
+    </h3>
+  )
+}
+
+// ── Main component ───────────────────────────────
 export default function CheckoutScreen() {
   const navigate     = useNavigate()
   const searchParams = window.location.search
@@ -23,14 +87,14 @@ export default function CheckoutScreen() {
   const deliveryFee = restaurant?.delivery_fee  || 3.99
   const total       = subtotal + deliveryFee
 
-  const [name, setName]       = useState(
+  const [name, setName]         = useState(
     customer?.name || ''
   )
-  const [phone, setPhone]     = useState(
+  const [phone, setPhone]       = useState(
     session?.customer_phone
       ?.replace('whatsapp:+', '+') || ''
   )
-  const [address, setAddress] = useState(
+  const [address, setAddress]   = useState(
     customer?.last_address || ''
   )
   const [apt, setApt]           = useState('')
@@ -41,9 +105,9 @@ export default function CheckoutScreen() {
   function validate() {
     const e = {}
     if (!name.trim())
-      e.name    = t('name_required', lang)
+      e.name    = t('name_required',    lang)
     if (!phone.trim())
-      e.phone   = t('phone_required', lang)
+      e.phone   = t('phone_required',   lang)
     if (!address.trim())
       e.address = t('address_required', lang)
     setErrors(e)
@@ -117,109 +181,54 @@ export default function CheckoutScreen() {
     }
   }
 
-  // ── Field helper ─────────────────────────────
-  function Field({
-    label, optional, error, children
-  }) {
-    return (
-      <div>
-        <label style={{
-          fontFamily:    "'JetBrains Mono', monospace",
-          fontSize:      11,
-          fontWeight:    700,
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          color:         '#2D2A26',
-          opacity:       0.5,
-          display:       'block',
-          marginBottom:  8,
-        }}>
-          {label}
-          {optional && (
-            <span style={{
-              fontFamily:    'inherit',
-              textTransform: 'none',
-              fontWeight:    400,
-              marginLeft:    6,
-              opacity:       0.6,
-            }}>
-              ({t('optional', lang)})
-            </span>
-          )}
-        </label>
-        {children}
-        {error && (
-          <p style={{
-            fontSize:   12,
-            color:      '#ef4444',
-            marginTop:  4,
-          }}>
-            {error}
-          </p>
-        )}
-      </div>
-    )
+  // ── Shared styles ──────────────────────────────
+  const inputBase = {
+    width:        '100%',
+    padding:      '12px 16px',
+    borderRadius: 14,
+    fontSize:     14,
+    color:        '#2D2A26',
+    outline:      'none',
+    boxSizing:    'border-box',
+    fontFamily:   "'Inter', sans-serif",
   }
 
   function inputStyle(hasError) {
     return {
-      width:        '100%',
-      padding:      '12px 16px',
-      borderRadius: 14,
-      border:       hasError
+      ...inputBase,
+      border: hasError
         ? '1px solid #ef4444'
         : '1px solid rgba(45,42,38,0.12)',
-      background:   hasError
+      background: hasError
         ? '#fef2f2' : '#FFF8F0',
-      fontSize:     14,
-      color:        '#2D2A26',
-      outline:      'none',
-      boxSizing:    'border-box',
     }
   }
 
-  function inputWithIconStyle(hasError) {
+  function inputIconStyle(hasError) {
     return {
       ...inputStyle(hasError),
-      paddingLeft: 40,
+      paddingLeft: 42,
     }
   }
 
-  function iconStyle() {
-    return {
-      position:  'absolute',
-      left:      14,
-      top:       '50%',
-      transform: 'translateY(-50%)',
-      color:     '#2D2A26',
-      opacity:   0.35,
-    }
+  const iconPos = {
+    position:  'absolute',
+    left:      14,
+    top:       '50%',
+    transform: 'translateY(-50%)',
+    color:     '#2D2A26',
+    opacity:   0.35,
+    pointerEvents: 'none',
   }
 
-  function sectionStyle() {
-    return {
-      background:   'white',
-      borderRadius: 20,
-      padding:      20,
-      border:       '1px solid rgba(45,42,38,0.06)',
-      display:      'flex',
-      flexDirection: 'column',
-      gap:          16,
-    }
-  }
-
-  function sectionTitle(text) {
-    return (
-      <h3 style={{
-        fontFamily: "'Fraunces', serif",
-        fontSize:   16,
-        fontWeight: 600,
-        color:      '#1A4D3E',
-        margin:     0,
-      }}>
-        {text}
-      </h3>
-    )
+  const sectionBox = {
+    background:    'white',
+    borderRadius:  20,
+    padding:       20,
+    border:        '1px solid rgba(45,42,38,0.06)',
+    display:       'flex',
+    flexDirection: 'column',
+    gap:           16,
   }
 
   return (
@@ -262,6 +271,7 @@ export default function CheckoutScreen() {
           <ChevronLeft size={20}
             style={{ color: '#2D2A26' }} />
         </button>
+
         <h1 style={{
           fontFamily: "'Fraunces', serif",
           fontSize:   18,
@@ -288,13 +298,13 @@ export default function CheckoutScreen() {
 
           {/* Order summary banner */}
           <div style={{
-            borderRadius: 20,
-            padding:      16,
-            background:   `${coral}10`,
-            border:       `1px solid ${coral}20`,
-            display:      'flex',
+            borderRadius:   20,
+            padding:        16,
+            background:     `${coral}10`,
+            border:         `1px solid ${coral}20`,
+            display:        'flex',
             justifyContent: 'space-between',
-            alignItems:   'center',
+            alignItems:     'center',
           }}>
             <div>
               <p style={{
@@ -346,17 +356,19 @@ export default function CheckoutScreen() {
           </div>
 
           {/* Personal info */}
-          <div style={sectionStyle()}>
-            {sectionTitle(
-              t('your_information', lang)
-            )}
+          <div style={sectionBox}>
+            <SectionTitle
+              text={t('your_information', lang)}
+            />
 
+            {/* Name */}
             <Field
               label={t('full_name', lang)}
               error={errors.name}
+              lang={lang}
             >
               <div style={{ position: 'relative' }}>
-                <User size={16} style={iconStyle()} />
+                <User size={16} style={iconPos} />
                 <input
                   type="text"
                   value={name}
@@ -366,20 +378,19 @@ export default function CheckoutScreen() {
                   placeholder={
                     t('name_placeholder', lang)
                   }
-                  style={inputWithIconStyle(
-                    !!errors.name
-                  )}
+                  style={inputIconStyle(!!errors.name)}
                 />
               </div>
             </Field>
 
+            {/* Phone */}
             <Field
               label={t('phone_number', lang)}
               error={errors.phone}
+              lang={lang}
             >
               <div style={{ position: 'relative' }}>
-                <Phone size={16}
-                  style={iconStyle()} />
+                <Phone size={16} style={iconPos} />
                 <input
                   type="tel"
                   value={phone}
@@ -391,29 +402,29 @@ export default function CheckoutScreen() {
                   }
                   pattern=".*"
                   inputMode="tel"
-                  style={inputWithIconStyle(
-                    !!errors.phone
-                  )}
+                  style={inputIconStyle(!!errors.phone)}
                 />
               </div>
             </Field>
           </div>
 
           {/* Delivery address */}
-          <div style={sectionStyle()}>
-            {sectionTitle(
-              t('delivery_address', lang)
-            )}
+          <div style={sectionBox}>
+            <SectionTitle
+              text={t('delivery_address', lang)}
+            />
 
+            {/* Street */}
             <Field
               label={t('street_address', lang)}
               error={errors.address}
+              lang={lang}
             >
               <div style={{ position: 'relative' }}>
                 <MapPin size={16}
                   style={{
-                    ...iconStyle(),
-                    top: 16,
+                    ...iconPos,
+                    top:       16,
                     transform: 'none',
                   }}
                 />
@@ -426,16 +437,18 @@ export default function CheckoutScreen() {
                   placeholder={
                     t('street_placeholder', lang)
                   }
-                  style={inputWithIconStyle(
+                  style={inputIconStyle(
                     !!errors.address
                   )}
                 />
               </div>
             </Field>
 
+            {/* Apt */}
             <Field
               label={t('apt_unit', lang)}
               optional
+              lang={lang}
             >
               <input
                 type="text"
@@ -448,9 +461,11 @@ export default function CheckoutScreen() {
               />
             </Field>
 
+            {/* Notes */}
             <Field
               label={t('delivery_notes', lang)}
               optional
+              lang={lang}
             >
               <textarea
                 value={notes}
@@ -470,8 +485,10 @@ export default function CheckoutScreen() {
           </div>
 
           {/* Payment */}
-          <div style={sectionStyle()}>
-            {sectionTitle(t('payment', lang))}
+          <div style={sectionBox}>
+            <SectionTitle
+              text={t('payment', lang)}
+            />
             <div style={{
               borderRadius: 14,
               padding:      '12px 16px',
@@ -483,10 +500,10 @@ export default function CheckoutScreen() {
               <span style={{ fontSize: 24 }}>💵</span>
               <div>
                 <p style={{
-                  fontWeight:   700,
-                  fontSize:     14,
-                  color:        '#2D2A26',
-                  margin:       0,
+                  fontWeight: 700,
+                  fontSize:   14,
+                  color:      '#2D2A26',
+                  margin:     0,
                 }}>
                   {t('cash_on_delivery', lang)}
                 </p>
@@ -505,7 +522,7 @@ export default function CheckoutScreen() {
           </div>
 
           {/* Price breakdown */}
-          <div style={sectionStyle()}>
+          <div style={sectionBox}>
             <div style={{
               display:       'flex',
               flexDirection: 'column',
@@ -526,6 +543,7 @@ export default function CheckoutScreen() {
                   ${subtotal.toFixed(2)}
                 </span>
               </div>
+
               <div style={{
                 display:        'flex',
                 justifyContent: 'space-between',
@@ -541,10 +559,12 @@ export default function CheckoutScreen() {
                   ${deliveryFee.toFixed(2)}
                 </span>
               </div>
+
               <div style={{
                 height:     1,
                 background: 'rgba(45,42,38,0.06)',
               }} />
+
               <div style={{
                 display:        'flex',
                 justifyContent: 'space-between',
@@ -618,10 +638,10 @@ export default function CheckoutScreen() {
             background:     submitting
               ? 'rgba(45,42,38,0.12)'
               : coral,
-            color:          submitting
+            color: submitting
               ? 'rgba(45,42,38,0.4)'
               : 'white',
-            boxShadow:      submitting
+            boxShadow: submitting
               ? 'none'
               : `0 8px 30px ${coral}44`,
           }}
@@ -629,12 +649,12 @@ export default function CheckoutScreen() {
           {submitting ? (
             <>
               <div style={{
-                width:       20,
-                height:      20,
-                borderRadius: '50%',
-                border:      '2px solid rgba(45,42,38,0.2)',
+                width:          20,
+                height:         20,
+                borderRadius:   '50%',
+                border:         '2px solid rgba(45,42,38,0.2)',
                 borderTopColor: 'rgba(45,42,38,0.5)',
-                animation:   'spin 0.8s linear infinite',
+                animation:      'spin 0.8s linear infinite',
               }} />
               <span>
                 {t('placing_order', lang)}
@@ -661,6 +681,7 @@ export default function CheckoutScreen() {
           color:      '#2D2A26',
           opacity:    0.35,
           marginTop:  8,
+          margin:     '8px 0 0',
         }}>
           {t('terms', lang)}
         </p>
