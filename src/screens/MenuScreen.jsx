@@ -1,35 +1,40 @@
-import { useState, useEffect }  from 'react'
-import { useNavigate }          from 'react-router-dom'
-import { useSession }           from '../hooks/useSession'
-import { useCart }              from '../context/CartContext'
-import { supabase }             from '../lib/supabase'
-import Header                   from '../components/Header'
-import MenuItemCard              from '../components/MenuItemCard'
-import Cart                     from '../components/Cart'
-import LoadingScreen             from '../components/LoadingScreen'
+import { useState, useEffect } from 'react'
+import { useNavigate }         from 'react-router-dom'
+import { useSession }          from '../hooks/useSession'
+import { useCart }             from '../context/CartContext'
+import { supabase }            from '../lib/supabase'
+import { t }                   from '../lib/translations'
+import Header                  from '../components/Header'
+import MenuItemCard             from '../components/MenuItemCard'
+import Cart                    from '../components/Cart'
+import LoadingScreen            from '../components/LoadingScreen'
 
 export default function MenuScreen() {
   const navigate     = useNavigate()
   const searchParams = window.location.search
-  const { restaurant, loading: sessionLoading }
-    = useSession()
+
+  const {
+    restaurant,
+    loading: sessionLoading,
+    lang,
+    toggleLang,
+  } = useSession()
+
   const { itemCount, subtotal } = useCart()
 
-  const [categories, setCategories]       = useState([])
-  const [menuItems, setMenuItems]         = useState([])
+  const [categories, setCategories]         = useState([])
+  const [menuItems, setMenuItems]           = useState([])
   const [activeCategory, setActiveCategory] = useState(null)
-  const [lang, setLang]                   = useState('fr')
-  const [loading, setLoading]             = useState(true)
+  const [loading, setLoading]               = useState(true)
 
   const primary = restaurant?.primary_color || '#1A4D3E'
 
-  // Load categories and items
+  // Load menu data
   useEffect(() => {
     if (!restaurant?.id) return
 
     async function loadMenu() {
       try {
-        // Load categories
         const { data: cats } = await supabase
           .from('categories')
           .select('*')
@@ -37,7 +42,6 @@ export default function MenuScreen() {
           .eq('active', true)
           .order('sort_order')
 
-        // Load menu items
         const { data: items } = await supabase
           .from('menu_items')
           .select('*, item_options(*)')
@@ -51,7 +55,6 @@ export default function MenuScreen() {
         if (cats?.length > 0) {
           setActiveCategory(cats[0].id)
         }
-
       } catch (err) {
         console.error('Menu load error:', err)
       } finally {
@@ -62,7 +65,6 @@ export default function MenuScreen() {
     loadMenu()
   }, [restaurant?.id])
 
-  // Filter items by active category
   const filteredItems = activeCategory
     ? menuItems.filter(
         item => item.category_id === activeCategory
@@ -70,33 +72,31 @@ export default function MenuScreen() {
     : menuItems
 
   if (sessionLoading || loading) return (
-    <LoadingScreen message="Loading menu..." />
+    <LoadingScreen
+      message={t('loading_menu_items', lang)}
+    />
   )
 
   return (
     <div style={{
-      display:        'flex',
-      flexDirection:  'column',
-      height:         '100dvh',
-      background:     '#FFF8F0',
-      overflow:       'hidden',
-      maxWidth:       '448px',
-      margin:         '0 auto',
-      position:       'relative',
+      display:       'flex',
+      flexDirection: 'column',
+      height:        '100dvh',
+      background:    '#FFF8F0',
+      overflow:      'hidden',
+      maxWidth:      448,
+      margin:        '0 auto',
+      position:      'relative',
     }}>
 
       {/* ── Header — never scrolls ── */}
-      <div style={{ flexShrink: 0 }}>
-        <Header
-          restaurant={restaurant}
-          lang={lang}
-          onLangToggle={() =>
-            setLang(l => l === 'en' ? 'fr' : 'en')
-          }
-        />
-      </div>
+      <Header
+        restaurant={restaurant}
+        lang={lang}
+        onLangToggle={toggleLang}
+      />
 
-      {/* ── CategoryBar — never scrolls ── */}
+      {/* ── Category bar — never scrolls ── */}
       <div style={{
         flexShrink:   0,
         background:   'white',
@@ -152,7 +152,7 @@ export default function MenuScreen() {
         </div>
       </div>
 
-      {/* ── Menu items — ONLY this scrolls ── */}
+      {/* ── Items — only this scrolls ── */}
       <div style={{
         flex:            1,
         overflowY:       'auto',
@@ -160,14 +160,12 @@ export default function MenuScreen() {
         paddingBottom:   100,
         WebkitOverflowScrolling: 'touch',
       }}>
-
-        {/* Items grid */}
         {filteredItems.length > 0 ? (
           <div style={{
-            display:               'grid',
-            gridTemplateColumns:   'repeat(2, 1fr)',
-            gap:                   12,
-            padding:               16,
+            display:             'grid',
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap:                 12,
+            padding:             16,
           }}>
             {filteredItems.map(item => (
               <MenuItemCard
@@ -180,7 +178,6 @@ export default function MenuScreen() {
             ))}
           </div>
         ) : (
-          // Empty state
           <div style={{
             display:        'flex',
             flexDirection:  'column',
@@ -196,26 +193,20 @@ export default function MenuScreen() {
             }}>
               🍽️
             </div>
-            <p style={{
-              color:      '#2D2A26',
-              fontSize:   15,
-            }}>
-              {lang === 'fr'
-                ? 'Aucun article dans cette catégorie'
-                : 'No items in this category'
-              }
+            <p style={{ color: '#2D2A26', fontSize: 15 }}>
+              {t('no_items', lang)}
             </p>
           </div>
         )}
-
       </div>
 
-      {/* ── Cart button — floats above scroll ── */}
+      {/* ── Cart button ── */}
       <Cart
         itemCount={itemCount}
         subtotal={subtotal}
         searchParams={searchParams}
         restaurant={restaurant}
+        lang={lang}
       />
 
     </div>

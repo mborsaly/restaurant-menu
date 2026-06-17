@@ -1,17 +1,21 @@
-import { useEffect, useState } from 'react'
-import { useNavigate }         from 'react-router-dom'
+import { useEffect, useState }     from 'react'
+import { useNavigate }             from 'react-router-dom'
 import { CheckCircle, Clock,
-         Phone, MessageCircle } from 'lucide-react'
-import { useSession }          from '../hooks/useSession'
+         Phone, MessageCircle }    from 'lucide-react'
+import { useSession }              from '../hooks/useSession'
+import { t }                       from '../lib/translations'
 
 export default function ConfirmationScreen() {
   const navigate     = useNavigate()
   const searchParams = window.location.search
   const { restaurant } = useSession()
 
+  // Lang comes from sessionStorage
+  // (set during checkout before navigation)
+  const lang  = sessionStorage.getItem('lang') || 'fr'
+  const coral = '#FF7A47'
+  const sage  = '#2D6E5A'
   const primary = restaurant?.primary_color || '#1A4D3E'
-  const coral   = '#FF7A47'
-  const sage    = '#2D6E5A'
 
   const [orderNumber, setOrderNumber]     = useState('')
   const [estimatedTime, setEstimatedTime] = useState('')
@@ -24,23 +28,25 @@ export default function ConfirmationScreen() {
   useEffect(() => {
     const ua = navigator.userAgent
     setIsWhatsApp(/WhatsApp/i.test(ua))
-    setIsDesktop(!/Android|iPhone|iPad|iPod/i.test(ua))
+    setIsDesktop(
+      !/Android|iPhone|iPad|iPod/i.test(ua)
+    )
   }, [])
 
-  // Load order data from sessionStorage
+  // Load order data
   useEffect(() => {
     setOrderNumber(
-      sessionStorage.getItem('orderNumber')    || '0001'
+      sessionStorage.getItem('orderNumber')   || '0001'
     )
     setEstimatedTime(
-      sessionStorage.getItem('estimatedTime')  || '35-45 mins'
+      sessionStorage.getItem('estimatedTime') || '35-45 mins'
     )
     setCustomerName(
-      sessionStorage.getItem('customerName')   || ''
+      sessionStorage.getItem('customerName')  || ''
     )
   }, [])
 
-  // Auto-return to WhatsApp if opened from WhatsApp
+  // Auto return to WhatsApp
   useEffect(() => {
     if (!isWhatsApp) return
 
@@ -48,8 +54,9 @@ export default function ConfirmationScreen() {
       setCountdown(prev => {
         if (prev <= 1) {
           clearInterval(timer)
-          const twilioNumber = restaurant?.twilio_number
-            ?.replace(/\D/g, '') || ''
+          const twilioNumber =
+            restaurant?.twilio_number
+              ?.replace(/\D/g, '') || ''
           window.location.href = twilioNumber
             ? `https://wa.me/${twilioNumber}`
             : 'whatsapp://'
@@ -63,324 +70,366 @@ export default function ConfirmationScreen() {
   }, [isWhatsApp, restaurant])
 
   function handleReturnToWhatsApp() {
-    const twilioNumber = restaurant?.twilio_number
-      ?.replace(/\D/g, '') || ''
+    const twilioNumber =
+      restaurant?.twilio_number
+        ?.replace(/\D/g, '') || ''
     window.location.href = twilioNumber
       ? `https://wa.me/${twilioNumber}`
       : 'whatsapp://'
   }
 
+  function InfoCard({ bg, border, icon, label, labelColor, value }) {
+    return (
+      <div style={{
+        borderRadius: 20,
+        padding:      '16px 20px',
+        background:   bg,
+        border:       `1px solid ${border}`,
+        display:      'flex',
+        alignItems:   'center',
+        gap:          16,
+      }}>
+        <div style={{
+          width:          40,
+          height:         40,
+          borderRadius:   '50%',
+          background:     border,
+          display:        'flex',
+          alignItems:     'center',
+          justifyContent: 'center',
+          flexShrink:     0,
+        }}>
+          {icon}
+        </div>
+        <div style={{ textAlign: 'left' }}>
+          <p style={{
+            fontFamily:    "'JetBrains Mono', monospace",
+            fontSize:      11,
+            fontWeight:    700,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            color:         labelColor,
+            margin:        0,
+          }}>
+            {label}
+          </p>
+          <p style={{
+            fontWeight: 700,
+            fontSize:   14,
+            color:      '#2D2A26',
+            margin:     '3px 0 0',
+          }}>
+            {value}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen flex flex-col"
-         style={{ background: '#FFF8F0' }}>
+    <div style={{
+      minHeight:  '100dvh',
+      display:    'flex',
+      flexDirection: 'column',
+      background: '#FFF8F0',
+    }}>
+      <div style={{
+        flex:           1,
+        display:        'flex',
+        flexDirection:  'column',
+        alignItems:     'center',
+        justifyContent: 'center',
+        padding:        32,
+        textAlign:      'center',
+      }}>
 
-      <div className="flex-1 flex flex-col
-                      items-center justify-center
-                      p-8 text-center">
-
-        {/* Animated checkmark with ringwave */}
-        <div className="relative flex items-center
-                        justify-center mb-8">
-
-          {/* Outer ringwave rings */}
+        {/* Ringwave checkmark */}
+        <div style={{
+          position:       'relative',
+          display:        'flex',
+          alignItems:     'center',
+          justifyContent: 'center',
+          marginBottom:   32,
+        }}>
           {[1, 2].map(i => (
             <div
               key={i}
-              className="absolute rounded-full"
               style={{
-                width: 112, height: 112,
-                border: `1.5px solid ${sage}`,
-                animation: `ringwave 2.5s
+                position:     'absolute',
+                width:        112,
+                height:       112,
+                borderRadius: '50%',
+                border:       `1.5px solid ${sage}`,
+                animation:    `ringwave 2.5s
                   cubic-bezier(0.2,0.6,0.4,1)
                   ${i * 0.9}s infinite`,
               }}
             />
           ))}
-
-          {/* Core circle */}
-          <div className="w-28 h-28 rounded-full
-                          flex items-center
-                          justify-center z-10"
-               style={{
-                 background: `${sage}18`,
-               }}>
-            <div className="w-20 h-20 rounded-full
-                            flex items-center
-                            justify-center"
-                 style={{ background: `${sage}28` }}>
+          <div style={{
+            width:          112,
+            height:         112,
+            borderRadius:   '50%',
+            background:     `${sage}18`,
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'center',
+            zIndex:         1,
+          }}>
+            <div style={{
+              width:          80,
+              height:         80,
+              borderRadius:   '50%',
+              background:     `${sage}28`,
+              display:        'flex',
+              alignItems:     'center',
+              justifyContent: 'center',
+            }}>
               <CheckCircle
-                size={48}
+                size={44}
                 strokeWidth={1.5}
                 style={{ color: sage }}
               />
             </div>
           </div>
-
-          {/* Floating emoji */}
-          <div className="absolute -top-2 -right-2
-                          text-3xl animate-bounce">
+          <div style={{
+            position:  'absolute',
+            top:       -4,
+            right:     -4,
+            fontSize:  28,
+            animation: 'bounce 1s infinite',
+          }}>
             🎉
           </div>
         </div>
 
         {/* Title */}
-        <h1 className="text-3xl font-semibold mb-2"
-            style={{
-              fontFamily: "'Fraunces', Georgia, serif",
-              color: '#1A4D3E',
-              letterSpacing: '-0.01em',
-            }}>
-          Order Confirmed!
+        <h1 style={{
+          fontFamily:   "'Fraunces', serif",
+          fontSize:     28,
+          fontWeight:   600,
+          color:        '#1A4D3E',
+          marginBottom: 6,
+          letterSpacing: '-0.01em',
+        }}>
+          {t('order_confirmed', lang)}
         </h1>
 
         {customerName && (
-          <p className="text-sm mb-1"
-             style={{ color: '#2D2A26', opacity: 0.6 }}>
-            Thank you,{' '}
+          <p style={{
+            fontSize:     14,
+            color:        '#2D2A26',
+            opacity:      0.6,
+            marginBottom: 4,
+          }}>
+            {t('thank_you', lang)},{' '}
             {customerName.split(' ')[0]}!
           </p>
         )}
 
         {/* Order number */}
-        <div className="rounded-2xl px-8 py-4
-                        mb-8 mt-4"
-             style={{
-               background: 'white',
-               border: '1px solid rgba(45,42,38,0.06)',
-             }}>
-          <p className="text-xs uppercase
-                        tracking-widest mb-1"
-             style={{
-               fontFamily:
-                 "'JetBrains Mono', monospace",
-               color: '#2D2A26',
-               opacity: 0.4,
-             }}>
-            Order Number
+        <div style={{
+          background:   'white',
+          border:       '1px solid rgba(45,42,38,0.06)',
+          borderRadius: 20,
+          padding:      '16px 40px',
+          margin:       '20px 0 28px',
+        }}>
+          <p style={{
+            fontFamily:    "'JetBrains Mono', monospace",
+            fontSize:      11,
+            fontWeight:    700,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            color:         '#2D2A26',
+            opacity:       0.4,
+            margin:        '0 0 4px',
+          }}>
+            {t('order_number', lang)}
           </p>
-          <p className="font-bold"
-             style={{
-               fontFamily:
-                 "'JetBrains Mono', monospace",
-               fontSize: 36,
-               color: coral,
-             }}>
+          <p style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize:   36,
+            fontWeight: 700,
+            color:      coral,
+            margin:     0,
+          }}>
             #{orderNumber}
           </p>
         </div>
 
         {/* Info cards */}
-        <div className="w-full space-y-3 mb-8">
-
-          {/* Estimated time */}
-          <div className="rounded-2xl px-5 py-4
-                          flex items-center gap-4"
-               style={{
-                 background: `${coral}10`,
-                 border: `1px solid ${coral}20`,
-               }}>
-            <div className="w-10 h-10 rounded-full
-                            flex items-center
-                            justify-center flex-shrink-0"
-                 style={{ background: `${coral}20` }}>
-              <Clock size={20}
-                     style={{ color: coral }} />
-            </div>
-            <div className="text-left">
-              <p className="text-xs font-semibold"
-                 style={{
-                   fontFamily:
-                     "'JetBrains Mono', monospace",
-                   color: coral,
-                   letterSpacing: '0.06em',
-                   textTransform: 'uppercase',
-                 }}>
-                Estimated Delivery
-              </p>
-              <p className="font-bold text-sm mt-0.5"
-                 style={{ color: '#2D2A26' }}>
-                {estimatedTime}
-              </p>
-            </div>
-          </div>
-
-          {/* Driver call */}
-          <div className="rounded-2xl px-5 py-4
-                          flex items-center gap-4"
-               style={{
-                 background: 'rgba(59,130,246,0.06)',
-                 border: '1px solid rgba(59,130,246,0.15)',
-               }}>
-            <div className="w-10 h-10 rounded-full
-                            flex items-center
-                            justify-center flex-shrink-0"
-                 style={{
-                   background: 'rgba(59,130,246,0.12)',
-                 }}>
-              <Phone size={20}
-                     style={{ color: '#3b82f6' }} />
-            </div>
-            <div className="text-left">
-              <p className="text-xs font-semibold"
-                 style={{
-                   fontFamily:
-                     "'JetBrains Mono', monospace",
-                   color: '#3b82f6',
-                   letterSpacing: '0.06em',
-                   textTransform: 'uppercase',
-                 }}>
-                On the way
-              </p>
-              <p className="font-bold text-sm mt-0.5"
-                 style={{ color: '#2D2A26' }}>
-                Driver will call when nearby
-              </p>
-            </div>
-          </div>
-
-          {/* WhatsApp confirmation */}
-          <div className="rounded-2xl px-5 py-4
-                          flex items-center gap-4"
-               style={{
-                 background: `${sage}10`,
-                 border: `1px solid ${sage}25`,
-               }}>
-            <div className="w-10 h-10 rounded-full
-                            flex items-center
-                            justify-center
-                            flex-shrink-0 text-xl"
-                 style={{ background: `${sage}20` }}>
-              💬
-            </div>
-            <div className="text-left">
-              <p className="text-xs font-semibold"
-                 style={{
-                   fontFamily:
-                     "'JetBrains Mono', monospace",
-                   color: sage,
-                   letterSpacing: '0.06em',
-                   textTransform: 'uppercase',
-                 }}>
-                WhatsApp Confirmation
-              </p>
-              <p className="font-bold text-sm mt-0.5"
-                 style={{ color: '#2D2A26' }}>
-                Check your WhatsApp for details
-              </p>
-            </div>
-          </div>
-
+        <div style={{
+          width:         '100%',
+          display:       'flex',
+          flexDirection: 'column',
+          gap:           10,
+          marginBottom:  24,
+        }}>
+          <InfoCard
+            bg={`${coral}10`}
+            border={`${coral}25`}
+            labelColor={coral}
+            label={t('estimated_delivery', lang)}
+            value={estimatedTime}
+            icon={
+              <Clock size={18}
+                style={{ color: coral }} />
+            }
+          />
+          <InfoCard
+            bg="rgba(59,130,246,0.06)"
+            border="rgba(59,130,246,0.2)"
+            labelColor="#3b82f6"
+            label={t('on_the_way', lang)}
+            value={t('driver_call', lang)}
+            icon={
+              <Phone size={18}
+                style={{ color: '#3b82f6' }} />
+            }
+          />
+          <InfoCard
+            bg={`${sage}10`}
+            border={`${sage}25`}
+            labelColor={sage}
+            label={t('whatsapp_confirmation', lang)}
+            value={t('check_whatsapp', lang)}
+            icon={
+              <span style={{ fontSize: 18 }}>
+                💬
+              </span>
+            }
+          />
         </div>
 
-        {/* WhatsApp — countdown + return button */}
+        {/* WhatsApp countdown + return */}
         {isWhatsApp && (
           <>
-            <div className="w-full rounded-2xl
-                            px-5 py-3 mb-4 text-center"
-                 style={{
-                   background: `${sage}10`,
-                   border: `1px solid ${sage}20`,
-                 }}>
-              <p className="text-sm"
-                 style={{ color: sage }}>
-                Returning to WhatsApp in
-                <span className="font-bold text-lg mx-1"
-                      style={{ color: sage }}>
-                  {countdown}
-                </span>
-                seconds...
+            <div style={{
+              width:        '100%',
+              borderRadius: 20,
+              padding:      '12px 20px',
+              background:   `${sage}10`,
+              border:       `1px solid ${sage}20`,
+              marginBottom: 12,
+              textAlign:    'center',
+            }}>
+              <p style={{
+                fontSize: 14,
+                color:    sage,
+                margin:   '0 0 8px',
+              }}>
+                {t('returning_whatsapp', lang)}
+                {' '}
+                <strong>{countdown}</strong>
+                {' '}
+                {t('seconds', lang)}
               </p>
-              {/* Progress bar */}
-              <div className="mt-2 h-1.5 rounded-full
-                              overflow-hidden"
-                   style={{
-                     background: `${sage}20`,
-                   }}>
-                <div
-                  className="h-full rounded-full
-                             transition-all duration-1000"
-                  style={{
-                    width: `${(countdown / 4) * 100}%`,
-                    background: sage,
-                  }}
-                />
+              <div style={{
+                height:       6,
+                borderRadius: 3,
+                background:   `${sage}20`,
+                overflow:     'hidden',
+              }}>
+                <div style={{
+                  height:     '100%',
+                  borderRadius: 3,
+                  background:  sage,
+                  width:       `${(countdown / 4) * 100}%`,
+                  transition:  'width 1s linear',
+                }} />
               </div>
             </div>
 
             <button
               onClick={handleReturnToWhatsApp}
-              className="w-full rounded-2xl py-4 px-6
-                         font-semibold text-white
-                         flex items-center
-                         justify-center gap-3 mb-3
-                         active:scale-95 transition-all"
               style={{
-                background: sage,
-                boxShadow: `0 8px 24px ${sage}44`,
+                width:          '100%',
+                borderRadius:   18,
+                padding:        '16px 24px',
+                background:     sage,
+                boxShadow:      `0 8px 24px ${sage}44`,
+                border:         'none',
+                cursor:         'pointer',
+                color:          'white',
+                fontWeight:     600,
+                fontSize:       15,
+                display:        'flex',
+                alignItems:     'center',
+                justifyContent: 'center',
+                gap:            10,
+                marginBottom:   12,
               }}
             >
               <MessageCircle size={20} />
-              <span>Return to WhatsApp</span>
+              <span>
+                {t('return_whatsapp', lang)}
+              </span>
             </button>
           </>
         )}
 
-        {/* Mobile or Desktop — order again */}
+        {/* Non-WhatsApp — order again */}
         {!isWhatsApp && (
           <button
             onClick={() =>
               navigate('/menu' + searchParams)
             }
-            className="w-full rounded-2xl py-4 px-6
-                       font-semibold text-white
-                       active:scale-95 transition-all
-                       mb-3"
             style={{
-              background: coral,
-              boxShadow: `0 8px 24px ${coral}44`,
+              width:        '100%',
+              borderRadius: 18,
+              padding:      '16px 24px',
+              background:   coral,
+              boxShadow:    `0 8px 24px ${coral}44`,
+              border:       'none',
+              cursor:       'pointer',
+              color:        'white',
+              fontWeight:   600,
+              fontSize:     15,
+              marginBottom: 12,
             }}
           >
-            Order Again 🍕
+            {t('order_again', lang)}
           </button>
         )}
 
         {/* Desktop message */}
         {isDesktop && (
-          <div className="rounded-2xl px-5 py-3
-                          text-center"
-               style={{
-                 background: 'rgba(45,42,38,0.04)',
-               }}>
-            <p className="text-sm"
-               style={{
-                 color: '#2D2A26',
-                 opacity: 0.5,
-               }}>
-              📱 Check your WhatsApp for
-              order confirmation
+          <div style={{
+            borderRadius: 16,
+            padding:      '12px 20px',
+            background:   'rgba(45,42,38,0.04)',
+          }}>
+            <p style={{
+              fontSize: 13,
+              color:    '#2D2A26',
+              opacity:  0.5,
+              margin:   0,
+            }}>
+              {t('check_whatsapp_desktop', lang)}
             </p>
           </div>
         )}
 
         {/* BistroVite footer */}
-        <div className="mt-8"
-             style={{
-               fontFamily:
-                 "'Fraunces', Georgia, serif",
-               fontSize: 14,
-               color: '#2D2A26',
-               opacity: 0.3,
-             }}>
+        <div style={{
+          marginTop:  24,
+          fontFamily: "'Fraunces', serif",
+          fontSize:   13,
+          color:      '#2D2A26',
+          opacity:    0.3,
+        }}>
           Bistro
           <span style={{
             fontStyle: 'italic',
-            color: coral,
-            opacity: 1,
-          }}>Vite</span>
+            color:     coral,
+            opacity:   1,
+          }}>
+            Vite
+          </span>
         </div>
 
       </div>
-
     </div>
   )
 }

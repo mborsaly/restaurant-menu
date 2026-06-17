@@ -1,3 +1,5 @@
+import { t } from '../lib/translations'
+
 export default function Header({
   restaurant, lang, onLangToggle
 }) {
@@ -5,55 +7,87 @@ export default function Header({
   const emoji   = restaurant?.logo_emoji    || '🍽️'
 
   return (
-    <div className="sticky top-0 z-20 border-b"
-         style={{
-           background: '#FFF8F0',
-           borderColor: 'rgba(45,42,38,0.08)',
-         }}>
-      <div className="flex items-center
-                      justify-between px-4 py-3
-                      max-w-md mx-auto">
+    <div style={{
+      flexShrink:   0,
+      background:   '#FFF8F0',
+      borderBottom: '1px solid rgba(45,42,38,0.08)',
+    }}>
+      <div style={{
+        display:        'flex',
+        alignItems:     'center',
+        justifyContent: 'space-between',
+        padding:        '12px 16px',
+        maxWidth:       448,
+        margin:         '0 auto',
+      }}>
 
-        {/* Left — logo + restaurant name */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl
-                          flex items-center
-                          justify-center text-xl
-                          flex-shrink-0"
-               style={{ background: `${primary}18` }}>
+        {/* Left — logo + name */}
+        <div style={{
+          display:    'flex',
+          alignItems: 'center',
+          gap:        12,
+        }}>
+          <div style={{
+            width:          40,
+            height:         40,
+            borderRadius:   12,
+            background:     `${primary}18`,
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'center',
+            fontSize:       20,
+            flexShrink:     0,
+          }}>
             {restaurant?.logo_url ? (
-              <img src={restaurant.logo_url}
-                   alt={restaurant.name}
-                   className="w-full h-full
-                              object-cover rounded-xl" />
+              <img
+                src={restaurant.logo_url}
+                alt={restaurant.name}
+                style={{
+                  width:        '100%',
+                  height:       '100%',
+                  objectFit:    'cover',
+                  borderRadius: 12,
+                }}
+              />
             ) : emoji}
           </div>
+
           <div>
-            <h1 className="font-bold text-sm
-                           leading-tight"
-                style={{
-                  fontFamily: "'Fraunces', serif",
-                  color: '#1A4D3E',
-                }}>
+            <h1 style={{
+              fontFamily:   "'Fraunces', serif",
+              fontWeight:   600,
+              fontSize:     14,
+              color:        '#1A4D3E',
+              margin:       0,
+              lineHeight:   1.2,
+            }}>
               {restaurant?.name || 'BistroVite'}
             </h1>
-            <p className="text-xs font-medium"
-               style={{ color: primary }}>
-              ● Open now
+            <p style={{
+              fontSize:   12,
+              fontWeight: 600,
+              color:      primary,
+              margin:     0,
+              marginTop:  2,
+            }}>
+              {t('open_now', lang)}
             </p>
           </div>
         </div>
 
-        {/* Right — language toggle */}
+        {/* Right — lang toggle */}
         <button
           onClick={onLangToggle}
-          className="text-xs font-bold px-3 py-1.5
-                     rounded-full border
-                     transition-all active:scale-95"
           style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            borderColor: 'rgba(45,42,38,0.15)',
-            color: '#2D2A26',
+            fontFamily:   "'JetBrains Mono', monospace",
+            fontSize:     12,
+            fontWeight:   700,
+            padding:      '6px 14px',
+            borderRadius: 100,
+            border:       '1px solid rgba(45,42,38,0.15)',
+            background:   'transparent',
+            color:        '#2D2A26',
+            cursor:       'pointer',
           }}
         >
           {lang === 'en' ? 'FR' : 'EN'}

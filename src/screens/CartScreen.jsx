@@ -1,259 +1,365 @@
-import { useNavigate }    from 'react-router-dom'
-import { ChevronLeft,
-         Trash2, Plus,
-         Minus }          from 'lucide-react'
-import { useCart }        from '../context/CartContext'
-import { useSession }     from '../hooks/useSession'
+import { useNavigate }              from 'react-router-dom'
+import { ChevronLeft, Trash2,
+         Plus, Minus }              from 'lucide-react'
+import { useCart }                  from '../context/CartContext'
+import { useSession }               from '../hooks/useSession'
+import { t }                        from '../lib/translations'
 
 export default function CartScreen() {
-  const navigate    = useNavigate()
+  const navigate     = useNavigate()
   const searchParams = window.location.search
-  const { restaurant } = useSession()
+  const {
+    restaurant,
+    lang,
+  } = useSession()
   const {
     cart, subtotal, itemCount,
     removeItem, updateQty,
   } = useCart()
 
-  const primary     = restaurant?.primary_color
-    || '#1A4D3E'
-  const deliveryFee = restaurant?.delivery_fee || 3.99
+  const primary     = restaurant?.primary_color || '#1A4D3E'
+  const coral       = '#FF7A47'
+  const deliveryFee = restaurant?.delivery_fee  || 3.99
   const total       = subtotal + deliveryFee
 
   if (itemCount === 0) {
     return (
-      <div className="min-h-screen flex flex-col
-                      items-center justify-center
-                      p-8 text-center"
-           style={{ background: '#FFF8F0' }}>
-        <div className="text-5xl mb-4">🛒</div>
-        <h2 className="text-xl font-semibold mb-2"
-            style={{
-              fontFamily: "'Fraunces', serif",
-              color: '#1A4D3E',
-            }}>
-          Your cart is empty
+      <div style={{
+        minHeight:      '100dvh',
+        display:        'flex',
+        flexDirection:  'column',
+        alignItems:     'center',
+        justifyContent: 'center',
+        padding:        32,
+        textAlign:      'center',
+        background:     '#FFF8F0',
+      }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>
+          🛒
+        </div>
+        <h2 style={{
+          fontFamily:   "'Fraunces', serif",
+          fontSize:     20,
+          color:        '#1A4D3E',
+          marginBottom: 8,
+        }}>
+          {t('cart_empty', lang)}
         </h2>
-        <p className="text-sm mb-6"
-           style={{ color: '#2D2A26', opacity: 0.6 }}>
-          Add items from the menu to get started
+        <p style={{
+          fontSize:     14,
+          color:        '#2D2A26',
+          opacity:      0.6,
+          marginBottom: 24,
+        }}>
+          {t('cart_empty_sub', lang)}
         </p>
         <button
           onClick={() =>
             navigate('/menu' + searchParams)
           }
-          className="px-6 py-3 rounded-xl
-                     text-white font-semibold
-                     active:scale-95 transition-all"
-          style={{ background: primary }}
+          style={{
+            padding:      '12px 28px',
+            borderRadius: 14,
+            background:   primary,
+            color:        'white',
+            fontWeight:   600,
+            border:       'none',
+            cursor:       'pointer',
+            fontSize:     14,
+          }}
         >
-          Browse Menu
+          {t('browse_menu', lang)}
         </button>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex flex-col"
-         style={{ background: '#FFF8F0' }}>
+    <div style={{
+      minHeight:  '100dvh',
+      display:    'flex',
+      flexDirection: 'column',
+      background: '#FFF8F0',
+    }}>
 
       {/* Header */}
-      <div className="sticky top-0 z-10 border-b
-                      px-4 py-4 flex items-center
-                      gap-3"
-           style={{
-             background: '#FFF8F0',
-             borderColor: 'rgba(45,42,38,0.08)',
-           }}>
+      <div style={{
+        position:     'sticky',
+        top:          0,
+        zIndex:       10,
+        background:   '#FFF8F0',
+        borderBottom: '1px solid rgba(45,42,38,0.08)',
+        padding:      '14px 16px',
+        display:      'flex',
+        alignItems:   'center',
+        gap:          12,
+      }}>
         <button
           onClick={() =>
             navigate('/menu' + searchParams)
           }
-          className="w-9 h-9 rounded-full
-                     flex items-center justify-center
-                     active:scale-95 transition-all"
-          style={{ background: 'rgba(45,42,38,0.06)' }}
+          style={{
+            width:          36,
+            height:         36,
+            borderRadius:   '50%',
+            background:     'rgba(45,42,38,0.06)',
+            border:         'none',
+            cursor:         'pointer',
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'center',
+            flexShrink:     0,
+          }}
         >
           <ChevronLeft size={20}
             style={{ color: '#2D2A26' }} />
         </button>
-        <h1 className="font-bold text-lg"
-            style={{
-              fontFamily: "'Fraunces', serif",
-              color: '#1A4D3E',
-            }}>
-          Your Cart
+
+        <h1 style={{
+          fontFamily: "'Fraunces', serif",
+          fontSize:   18,
+          fontWeight: 600,
+          color:      '#1A4D3E',
+          margin:     0,
+        }}>
+          {t('your_cart', lang)}
         </h1>
-        <span className="ml-auto text-sm"
-              style={{
-                fontFamily:
-                  "'JetBrains Mono', monospace",
-                color: '#FF7A47',
-                fontWeight: 700,
-              }}>
-          {itemCount} item{itemCount !== 1 ? 's' : ''}
+
+        <span style={{
+          marginLeft:  'auto',
+          fontFamily:  "'JetBrains Mono', monospace",
+          fontSize:    13,
+          fontWeight:  700,
+          color:       coral,
+        }}>
+          {itemCount}{' '}
+          {itemCount === 1
+            ? t('item', lang)
+            : t('items', lang)
+          }
         </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto pb-40">
+      {/* Scrollable content */}
+      <div style={{
+        flex:          1,
+        overflowY:     'auto',
+        paddingBottom: 120,
+      }}>
 
         {/* Cart items */}
-        <div className="p-4 space-y-3">
+        <div style={{
+          padding: 16,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+        }}>
           {cart.map(item => (
-            <div key={item.cartId}
-                 className="bg-white rounded-2xl p-4"
-                 style={{
-                   border:
-                     '1px solid rgba(45,42,38,0.06)',
-                 }}>
-              <div className="flex items-start
-                              justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-sm
-                                 mb-0.5 leading-snug"
-                      style={{ color: '#2D2A26' }}>
-                    {item.name}
+            <div
+              key={item.cartId}
+              style={{
+                background:   'white',
+                borderRadius: 20,
+                padding:      16,
+                border:       '1px solid rgba(45,42,38,0.06)',
+              }}
+            >
+              <div style={{
+                display: 'flex',
+                gap:     12,
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h3 style={{
+                    fontWeight:   700,
+                    fontSize:     14,
+                    color:        '#2D2A26',
+                    marginBottom: 2,
+                  }}>
+                    {lang === 'fr'
+                      ? (item.name_fr || item.name)
+                      : item.name
+                    }
                   </h3>
 
                   {item.options &&
                    Object.keys(item.options).length > 0
                    && (
-                    <p className="text-xs mb-2"
-                       style={{
-                         color: '#2D2A26',
-                         opacity: 0.5,
-                       }}>
+                    <p style={{
+                      fontSize:     12,
+                      color:        '#2D2A26',
+                      opacity:      0.5,
+                      marginBottom: 8,
+                    }}>
                       {Object.values(item.options)
-                        .map(o => o.option_name_en)
+                        .map(o => lang === 'fr'
+                          ? (o.option_name_fr
+                              || o.option_name_en)
+                          : o.option_name_en
+                        )
                         .filter(Boolean)
                         .join(', ')}
                     </p>
                   )}
 
                   {/* Qty controls */}
-                  <div className="flex items-center
-                                  gap-3 mt-2">
+                  <div style={{
+                    display:    'flex',
+                    alignItems: 'center',
+                    gap:        12,
+                    marginTop:  8,
+                  }}>
                     <button
                       onClick={() =>
-                        updateQty(item.cartId,
-                          item.quantity - 1)
+                        updateQty(
+                          item.cartId,
+                          item.quantity - 1
+                        )
                       }
-                      className="w-7 h-7 rounded-full
-                                 flex items-center
-                                 justify-center
-                                 active:scale-95
-                                 transition-all"
                       style={{
-                        background:
-                          'rgba(45,42,38,0.06)',
+                        width:          28,
+                        height:         28,
+                        borderRadius:   '50%',
+                        background:     'rgba(45,42,38,0.06)',
+                        border:         'none',
+                        cursor:         'pointer',
+                        display:        'flex',
+                        alignItems:     'center',
+                        justifyContent: 'center',
                       }}
                     >
                       <Minus size={14} />
                     </button>
 
-                    <span className="font-bold
-                                     text-sm w-4
-                                     text-center"
-                          style={{
-                            fontFamily:
-                              "'JetBrains Mono'"
-                                + ", monospace",
-                          }}>
+                    <span style={{
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontWeight: 700,
+                      fontSize:   14,
+                      width:      16,
+                      textAlign:  'center',
+                    }}>
                       {item.quantity}
                     </span>
 
                     <button
                       onClick={() =>
-                        updateQty(item.cartId,
-                          item.quantity + 1)
+                        updateQty(
+                          item.cartId,
+                          item.quantity + 1
+                        )
                       }
-                      className="w-7 h-7 rounded-full
-                                 flex items-center
-                                 justify-center
-                                 active:scale-95
-                                 transition-all
-                                 text-white"
-                      style={{ background: primary }}
+                      style={{
+                        width:          28,
+                        height:         28,
+                        borderRadius:   '50%',
+                        background:     primary,
+                        border:         'none',
+                        cursor:         'pointer',
+                        display:        'flex',
+                        alignItems:     'center',
+                        justifyContent: 'center',
+                        color:          'white',
+                      }}
                     >
                       <Plus size={14} />
                     </button>
                   </div>
                 </div>
 
-                <div className="text-right
-                                flex-shrink-0">
-                  <p className="font-bold text-sm"
-                     style={{
-                       fontFamily:
-                         "'JetBrains Mono', monospace",
-                       color: primary,
-                     }}>
+                {/* Price + remove */}
+                <div style={{
+                  textAlign:  'right',
+                  flexShrink: 0,
+                }}>
+                  <p style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontWeight: 700,
+                    fontSize:   14,
+                    color:      primary,
+                  }}>
                     ${Number(item.total).toFixed(2)}
                   </p>
                   <button
                     onClick={() =>
                       removeItem(item.cartId)
                     }
-                    className="mt-2 active:scale-95
-                               transition-all"
                     style={{
-                      color: '#2D2A26',
-                      opacity: 0.3,
+                      background: 'none',
+                      border:     'none',
+                      cursor:     'pointer',
+                      color:      '#2D2A26',
+                      opacity:    0.3,
+                      marginTop:  8,
+                      padding:    0,
                     }}
                   >
                     <Trash2 size={16} />
                   </button>
                 </div>
-
               </div>
             </div>
           ))}
         </div>
 
         {/* Price summary */}
-        <div className="mx-4 bg-white rounded-2xl p-4"
-             style={{
-               border: '1px solid rgba(45,42,38,0.06)',
-             }}>
-          <div className="space-y-2">
-            <div className="flex justify-between
-                            text-sm">
+        <div style={{
+          margin:       '0 16px',
+          background:   'white',
+          borderRadius: 20,
+          padding:      16,
+          border:       '1px solid rgba(45,42,38,0.06)',
+        }}>
+          <div style={{
+            display:       'flex',
+            flexDirection: 'column',
+            gap:           10,
+          }}>
+            <div style={{
+              display:        'flex',
+              justifyContent: 'space-between',
+              fontSize:       14,
+            }}>
               <span style={{ opacity: 0.55 }}>
-                Subtotal
+                {t('subtotal', lang)}
               </span>
               <span style={{
-                fontFamily:
-                  "'JetBrains Mono', monospace",
+                fontFamily: "'JetBrains Mono', monospace",
               }}>
                 ${subtotal.toFixed(2)}
               </span>
             </div>
-            <div className="flex justify-between
-                            text-sm">
+
+            <div style={{
+              display:        'flex',
+              justifyContent: 'space-between',
+              fontSize:       14,
+            }}>
               <span style={{ opacity: 0.55 }}>
-                Delivery
+                {t('delivery', lang)}
               </span>
               <span style={{
-                fontFamily:
-                  "'JetBrains Mono', monospace",
+                fontFamily: "'JetBrains Mono', monospace",
               }}>
                 ${deliveryFee.toFixed(2)}
               </span>
             </div>
-            <div className="h-px"
-                 style={{
-                   background:
-                     'rgba(45,42,38,0.06)',
-                 }} />
-            <div className="flex justify-between
-                            font-bold">
+
+            <div style={{
+              height:     1,
+              background: 'rgba(45,42,38,0.06)',
+            }} />
+
+            <div style={{
+              display:        'flex',
+              justifyContent: 'space-between',
+              fontWeight:     700,
+            }}>
               <span style={{ color: '#2D2A26' }}>
-                Total
+                {t('total', lang)}
               </span>
               <span style={{
-                fontFamily:
-                  "'JetBrains Mono', monospace",
-                color: primary,
-                fontSize: 18,
+                fontFamily: "'JetBrains Mono', monospace",
+                color:      primary,
+                fontSize:   18,
               }}>
                 ${total.toFixed(2)}
               </span>
@@ -264,26 +370,39 @@ export default function CartScreen() {
       </div>
 
       {/* Checkout button */}
-      <div className="fixed bottom-0 left-0 right-0
-                      max-w-md mx-auto p-4"
-           style={{ background: '#FFF8F0' }}>
+      <div style={{
+        position:   'fixed',
+        bottom:     0,
+        left:       0,
+        right:      0,
+        maxWidth:   448,
+        margin:     '0 auto',
+        padding:    16,
+        background: '#FFF8F0',
+      }}>
         <button
           onClick={() =>
             navigate('/checkout' + searchParams)
           }
-          className="w-full rounded-2xl py-4 px-6
-                     font-semibold text-white
-                     flex items-center justify-between
-                     active:scale-95 transition-all"
           style={{
-            background: primary,
-            boxShadow: `0 8px 30px ${primary}44`,
+            width:          '100%',
+            borderRadius:   18,
+            padding:        '16px 24px',
+            background:     primary,
+            boxShadow:      `0 8px 30px ${primary}44`,
+            border:         'none',
+            cursor:         'pointer',
+            color:          'white',
+            fontWeight:     600,
+            fontSize:       16,
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'space-between',
           }}
         >
-          <span>Checkout</span>
+          <span>{t('checkout', lang)}</span>
           <span style={{
-            fontFamily:
-              "'JetBrains Mono', monospace",
+            fontFamily: "'JetBrains Mono', monospace",
             fontWeight: 700,
           }}>
             ${total.toFixed(2)}
