@@ -16,7 +16,7 @@ export default function ItemScreen() {
   const { restaurant, lang, toggleLang } = useSession()
 
   const primary = restaurant?.primary_color || '#1A4D3E'
-  const coral   = '#FF7A47'
+  const coral   = '#2D2A26'
 
   const [item, setItem]                       = useState(null)
   const [loading, setLoading]                 = useState(true)
