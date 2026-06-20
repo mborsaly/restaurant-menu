@@ -16,7 +16,7 @@ export default function ItemScreen() {
   const { restaurant, lang, toggleLang } = useSession()
 
   const primary = restaurant?.primary_color || '#1A4D3E'
-  const coral   = '#2D2A26'
+  const coral   = '#FF7A47'
 
   const [item, setItem]                       = useState(null)
   const [loading, setLoading]                 = useState(true)
@@ -558,8 +558,8 @@ export default function ItemScreen() {
             width:          '100%',
             borderRadius:   18,
             padding:        '16px 24px',
-            background:     '#2D2A26',
-            boxShadow:      '0 8px 30px #FFF8F0',
+            background:     '#FF7A47',
+            boxShadow:      '0 8px 30px #FF7A4744',
             border:         'none',
             cursor:         'pointer',
             color:          'white',
@@ -592,6 +592,6 @@ export default function ItemScreen() {
           </span>
         </button>
       </div>
-    </div>
+     </div>     
   )
 }
