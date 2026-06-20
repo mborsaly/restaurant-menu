@@ -555,21 +555,20 @@ export default function ItemScreen() {
         <button
           onClick={handleAddToCart}
           style={{
-                  flexShrink:   0,
-                  padding:      '8px 18px',
-                  borderRadius: 100,
-                  fontSize:     13,
-                  fontWeight:   600,
-                  border:       'none',
-                  cursor:       'pointer',
-                  whiteSpace:   'nowrap',
-                  transition:   'all 0.2s',
-                  background:   active
-                    ? primary : '#FFF8F0',
-                  color: active
-                    ? '#FFF8F0' : '#2D2A26',
-                  opacity: active ? 1 : 0.7,
-                }}
+            width:          '100%',
+            borderRadius:   18,
+            padding:        '16px 24px',
+            background:     '#2D2A26',
+            boxShadow:      '0 8px 30px #FFF8F0',
+            border:         'none',
+            cursor:         'pointer',
+            color:          'white',
+            fontWeight:     600,
+            fontSize:       16,
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'space-between',
+          }}
         >
           <span style={{
             width:          32,
