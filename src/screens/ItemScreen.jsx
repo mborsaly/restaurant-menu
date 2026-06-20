@@ -559,7 +559,7 @@ export default function ItemScreen() {
             borderRadius:   18,
             padding:        '16px 24px',
             background:     '#2D2A26',
-            boxShadow:      '0 8px 30px #FF7A4744',
+            boxShadow:      '0 8px 30px #FFF8F0',
             border:         'none',
             cursor:         'pointer',
             color:          'white',
