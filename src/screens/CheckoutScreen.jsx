@@ -619,61 +619,108 @@ export default function CheckoutScreen() {
         background: '#FFF8F0',
       }}>
         <button
-          onClick={handlePlaceOrder}
-          disabled={submitting}
-          style={{
-            width:          '100%',
-            borderRadius:   18,
-            padding:        '16px 24px',
-            border:         'none',
-            cursor:         submitting
-              ? 'not-allowed' : 'pointer',
-            fontWeight:     600,
-            fontSize:       16,
-            display:        'flex',
-            alignItems:     'center',
-            justifyContent: 'center',
-            gap:            12,
-            transition:     'all 0.2s',
-            background:     submitting
-              ? 'rgba(45,42,38,0.12)'
-              : coral,
-            color: submitting
-              ? 'rgba(45,42,38,0.4)'
-              : 'white',
-            boxShadow: submitting
-              ? 'none'
-              : `0 8px 30px ${coral}44`,
-          }}
-        >
-          {submitting ? (
-            <>
-              <div style={{
-                width:          20,
-                height:         20,
-                borderRadius:   '50%',
-                border:         '2px solid rgba(45,42,38,0.2)',
-                borderTopColor: 'rgba(45,42,38,0.5)',
-                animation:      'spin 0.8s linear infinite',
-              }} />
-              <span>
-                {t('placing_order', lang)}
-              </span>
-            </>
-          ) : (
-            <>
-              <span>
-                {t('place_order', lang)}
-              </span>
-              <span style={{
-                fontFamily: "'JetBrains Mono', monospace",
-                fontWeight: 700,
-              }}>
-                ${total.toFixed(2)}
-              </span>
-            </>
-          )}
-        </button>
+
+  onClick={handlePlaceOrder}
+
+  disabled={submitting}
+
+  style={{
+
+    width:          '100%',
+
+    borderRadius:   18,
+
+    padding:        '16px 24px',
+
+    border:         'none',
+
+    cursor:         submitting
+
+      ? 'not-allowed' : 'pointer',
+
+    fontWeight:     600,
+
+    fontSize:       16,
+
+    display:        'flex',
+
+    alignItems:     'center',
+
+    justifyContent: 'center',
+
+    gap:            12,
+
+    transition:     'all 0.2s',
+
+    background:     submitting
+
+      ? 'rgba(45,42,38,0.12)'
+
+      : '#FF7A47',
+
+    color: submitting
+
+      ? 'rgba(45,42,38,0.4)'
+
+      : 'white',
+
+    boxShadow: submitting
+
+      ? 'none'
+
+      : '0 8px 30px #FF7A4744',
+
+  }}
+
+>
+
+  {submitting ? (
+
+    <>
+
+      <div style={{
+
+        width:          20,
+
+        height:         20,
+
+        borderRadius:   '50%',
+
+        border:         '2px solid rgba(45,42,38,0.2)',
+
+        borderTopColor: 'rgba(45,42,38,0.5)',
+
+        animation:      'spin 0.8s linear infinite',
+
+      }} />
+
+      <span>{t('placing_order', lang)}</span>
+
+    </>
+
+  ) : (
+
+    <>
+
+      <span>{t('place_order', lang)}</span>
+
+      <span style={{
+
+        fontFamily: "'JetBrains Mono', monospace",
+
+        fontWeight: 700,
+
+      }}>
+
+        ${total.toFixed(2)}
+
+      </span>
+
+    </>
+
+  )}
+
+</button>
 
         <p style={{
           textAlign:  'center',
