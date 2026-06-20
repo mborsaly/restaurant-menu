@@ -571,7 +571,17 @@ export default function ItemScreen() {
                   opacity: active ? 1 : 0.7,
                 }}
         >
-          <span style={{ marginRight: 6 }}>
+          <span style={{
+            width:          32,
+            height:         32,
+            borderRadius:   '50%',
+            background:     'rgba(255,255,255,0.25)',
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'center',
+            fontSize:       14,
+            fontWeight:     700,
+          }}>
             {quantity}
           </span>
           <span>{t('add_to_cart', lang)}</span>
