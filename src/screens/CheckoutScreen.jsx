@@ -83,7 +83,7 @@ export default function CheckoutScreen() {
   } = useCart()
 
   const primary     = restaurant?.primary_color || '#1A4D3E'
-  const coral       = '#FF7A47'
+  const coral       = '#2D2A26'
   const deliveryFee = restaurant?.delivery_fee  || 3.99
   const total       = subtotal + deliveryFee
 
