@@ -558,8 +558,8 @@ export default function ItemScreen() {
             width:          '100%',
             borderRadius:   18,
             padding:        '16px 24px',
-            background:     coral,
-            boxShadow:      `0 8px 30px ${coral}44`,
+            background:     '#FF7A47',
+            boxShadow:      '0 8px 30px #FF7A4744',
             border:         'none',
             cursor:         'pointer',
             color:          'white',
@@ -583,9 +583,7 @@ export default function ItemScreen() {
           }}>
             {quantity}
           </span>
-
           <span>{t('add_to_cart', lang)}</span>
-
           <span style={{
             fontFamily: "'JetBrains Mono', monospace",
             fontWeight: 700,
@@ -594,7 +592,6 @@ export default function ItemScreen() {
           </span>
         </button>
       </div>
-
     </div>
   )
 }
