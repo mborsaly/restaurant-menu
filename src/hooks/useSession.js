@@ -7,7 +7,7 @@ export function useSession() {
   const [customer, setCustomer]     = useState(null)
   const [loading, setLoading]       = useState(true)
   const [error, setError]           = useState(null)
-  const [lang, setLang]             = useState('fr')
+  const [lang, setLang]             = useState('ar') // default Arabic for Egypt
 
   useEffect(() => {
     async function loadSession() {
@@ -17,25 +17,21 @@ export function useSession() {
         )
         const token = params.get('t')
 
-        // No token — use demo restaurant
         if (!token) {
           const { data: resto } = await supabase
             .from('restaurants')
             .select('*')
-            .eq('slug', 'dokan-el-kahwa')
+            .eq('slug', 'dokan-el-kahwa') // Egypt demo default
             .single()
           setRestaurant(resto)
 
-          // Load lang from sessionStorage
           const savedLang =
-            sessionStorage.getItem('lang') || 'fr'
+            sessionStorage.getItem('lang') || 'ar'
           setLang(savedLang)
-
           setLoading(false)
           return
         }
 
-        // Load session by token
         const {
           data: sessionData,
           error: sessionError,
@@ -49,7 +45,6 @@ export function useSession() {
           'Session not found'
         )
 
-        // Check expiry
         const expiresAt = sessionData.expires_at
           .replace(' ', 'T')
           .replace('+00', 'Z')
@@ -58,11 +53,11 @@ export function useSession() {
           // throw new Error('Session expired')
         }
 
-        // Set language from session or sessionStorage
+        // Detect language from session or storage
         const sessionLang =
           sessionData.language
           || sessionStorage.getItem('lang')
-          || 'fr'
+          || 'ar'
 
         setLang(sessionLang)
         sessionStorage.setItem('lang', sessionLang)
@@ -70,7 +65,6 @@ export function useSession() {
         setSession(sessionData)
         setRestaurant(sessionData.restaurants)
 
-        // Load customer
         if (sessionData.customer_phone) {
           const { data: customerData } =
             await supabase
@@ -92,9 +86,10 @@ export function useSession() {
     loadSession()
   }, [])
 
-  // Toggle language and persist
   function toggleLang() {
-    const newLang = lang === 'en' ? 'fr' : 'en'
+    // Cycle: ar → en → fr → ar
+    const cycle = { ar: 'en', en: 'fr', fr: 'ar' }
+    const newLang = cycle[lang] || 'ar'
     setLang(newLang)
     sessionStorage.setItem('lang', newLang)
   }

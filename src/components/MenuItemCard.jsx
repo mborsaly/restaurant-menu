@@ -1,74 +1,130 @@
 import { useNavigate } from 'react-router-dom'
+import { isRTL }       from '../lib/translations'
 
 export default function MenuItemCard({
   item, lang, searchParams, restaurant
 }) {
   const navigate = useNavigate()
   const primary  = restaurant?.primary_color || '#1A4D3E'
-  const name     = lang === 'fr'
-    ? (item.name_fr || item.name_en) : item.name_en
-  const desc     = lang === 'fr'
-    ? (item.description_fr || item.description_en)
-    : item.description_en
+  const rtl      = isRTL(lang)
 
-  // Safely build the query string regardless of whether
-  // searchParams is a URLSearchParams object or a plain string
-  const qs = searchParams?.toString()
-    ? '?' + searchParams.toString().replace(/^\?/, '')
-    : ''
+  const name = lang === 'ar'
+    ? (item.name_ar || item.name_en)
+    : lang === 'fr'
+      ? (item.name_fr || item.name_en)
+      : item.name_en
+
+  const desc = lang === 'ar'
+    ? (item.description_ar || item.description_en)
+    : lang === 'fr'
+      ? (item.description_fr || item.description_en)
+      : item.description_en
 
   return (
     <div
       onClick={() => {
-        sessionStorage.setItem('selectedItem', JSON.stringify(item))
-        navigate(`/item/${item.id}${qs}`)
+        sessionStorage.setItem(
+          'selectedItem',
+          JSON.stringify(item)
+        )
+        navigate(`/item/${item.id}${searchParams}`)
       }}
-      className="bg-white rounded-2xl overflow-hidden
-                 active:scale-[0.98] transition-all
-                 cursor-pointer"
-      style={{ border: '1px solid rgba(45,42,38,0.06)' }}
+      style={{
+        background:   'white',
+        borderRadius: 20,
+        overflow:     'hidden',
+        cursor:       'pointer',
+        border:       '1px solid rgba(45,42,38,0.06)',
+        direction:    rtl ? 'rtl' : 'ltr',
+      }}
     >
-      {/* Image or emoji placeholder */}
       {item.image_url ? (
         <img
           src={item.image_url}
           alt={name}
-          className="w-full h-36 object-cover"
+          style={{
+            width:     '100%',
+            height:    144,
+            objectFit: 'cover',
+          }}
         />
       ) : (
-        <div className="w-full h-32 flex items-center
-                        justify-center text-5xl"
-             style={{ background: '#FFA47D22' }}>
+        <div style={{
+          width:          '100%',
+          height:         120,
+          display:        'flex',
+          alignItems:     'center',
+          justifyContent: 'center',
+          fontSize:       48,
+          background:     '#FFA47D22',
+        }}>
           {item.emoji || '🍽️'}
         </div>
       )}
 
-      <div className="p-4">
-        <h3 className="font-bold text-sm mb-1 leading-snug"
-            style={{ color: '#2D2A26' }}>
+      <div style={{ padding: '12px 14px' }}>
+        <h3 style={{
+          fontWeight:   700,
+          fontSize:     13,
+          color:        '#2D2A26',
+          marginBottom: 4,
+          lineHeight:   1.3,
+          fontFamily:   lang === 'ar'
+            ? "'Noto Naskh Arabic', serif"
+            : 'inherit',
+        }}>
           {name}
         </h3>
 
         {desc && (
-          <p className="text-xs mb-3 line-clamp-2"
-             style={{ color: '#2D2A26', opacity: 0.55 }}>
+          <p style={{
+            fontSize:     12,
+            color:        '#2D2A26',
+            opacity:      0.55,
+            marginBottom: 10,
+            display:      '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow:     'hidden',
+            fontFamily:   lang === 'ar'
+              ? "'Noto Naskh Arabic', serif"
+              : 'inherit',
+          }}>
             {desc}
           </p>
         )}
 
-        <div className="flex items-center justify-between">
-          <span className="font-bold text-sm"
-                style={{
-                  fontFamily: "'JetBrains Mono', monospace",
-                  color: primary,
-                }}>
-            ${Number(item.base_price).toFixed(2)}
+        <div style={{
+          display:        'flex',
+          alignItems:     'center',
+          justifyContent: 'space-between',
+        }}>
+          <span style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontWeight: 700,
+            fontSize:   13,
+            color:      primary,
+          }}>
+            {/* Currency symbol position */}
+            {lang === 'ar'
+              ? `${Number(item.base_price).toFixed(0)} ج.م`
+              : `$${Number(item.base_price).toFixed(2)}`
+            }
           </span>
 
-          <div className="w-7 h-7 rounded-full flex items-center
-                          justify-center text-white text-lg
-                          font-bold leading-none"
-               style={{ background: primary }}>
+          <div style={{
+            width:          28,
+            height:         28,
+            borderRadius:   '50%',
+            background:     primary,
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'center',
+            color:          'white',
+            fontSize:       18,
+            fontWeight:     700,
+            lineHeight:     1,
+          }}>
             +
           </div>
         </div>

@@ -1,10 +1,11 @@
 import { useState, useEffect }      from 'react'
 import { useNavigate, useParams }   from 'react-router-dom'
-import { ChevronLeft, Minus, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight,
+         Minus, Plus }              from 'lucide-react'
 import { supabase }                 from '../lib/supabase'
 import { useCart }                  from '../context/CartContext'
 import { useSession }               from '../hooks/useSession'
-import { t }                        from '../lib/translations'
+import { t, isRTL }                 from '../lib/translations'
 import LoadingScreen                from '../components/LoadingScreen'
 
 export default function ItemScreen() {
@@ -17,6 +18,9 @@ export default function ItemScreen() {
 
   const primary = restaurant?.primary_color || '#1A4D3E'
   const coral   = '#FF7A47'
+  const rtl     = isRTL(lang)
+
+  const BackIcon = rtl ? ChevronRight : ChevronLeft
 
   const [item, setItem]                       = useState(null)
   const [loading, setLoading]                 = useState(true)
@@ -72,12 +76,15 @@ export default function ItemScreen() {
     setSelectedOptions(defaults)
   }
 
-  // Recalculate total whenever options/qty/item changes
   useEffect(() => {
     if (!item) return
     const optExtra = Object.values(selectedOptions)
-      .reduce((sum, opt) => sum + (opt?.price_modifier || 0), 0)
-    setTotalPrice((item.base_price + optExtra) * quantity)
+      .reduce((sum, opt) =>
+        sum + (opt?.price_modifier || 0), 0
+      )
+    setTotalPrice(
+      (item.base_price + optExtra) * quantity
+    )
   }, [selectedOptions, quantity, item])
 
   function groupOptions(options) {
@@ -101,31 +108,76 @@ export default function ItemScreen() {
     navigate('/menu' + searchParams)
   }
 
+  // Localised field helpers
+  function getName(obj) {
+    if (!obj) return ''
+    if (lang === 'ar') return obj.name_ar || obj.name_en || ''
+    if (lang === 'fr') return obj.name_fr || obj.name_en || ''
+    return obj.name_en || ''
+  }
+
+  function getDesc(obj) {
+    if (!obj) return ''
+    if (lang === 'ar') return obj.description_ar || obj.description_en || ''
+    if (lang === 'fr') return obj.description_fr || obj.description_en || ''
+    return obj.description_en || ''
+  }
+
+  function getGroupName(opt) {
+    if (lang === 'ar') return opt.group_name_ar || opt.group_name_en
+    if (lang === 'fr') return opt.group_name_fr || opt.group_name_en
+    return opt.group_name_en
+  }
+
+  function getOptionName(opt) {
+    if (lang === 'ar') return opt.option_name_ar || opt.option_name_en
+    if (lang === 'fr') return opt.option_name_fr || opt.option_name_en
+    return opt.option_name_en
+  }
+
+  function formatPrice(price) {
+    if (lang === 'ar') {
+      return `${Number(price).toFixed(0)} ج.م`
+    }
+    return `$${Number(price).toFixed(2)}`
+  }
+
   if (loading) return (
     <LoadingScreen message={t('loading_item', lang)} />
   )
 
   if (!item) return (
     <div style={{
-      minHeight: '100dvh', display: 'flex',
-      flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', padding: 32,
-      textAlign: 'center', background: '#FFF8F0',
+      minHeight:      '100dvh',
+      display:        'flex',
+      flexDirection:  'column',
+      alignItems:     'center',
+      justifyContent: 'center',
+      padding:        32,
+      textAlign:      'center',
+      background:     '#FFF8F0',
+      direction:      rtl ? 'rtl' : 'ltr',
     }}>
       <div style={{ fontSize: 48, marginBottom: 16 }}>😕</div>
       <h2 style={{
-        fontFamily: "'Fraunces', serif", fontSize: 20,
-        color: '#1A4D3E', marginBottom: 8,
+        fontFamily:   "'Fraunces', serif",
+        fontSize:     20,
+        color:        '#1A4D3E',
+        marginBottom: 8,
       }}>
         {t('item_not_found', lang)}
       </h2>
       <button
         onClick={() => navigate('/menu' + searchParams)}
         style={{
-          padding: '12px 28px', borderRadius: 14,
-          background: coral, color: 'white',
-          fontWeight: 600, border: 'none',
-          cursor: 'pointer', fontSize: 14,
+          padding:      '12px 28px',
+          borderRadius: 14,
+          background:   coral,
+          color:        'white',
+          fontWeight:   600,
+          border:       'none',
+          cursor:       'pointer',
+          fontSize:     14,
         }}
       >
         {t('back_to_menu', lang)}
@@ -133,68 +185,108 @@ export default function ItemScreen() {
     </div>
   )
 
-  const name = lang === 'fr'
-    ? (item.name_fr || item.name_en) : item.name_en
-  const description = lang === 'fr'
-    ? (item.description_fr || item.description_en)
-    : item.description_en
   const optionGroups = item.item_options?.length
     ? groupOptions(item.item_options) : {}
 
+  const arabicFont = lang === 'ar'
+    ? "'Noto Naskh Arabic', serif" : 'inherit'
+
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column',
-      height: '100dvh', background: '#FFF8F0',
-      overflow: 'hidden', maxWidth: 448, margin: '0 auto',
+      display:       'flex',
+      flexDirection: 'column',
+      height:        '100dvh',
+      background:    '#FFF8F0',
+      overflow:      'hidden',
+      maxWidth:      448,
+      margin:        '0 auto',
+      direction:     rtl ? 'rtl' : 'ltr',
     }}>
 
-      {/* Hero image / emoji */}
+      {/* Hero image */}
       <div style={{
-        position: 'relative', height: 240, flexShrink: 0,
-        background: `${primary}15`, display: 'flex',
-        alignItems: 'center', justifyContent: 'center',
-        overflow: 'hidden',
+        position:       'relative',
+        height:         240,
+        flexShrink:     0,
+        background:     `${primary}15`,
+        display:        'flex',
+        alignItems:     'center',
+        justifyContent: 'center',
+        overflow:       'hidden',
       }}>
         {item.image_url ? (
-          <img src={item.image_url} alt={name}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img
+            src={item.image_url}
+            alt={getName(item)}
+            style={{
+              width:     '100%',
+              height:    '100%',
+              objectFit: 'cover',
+            }}
+          />
         ) : (
-          <span style={{ fontSize: 80 }}>{item.emoji || '🍽️'}</span>
+          <span style={{ fontSize: 80 }}>
+            {item.emoji || '🍽️'}
+          </span>
         )}
 
+        {/* Back button — flips for RTL */}
         <button
           onClick={() => navigate('/menu' + searchParams)}
           style={{
-            position: 'absolute', top: 16, left: 16,
-            width: 40, height: 40, borderRadius: '50%',
-            background: 'white', border: 'none', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 2px 12px rgba(0,0,0,0.12)',
+            position:       'absolute',
+            top:            16,
+            [rtl ? 'right' : 'left']: 16,
+            width:          40,
+            height:         40,
+            borderRadius:   '50%',
+            background:     'white',
+            border:         'none',
+            cursor:         'pointer',
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'center',
+            boxShadow:      '0 2px 12px rgba(0,0,0,.12)',
           }}
         >
-          <ChevronLeft size={20} style={{ color: '#2D2A26' }} />
+          <BackIcon size={20}
+            style={{ color: '#2D2A26' }} />
         </button>
 
+        {/* Language toggle */}
         <button
           onClick={toggleLang}
           style={{
-            position: 'absolute', top: 16, right: 16,
-            padding: '6px 14px', borderRadius: 100,
-            background: 'white', border: 'none', cursor: 'pointer',
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: 12, fontWeight: 700, color: '#2D2A26',
-            boxShadow: '0 2px 12px rgba(0,0,0,0.12)',
+            position:     'absolute',
+            top:          16,
+            [rtl ? 'left' : 'right']: 16,
+            padding:      '6px 14px',
+            borderRadius: 100,
+            background:   'white',
+            border:       'none',
+            cursor:       'pointer',
+            fontFamily:   "'JetBrains Mono', monospace",
+            fontSize:     12,
+            fontWeight:   700,
+            color:        '#2D2A26',
+            boxShadow:    '0 2px 12px rgba(0,0,0,.12)',
           }}
         >
-          {lang === 'en' ? 'FR' : 'EN'}
+          {lang === 'ar' ? 'EN' : lang === 'en' ? 'FR' : 'ع'}
         </button>
 
         {item.is_popular && (
           <div style={{
-            position: 'absolute', bottom: 16, left: 16,
-            padding: '6px 14px', borderRadius: 100,
-            background: coral, color: 'white', fontSize: 12,
-            fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+            position:     'absolute',
+            bottom:       16,
+            [rtl ? 'right' : 'left']: 16,
+            padding:      '6px 14px',
+            borderRadius: 100,
+            background:   coral,
+            color:        'white',
+            fontSize:     12,
+            fontWeight:   700,
+            fontFamily:   "'JetBrains Mono', monospace",
           }}>
             {t('popular', lang)}
           </div>
@@ -203,160 +295,237 @@ export default function ItemScreen() {
 
       {/* Scrollable content */}
       <div style={{
-        flex: 1, overflowY: 'auto', paddingBottom: 100,
+        flex:          1,
+        overflowY:     'auto',
+        paddingBottom: 100,
         WebkitOverflowScrolling: 'touch',
       }}>
 
+        {/* Item header */}
         <div style={{
-          background: 'white', padding: 20,
+          background:   'white',
+          padding:      20,
           borderBottom: '1px solid rgba(45,42,38,0.06)',
+          textAlign:    rtl ? 'right' : 'left',
         }}>
           <h1 style={{
-            fontFamily: "'Fraunces', serif", fontSize: 24,
-            fontWeight: 600, color: '#1A4D3E',
-            marginBottom: 8, letterSpacing: '-0.01em',
+            fontFamily:   lang === 'ar'
+              ? "'Noto Naskh Arabic', serif"
+              : "'Fraunces', serif",
+            fontSize:     22,
+            fontWeight:   700,
+            color:        '#1A4D3E',
+            marginBottom: 8,
+            letterSpacing: lang === 'ar' ? 0 : '-0.01em',
           }}>
-            {name}
+            {getName(item)}
           </h1>
 
-          {description && (
+          {getDesc(item) && (
             <p style={{
-              fontSize: 14, lineHeight: 1.6, color: '#2D2A26',
-              opacity: 0.6, marginBottom: 12,
+              fontSize:     14,
+              lineHeight:   1.6,
+              color:        '#2D2A26',
+              opacity:      0.6,
+              marginBottom: 12,
+              fontFamily:   arabicFont,
             }}>
-              {description}
+              {getDesc(item)}
             </p>
           )}
 
           <p style={{
             fontFamily: "'JetBrains Mono', monospace",
-            fontSize: 20, fontWeight: 700, color: coral, margin: 0,
+            fontSize:   20,
+            fontWeight: 700,
+            color:      coral,
+            margin:     0,
           }}>
-            ${Number(item.base_price).toFixed(2)}
+            {formatPrice(item.base_price)}
           </p>
         </div>
 
-        {Object.entries(optionGroups).map(([groupName, options]) => {
-          const groupLabel = lang === 'fr' && options[0]?.group_name_fr
-            ? options[0].group_name_fr : groupName
+        {/* Option groups */}
+        {Object.entries(optionGroups).map(
+          ([groupName, options]) => {
+            const groupLabel =
+              getGroupName(options[0]) || groupName
 
-          return (
-            <div key={groupName} style={{
-              borderBottom: '1px solid rgba(45,42,38,0.06)',
-            }}>
-              <div style={{
-                padding: '12px 20px', background: 'rgba(45,42,38,0.03)',
+            return (
+              <div key={groupName} style={{
+                borderBottom:
+                  '1px solid rgba(45,42,38,0.06)',
               }}>
-                <h3 style={{
-                  fontWeight: 700, fontSize: 14,
-                  color: '#2D2A26', margin: 0,
+                <div style={{
+                  padding:    '12px 20px',
+                  background: 'rgba(45,42,38,0.03)',
+                  textAlign:  rtl ? 'right' : 'left',
                 }}>
-                  {groupLabel}
-                </h3>
-                <p style={{
-                  fontSize: 12, color: '#2D2A26',
-                  opacity: 0.45, margin: '2px 0 0',
-                }}>
-                  {t('choose_one', lang)}
-                </p>
-              </div>
+                  <h3 style={{
+                    fontWeight: 700,
+                    fontSize:   14,
+                    color:      '#2D2A26',
+                    margin:     0,
+                    fontFamily: arabicFont,
+                  }}>
+                    {groupLabel}
+                  </h3>
+                  <p style={{
+                    fontSize: 12,
+                    color:    '#2D2A26',
+                    opacity:  0.45,
+                    margin:   '2px 0 0',
+                    fontFamily: arabicFont,
+                  }}>
+                    {t('choose_one', lang)}
+                  </p>
+                </div>
 
-              {options
-                .sort((a, b) => a.sort_order - b.sort_order)
-                .map(option => {
-                  const isSelected =
-                    selectedOptions[groupName]?.id === option.id
-                  const optName = lang === 'fr' && option.option_name_fr
-                    ? option.option_name_fr : option.option_name_en
+                {options
+                  .sort((a, b) => a.sort_order - b.sort_order)
+                  .map(option => {
+                    const isSelected =
+                      selectedOptions[groupName]?.id
+                      === option.id
+                    const optName = getOptionName(option)
 
-                  return (
-                    <button
-                      key={option.id}
-                      onClick={() => handleOptionSelect(groupName, option)}
-                      style={{
-                        width: '100%', display: 'flex',
-                        alignItems: 'center', justifyContent: 'space-between',
-                        padding: '14px 20px',
-                        background: isSelected ? `${primary}08` : 'white',
-                        border: 'none',
-                        borderBottom: '1px solid rgba(45,42,38,0.04)',
-                        cursor: 'pointer', textAlign: 'left',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    return (
+                      <button
+                        key={option.id}
+                        onClick={() =>
+                          handleOptionSelect(
+                            groupName, option
+                          )
+                        }
+                        style={{
+                          width:          '100%',
+                          display:        'flex',
+                          alignItems:     'center',
+                          justifyContent: 'space-between',
+                          padding:        '14px 20px',
+                          background:     isSelected
+                            ? `${primary}08` : 'white',
+                          border:         'none',
+                          borderBottom:
+                            '1px solid rgba(45,42,38,0.04)',
+                          cursor:         'pointer',
+                          flexDirection:  rtl
+                            ? 'row-reverse' : 'row',
+                        }}
+                      >
                         <div style={{
-                          width: 20, height: 20, borderRadius: '50%',
-                          border: isSelected
-                            ? `2px solid ${primary}`
-                            : '2px solid rgba(45,42,38,0.2)',
-                          background: isSelected ? primary : 'white',
-                          display: 'flex', alignItems: 'center',
-                          justifyContent: 'center', flexShrink: 0,
-                          transition: 'all 0.15s',
+                          display:    'flex',
+                          alignItems: 'center',
+                          gap:        12,
+                          flexDirection: rtl
+                            ? 'row-reverse' : 'row',
                         }}>
-                          {isSelected && (
-                            <div style={{
-                              width: 8, height: 8, borderRadius: '50%',
-                              background: 'white',
-                            }} />
-                          )}
+                          <div style={{
+                            width:          20,
+                            height:         20,
+                            borderRadius:   '50%',
+                            border:         isSelected
+                              ? `2px solid ${primary}`
+                              : '2px solid rgba(45,42,38,.2)',
+                            background:     isSelected
+                              ? primary : 'white',
+                            display:        'flex',
+                            alignItems:     'center',
+                            justifyContent: 'center',
+                            flexShrink:     0,
+                          }}>
+                            {isSelected && (
+                              <div style={{
+                                width:        8,
+                                height:       8,
+                                borderRadius: '50%',
+                                background:   'white',
+                              }} />
+                            )}
+                          </div>
+                          <span style={{
+                            fontSize:   14,
+                            fontWeight: isSelected ? 600 : 400,
+                            color:      isSelected
+                              ? primary : '#2D2A26',
+                            fontFamily: arabicFont,
+                          }}>
+                            {optName}
+                          </span>
                         </div>
 
                         <span style={{
-                          fontSize: 14,
-                          fontWeight: isSelected ? 600 : 400,
-                          color: isSelected ? primary : '#2D2A26',
+                          fontFamily: "'JetBrains Mono', monospace",
+                          fontSize:   13,
+                          fontWeight: 600,
+                          color:      isSelected
+                            ? coral : '#2D2A26',
+                          opacity:    isSelected ? 1 : 0.4,
                         }}>
-                          {optName}
+                          {option.price_modifier === 0
+                            ? t('included', lang)
+                            : `+${formatPrice(option.price_modifier)}`
+                          }
                         </span>
-                      </div>
-
-                      <span style={{
-                        fontFamily: "'JetBrains Mono', monospace",
-                        fontSize: 13, fontWeight: 600,
-                        color: isSelected ? coral : '#2D2A26',
-                        opacity: isSelected ? 1 : 0.4,
-                      }}>
-                        {option.price_modifier === 0
-                          ? t('included', lang)
-                          : `+$${Number(option.price_modifier).toFixed(2)}`}
-                      </span>
-                    </button>
-                  )
-                })}
-            </div>
-          )
-        })}
+                      </button>
+                    )
+                  })}
+              </div>
+            )
+          }
+        )}
 
         {/* Quantity */}
         <div style={{
-          background: 'white', padding: 20,
+          background:   'white',
+          padding:      20,
           borderBottom: '1px solid rgba(45,42,38,0.06)',
+          textAlign:    rtl ? 'right' : 'left',
         }}>
           <h3 style={{
-            fontWeight: 700, fontSize: 14,
-            color: '#2D2A26', marginBottom: 16,
+            fontWeight:   700,
+            fontSize:     14,
+            color:        '#2D2A26',
+            marginBottom: 16,
+            fontFamily:   arabicFont,
           }}>
             {t('quantity', lang)}
           </h3>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+          {/* Quantity controls — always LTR */}
+          <div style={{
+            display:    'flex',
+            alignItems: 'center',
+            gap:        20,
+            direction:  'ltr',
+          }}>
             <button
-              onClick={() => setQuantity(q => Math.max(1, q - 1))}
+              onClick={() =>
+                setQuantity(q => Math.max(1, q - 1))
+              }
               style={{
-                width: 40, height: 40, borderRadius: '50%',
-                border: '2px solid rgba(45,42,38,0.15)',
-                background: 'white', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width:          40,
+                height:         40,
+                borderRadius:   '50%',
+                border:         '2px solid rgba(45,42,38,.15)',
+                background:     'white',
+                cursor:         'pointer',
+                display:        'flex',
+                alignItems:     'center',
+                justifyContent: 'center',
               }}
             >
-              <Minus size={16} style={{ color: '#2D2A26' }} />
+              <Minus size={16}
+                style={{ color: '#2D2A26' }} />
             </button>
 
             <span style={{
               fontFamily: "'JetBrains Mono', monospace",
-              fontSize: 20, fontWeight: 700, color: '#2D2A26',
-              width: 24, textAlign: 'center',
+              fontSize:   20,
+              fontWeight: 700,
+              color:      '#2D2A26',
+              width:      24,
+              textAlign:  'center',
             }}>
               {quantity}
             </span>
@@ -364,12 +533,17 @@ export default function ItemScreen() {
             <button
               onClick={() => setQuantity(q => q + 1)}
               style={{
-                width: 40, height: 40, borderRadius: '50%',
-                border: 'none', background: primary,
-                boxShadow: `0 4px 12px ${primary}44`,
-                cursor: 'pointer', display: 'flex',
-                alignItems: 'center', justifyContent: 'center',
-                color: 'white',
+                width:          40,
+                height:         40,
+                borderRadius:   '50%',
+                border:         'none',
+                background:     primary,
+                boxShadow:      `0 4px 12px ${primary}44`,
+                cursor:         'pointer',
+                display:        'flex',
+                alignItems:     'center',
+                justifyContent: 'center',
+                color:          'white',
               }}
             >
               <Plus size={16} />
@@ -379,39 +553,65 @@ export default function ItemScreen() {
 
       </div>
 
-      {/* Add to cart button */}
+      {/* Add to cart */}
       <div style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0,
-        maxWidth: 448, margin: '0 auto', padding: 16,
+        position:   'fixed',
+        bottom:     0,
+        left:       0,
+        right:      0,
+        maxWidth:   448,
+        margin:     '0 auto',
+        padding:    16,
         background: '#FFF8F0',
+        direction:  'ltr', // button always LTR
       }}>
         <button
           onClick={handleAddToCart}
           style={{
-            width: '100%', borderRadius: 18, padding: '16px 24px',
-            background: coral,
-            boxShadow: `0 8px 30px ${coral}44`,
-            border: 'none', cursor: 'pointer', color: 'white',
-            fontWeight: 600, fontSize: 16, display: 'flex',
-            alignItems: 'center', justifyContent: 'space-between',
+            width:          '100%',
+            borderRadius:   18,
+            padding:        '16px 24px',
+            background:     coral,
+            boxShadow:      `0 8px 30px ${coral}44`,
+            border:         'none',
+            cursor:         'pointer',
+            color:          'white',
+            fontWeight:     600,
+            fontSize:       16,
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'space-between',
           }}
         >
           <span style={{
-            width: 32, height: 32, borderRadius: '50%',
-            background: 'rgba(255,255,255,0.25)',
-            display: 'flex', alignItems: 'center',
-            justifyContent: 'center', fontSize: 14, fontWeight: 700,
+            width:          32,
+            height:         32,
+            borderRadius:   '50%',
+            background:     'rgba(255,255,255,0.25)',
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'center',
+            fontSize:       14,
+            fontWeight:     700,
           }}>
             {quantity}
           </span>
-          <span>{t('add_to_cart', lang)}</span>
           <span style={{
-            fontFamily: "'JetBrains Mono', monospace", fontWeight: 700,
+            fontFamily: lang === 'ar'
+              ? "'Noto Naskh Arabic', serif"
+              : 'inherit',
           }}>
-            ${totalPrice.toFixed(2)}
+            {t('add_to_cart', lang)}
+          </span>
+          <span style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontWeight: 700,
+          }}>
+            {formatPrice(totalPrice)}
           </span>
         </button>
       </div>
+
     </div>
   )
 }

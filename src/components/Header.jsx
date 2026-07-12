@@ -1,16 +1,22 @@
-import { t } from '../lib/translations'
+import { t, isRTL } from '../lib/translations'
 
 export default function Header({
   restaurant, lang, onLangToggle
 }) {
   const primary = restaurant?.primary_color || '#1A4D3E'
   const emoji   = restaurant?.logo_emoji    || '🍽️'
+  const rtl     = isRTL(lang)
+
+  // Cycle label: shows what you'll switch TO
+  const toggleLabel = lang === 'ar'
+    ? 'EN' : lang === 'en' ? 'FR' : 'ع'
 
   return (
     <div style={{
       flexShrink:   0,
       background:   '#FFF8F0',
       borderBottom: '1px solid rgba(45,42,38,0.08)',
+      direction:    rtl ? 'rtl' : 'ltr',
     }}>
       <div style={{
         display:        'flex',
@@ -21,11 +27,12 @@ export default function Header({
         margin:         '0 auto',
       }}>
 
-        {/* Left — logo + name */}
+        {/* Logo + name */}
         <div style={{
           display:    'flex',
           alignItems: 'center',
           gap:        12,
+          direction:  'ltr', // logo always LTR
         }}>
           <div style={{
             width:          40,
@@ -52,7 +59,9 @@ export default function Header({
             ) : emoji}
           </div>
 
-          <div>
+          <div style={{
+            textAlign: rtl ? 'right' : 'left',
+          }}>
             <h1 style={{
               fontFamily:   "'Fraunces', serif",
               fontWeight:   600,
@@ -75,7 +84,7 @@ export default function Header({
           </div>
         </div>
 
-        {/* Right — lang toggle */}
+        {/* Language toggle */}
         <button
           onClick={onLangToggle}
           style={{
@@ -90,7 +99,7 @@ export default function Header({
             cursor:       'pointer',
           }}
         >
-          {lang === 'en' ? 'FR' : 'EN'}
+          {toggleLabel}
         </button>
 
       </div>

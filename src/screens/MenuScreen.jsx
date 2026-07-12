@@ -1,16 +1,14 @@
 import { useState, useEffect } from 'react'
-import { useNavigate }         from 'react-router-dom'
 import { useSession }          from '../hooks/useSession'
 import { useCart }             from '../context/CartContext'
 import { supabase }            from '../lib/supabase'
-import { t }                   from '../lib/translations'
+import { t, isRTL }            from '../lib/translations'
 import Header                  from '../components/Header'
 import MenuItemCard             from '../components/MenuItemCard'
 import Cart                    from '../components/Cart'
 import LoadingScreen            from '../components/LoadingScreen'
 
 export default function MenuScreen() {
-  const navigate     = useNavigate()
   const searchParams = window.location.search
 
   const {
@@ -28,8 +26,8 @@ export default function MenuScreen() {
   const [loading, setLoading]               = useState(true)
 
   const primary = restaurant?.primary_color || '#1A4D3E'
+  const rtl     = isRTL(lang)
 
-  // Load menu data
   useEffect(() => {
     if (!restaurant?.id) return
 
@@ -65,6 +63,13 @@ export default function MenuScreen() {
     loadMenu()
   }, [restaurant?.id])
 
+  // Get localised category name
+  function getCatName(cat) {
+    if (lang === 'ar') return cat.name_ar || cat.name_en
+    if (lang === 'fr') return cat.name_fr || cat.name_en
+    return cat.name_en
+  }
+
   const filteredItems = activeCategory
     ? menuItems.filter(
         item => item.category_id === activeCategory
@@ -86,37 +91,34 @@ export default function MenuScreen() {
       overflow:      'hidden',
       maxWidth:      448,
       margin:        '0 auto',
-      position:      'relative',
+      direction:     rtl ? 'rtl' : 'ltr',
     }}>
 
-      {/* ── Header — never scrolls ── */}
+      {/* Header */}
       <Header
         restaurant={restaurant}
         lang={lang}
         onLangToggle={toggleLang}
       />
 
-      {/* ── Category bar — never scrolls ── */}
+      {/* Category bar */}
       <div style={{
         flexShrink:   0,
         background:   'white',
         borderBottom: '1px solid rgba(45,42,38,0.06)',
       }}>
         <div style={{
-          display:          'flex',
-          gap:              8,
-          padding:          '12px 16px',
-          overflowX:        'auto',
-          msOverflowStyle:  'none',
-          scrollbarWidth:   'none',
+          display:         'flex',
+          gap:             8,
+          padding:         '12px 16px',
+          overflowX:       'auto',
+          msOverflowStyle: 'none',
+          scrollbarWidth:  'none',
+          flexDirection:   rtl ? 'row-reverse' : 'row',
           WebkitOverflowScrolling: 'touch',
         }}>
           {categories.map(cat => {
             const active = cat.id === activeCategory
-            const name   = lang === 'fr'
-              ? (cat.name_fr || cat.name_en)
-              : cat.name_en
-
             return (
               <button
                 key={cat.id}
@@ -133,6 +135,9 @@ export default function MenuScreen() {
                   cursor:       'pointer',
                   whiteSpace:   'nowrap',
                   transition:   'all 0.2s',
+                  fontFamily:   lang === 'ar'
+                    ? "'Noto Naskh Arabic', serif"
+                    : 'inherit',
                   background:   active
                     ? primary : '#FFF8F0',
                   color: active
@@ -141,23 +146,23 @@ export default function MenuScreen() {
                 }}
               >
                 {cat.emoji && (
-                  <span style={{ marginRight: 6 }}>
+                  <span style={{ marginInlineEnd: 6 }}>
                     {cat.emoji}
                   </span>
                 )}
-                {name}
+                {getCatName(cat)}
               </button>
             )
           })}
         </div>
       </div>
 
-      {/* ── Items — only this scrolls ── */}
+      {/* Items — only this scrolls */}
       <div style={{
-        flex:            1,
-        overflowY:       'auto',
-        overflowX:       'hidden',
-        paddingBottom:   100,
+        flex:          1,
+        overflowY:     'auto',
+        overflowX:     'hidden',
+        paddingBottom: 100,
         WebkitOverflowScrolling: 'touch',
       }}>
         {filteredItems.length > 0 ? (
@@ -187,10 +192,7 @@ export default function MenuScreen() {
             textAlign:      'center',
             opacity:        0.5,
           }}>
-            <div style={{
-              fontSize:     48,
-              marginBottom: 16,
-            }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>
               🍽️
             </div>
             <p style={{ color: '#2D2A26', fontSize: 15 }}>
@@ -200,7 +202,7 @@ export default function MenuScreen() {
         )}
       </div>
 
-      {/* ── Cart button ── */}
+      {/* Cart button */}
       <Cart
         itemCount={itemCount}
         subtotal={subtotal}
