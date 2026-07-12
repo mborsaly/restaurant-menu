@@ -5,26 +5,31 @@ export const t = (key, lang = 'fr') => {
     open_now: {
       en: '● Open now',
       fr: '● Ouvert maintenant',
+      ar: '● مفتوح الآن',
     },
     closed_now: {
       en: '● Closed',
       fr: '● Fermé',
+      ar: '● مغلق',
     },
 
     // ── Cart component ───────────────────────
     view_cart: {
       en: 'View Cart',
       fr: 'Voir le panier',
+      ar: 'عرض السلة',
     },
 
     // ── CartScreen ───────────────────────────
     your_cart: {
       en: 'Your Cart',
       fr: 'Votre panier',
+      ar: 'سلة مشترياتك',
     },
     cart_empty: {
       en: 'Your cart is empty',
       fr: 'Votre panier est vide',
+      ar: 'السلة فارغة',
     },
     cart_empty_sub: {
       en: 'Add items from the menu to get started',
@@ -33,30 +38,37 @@ export const t = (key, lang = 'fr') => {
     browse_menu: {
       en: 'Browse Menu',
       fr: 'Voir le menu',
+      ar: 'تصفح المنيو',
     },
     subtotal: {
       en: 'Subtotal',
       fr: 'Sous-total',
+      ar: 'المجموع الجزئي',
     },
     delivery: {
       en: 'Delivery',
       fr: 'Livraison',
+      ar: 'التوصيل',
     },
     total: {
       en: 'Total',
       fr: 'Total',
+      ar: 'الإجمالي',
     },
     checkout: {
       en: 'Checkout',
       fr: 'Commander',
+      ar: 'إتمام الطلب',
     },
     items: {
       en: 'items',
       fr: 'articles',
+      ar: 'عناصر' ,
     },
     item: {
       en: 'item',
       fr: 'article',
+      ar: 'عنصر',
     },
 
     // ── CheckoutScreen ───────────────────────
@@ -75,6 +87,7 @@ export const t = (key, lang = 'fr') => {
     full_name: {
       en: 'Full Name',
       fr: 'Nom complet',
+      ar: 'الاسم الكامل',
     },
     name_placeholder: {
       en: 'Marie Dubois',
@@ -87,6 +100,7 @@ export const t = (key, lang = 'fr') => {
     phone_number: {
       en: 'Phone Number',
       fr: 'Numéro de téléphone',
+      ar: 'رقم الهاتف',
     },
     phone_placeholder: {
       en: '+1 514 000-0000',
@@ -99,6 +113,7 @@ export const t = (key, lang = 'fr') => {
     delivery_address: {
       en: 'Delivery Address',
       fr: 'Adresse de livraison',
+      ar: 'عنوان التوصيل',
     },
     street_address: {
       en: 'Street Address',
@@ -151,6 +166,7 @@ export const t = (key, lang = 'fr') => {
     place_order: {
       en: 'Place Order',
       fr: 'Passer la commande',
+      ar: 'تأكيد الطلب',
     },
     placing_order: {
       en: 'Placing order...',
@@ -169,22 +185,27 @@ export const t = (key, lang = 'fr') => {
     add_to_cart: {
       en: 'Add to Cart',
       fr: 'Ajouter au panier',
+      ar: 'أضف للسلة',
     },
     popular: {
       en: '⭐ Popular',
       fr: '⭐ Populaire',
+      ar: '⭐ الأكثر طلباً',
     },
     included: {
       en: 'Included',
       fr: 'Inclus',
+      ar: 'مشمول',
     },
     choose_one: {
       en: 'Choose one',
       fr: 'Choisissez un',
+      ar: 'اختر واحداً',
     },
     quantity: {
       en: 'Quantity',
       fr: 'Quantité',
+      ar: 'الكمية',
     },
     item_not_found: {
       en: 'Item not found',
@@ -203,6 +224,7 @@ export const t = (key, lang = 'fr') => {
     order_confirmed: {
       en: 'Order Confirmed!',
       fr: 'Commande confirmée!',
+      ar: 'تم تأكيد طلبك!',
     },
     thank_you: {
       en: 'Thank you',
@@ -243,6 +265,7 @@ export const t = (key, lang = 'fr') => {
     return_whatsapp: {
       en: 'Return to WhatsApp',
       fr: 'Retourner à WhatsApp',
+      ar: 'العودة لواتساب',
     },
     order_again: {
       en: 'Order Again 🍕',
