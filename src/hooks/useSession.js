@@ -21,7 +21,7 @@ export function useSession() {
           const { data: resto } = await supabase
             .from('restaurants')
             .select('*')
-            .eq('slug', 'mechwi-grillades') // Egypt demo default
+            .eq('slug', 'dokan-el-kahwa') // Egypt demo default
             .single()
           setRestaurant(resto)
 
