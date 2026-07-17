@@ -277,17 +277,32 @@ export default function ConfirmationScreen() {
                 style={{ color: coral }} />
             }
           />
-          <InfoCard
-            bg="rgba(59,130,246,0.06)"
-            border="rgba(59,130,246,0.2)"
-            labelColor="#3b82f6"
-            label={t('on_the_way', lang)}
-            value={t('driver_call', lang)}
-            icon={
-              <Phone size={18}
-                style={{ color: '#3b82f6' }} />
-            }
-          />
+          // Replace the "On the way" InfoCard block with this conditional version:
+            {isVenueOrder ? (
+              <InfoCard
+                bg="rgba(59,130,246,0.06)"
+                border="rgba(59,130,246,0.2)"
+                labelColor="#3b82f6"
+                label={t('your_location', lang)}
+                value={spotName}
+                icon={
+                  <span style={{ fontSize: 18 }}>📍</span>
+                }
+              />
+            ) : (
+              <InfoCard
+                bg="rgba(59,130,246,0.06)"
+                border="rgba(59,130,246,0.2)"
+                labelColor="#3b82f6"
+                label={t('on_the_way', lang)}
+                value={t('driver_call', lang)}
+                icon={
+                  <Phone size={18}
+                    style={{ color: '#3b82f6' }} />
+                }
+              />
+            )}
+            
           <InfoCard
             bg={`${sage}10`}
             border={`${sage}25`}

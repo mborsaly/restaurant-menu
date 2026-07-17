@@ -358,6 +358,40 @@ export const t = (key, lang = 'fr') => {
       fr: 'FR',
       ar: 'ع',
     },
+
+    // Add these keys inside the existing translations object in translations.js
+
+    your_location: {
+      en: 'Where are you?',
+      fr: 'Où êtes-vous?',
+      ar: 'أين أنت؟',
+    },
+    select_spot: {
+      en: 'Select your spot',
+      fr: 'Choisissez votre emplacement',
+      ar: 'اختر موقعك',
+    },
+    spot_required: {
+      en: 'Please select your location',
+      fr: 'Veuillez sélectionner votre emplacement',
+      ar: 'يرجى اختيار موقعك',
+    },
+    spot_note_placeholder: {
+      en: 'Additional note (e.g. wheelchair, umbrella #5)...',
+      fr: 'Note supplémentaire (ex: parasol #5)...',
+      ar: 'ملاحظة إضافية (مثلاً: شمسية رقم ٥)...',
+    },
+    order_ready_pickup: {
+      en: "We'll bring it to you",
+      fr: 'Nous vous l\'apporterons',
+      ar: 'هنجيبهولك',
+    },
+    venue_order_note: {
+      en: 'Your order will be delivered to your selected spot',
+      fr: 'Votre commande sera livrée à votre emplacement',
+      ar: 'هيتم توصيل طلبك لمكانك المختار',
+    },
+
   }
 
   return translations[key]?.[lang]

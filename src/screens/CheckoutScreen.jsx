@@ -1,10 +1,11 @@
-import { useState }               from 'react'
+import { useState, useEffect }    from 'react'
 import { useNavigate }            from 'react-router-dom'
 import { ChevronLeft, MapPin,
          User, Phone }            from 'lucide-react'
 import { useCart }                from '../context/CartContext'
 import { useSession }             from '../hooks/useSession'
-import { t }                      from '../lib/translations'
+import { supabase }               from '../lib/supabase'
+import { t, isRTL }               from '../lib/translations'
 
 // ── Field component OUTSIDE CheckoutScreen ──────
 // Critical: if defined inside, it remounts on every
@@ -13,6 +14,7 @@ function Field({
   label, optional, error,
   lang, children,
 }) {
+  const rtl = isRTL(lang)
   return (
     <div>
       <label style={{
@@ -25,6 +27,7 @@ function Field({
         opacity:       0.5,
         display:       'block',
         marginBottom:  8,
+        textAlign:     rtl ? 'right' : 'left',
       }}>
         {label}
         {optional && (
@@ -32,7 +35,7 @@ function Field({
             fontFamily:    'inherit',
             textTransform: 'none',
             fontWeight:    400,
-            marginLeft:    6,
+            margin:        rtl ? '0 6px 0 0' : '0 0 0 6px',
             opacity:       0.6,
           }}>
             ({t('optional', lang)})
@@ -44,8 +47,8 @@ function Field({
         <p style={{
           fontSize:  12,
           color:     '#ef4444',
-          marginTop: 4,
           margin:    '4px 0 0',
+          textAlign: rtl ? 'right' : 'left',
         }}>
           {error}
         </p>
@@ -55,14 +58,18 @@ function Field({
 }
 
 // ── SectionTitle OUTSIDE CheckoutScreen ─────────
-function SectionTitle({ text }) {
+function SectionTitle({ text, lang }) {
+  const rtl = isRTL(lang)
   return (
     <h3 style={{
-      fontFamily: "'Fraunces', serif",
+      fontFamily: lang === 'ar'
+        ? "'Noto Naskh Arabic', serif"
+        : "'Fraunces', serif",
       fontSize:   16,
       fontWeight: 600,
       color:      '#1A4D3E',
       margin:     0,
+      textAlign:  rtl ? 'right' : 'left',
     }}>
       {text}
     </h3>
@@ -83,10 +90,70 @@ export default function CheckoutScreen() {
   } = useCart()
 
   const primary     = restaurant?.primary_color || '#1A4D3E'
-  const coral       = '#2D2A26'
-  const deliveryFee = restaurant?.delivery_fee  || 3.99
-  const total       = subtotal + deliveryFee
+  const coral       = '#FF7A47'
+  const rtl         = isRTL(lang)
+  const arabicFont  = lang === 'ar'
+    ? "'Noto Naskh Arabic', serif" : 'inherit'
 
+  // ── VENUE MODE DETECTION ────────────────────
+  const isVenueMode = !!restaurant?.is_venue_vendor
+  const deliveryFee = isVenueMode
+    ? 0
+    : (restaurant?.delivery_fee || 3.99)
+  const total = subtotal + deliveryFee
+
+  // ── Venue spots state ───────────────────────
+  const [spots, setSpots]               = useState([])
+  const [spotsLoading, setSpotsLoading] = useState(isVenueMode)
+  const [selectedSpot, setSelectedSpot] = useState(null)
+  const [spotNote, setSpotNote]         = useState('')
+
+  useEffect(() => {
+    if (!isVenueMode || !restaurant?.venue_id) {
+      setSpotsLoading(false)
+      return
+    }
+
+    async function loadSpots() {
+      try {
+        const { data } = await supabase
+          .from('venue_spots')
+          .select('*')
+          .eq('venue_id', restaurant.venue_id)
+          .eq('active', true)
+          .order('sort_order')
+
+        setSpots(data || [])
+      } catch (err) {
+        console.error('Load spots error:', err)
+      } finally {
+        setSpotsLoading(false)
+      }
+    }
+
+    loadSpots()
+  }, [isVenueMode, restaurant?.venue_id])
+
+  function getSpotName(spot) {
+    if (!spot) return ''
+    if (lang === 'ar') return spot.name_ar || spot.name_en
+    if (lang === 'fr') return spot.name_fr || spot.name_en
+    return spot.name_en
+  }
+
+  function getZoneEmoji(zone) {
+    const map = {
+      pool:      '🏊',
+      garden:    '🌿',
+      clubhouse: '🏛️',
+      tennis:    '🎾',
+      kids:      '🎠',
+      entrance:  '🚪',
+    }
+    return map[zone] || '📍'
+  }
+
+  // ── Standard address fields (non-venue) ─────
   const [name, setName]         = useState(
     customer?.name || ''
   )
@@ -108,8 +175,15 @@ export default function CheckoutScreen() {
       e.name    = t('name_required',    lang)
     if (!phone.trim())
       e.phone   = t('phone_required',   lang)
-    if (!address.trim())
-      e.address = t('address_required', lang)
+
+    if (isVenueMode) {
+      if (!selectedSpot)
+        e.spot  = t('spot_required',    lang)
+    } else {
+      if (!address.trim())
+        e.address = t('address_required', lang)
+    }
+
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -124,13 +198,22 @@ export default function CheckoutScreen() {
         restaurant_id:    restaurant?.id,
         customer_phone:   phone,
         customer_name:    name,
-        delivery_address: address
-          + (apt ? `, ${apt}` : ''),
-        notes,
+
+        // ── Venue vs regular delivery ─────────
+        is_venue_order:   isVenueMode,
+        venue_spot_id:    isVenueMode
+          ? selectedSpot?.id : null,
+        delivery_address: isVenueMode
+          ? getSpotName(selectedSpot)
+          : address + (apt ? `, ${apt}` : ''),
+        spot_note:        isVenueMode ? spotNote : null,
+        notes:            isVenueMode ? '' : notes,
+
         items: cart.map(item => ({
           itemId:    item.itemId,
           name:      item.name,
           name_fr:   item.name_fr,
+          name_ar:   item.name_ar,
           options:   item.options,
           quantity:  item.quantity,
           unitPrice: item.unitPrice,
@@ -164,11 +247,15 @@ export default function CheckoutScreen() {
       sessionStorage.setItem('orderNumber',
         result.orderNumber   || '0001')
       sessionStorage.setItem('estimatedTime',
-        result.estimatedTime || '35-45 mins')
+        result.estimatedTime || '15-25 mins')
       sessionStorage.setItem('customerName', name)
       sessionStorage.setItem('twilioNumber',
         restaurant?.twilio_number || '')
       sessionStorage.setItem('lang', lang)
+      sessionStorage.setItem('isVenueOrder',
+        isVenueMode ? '1' : '0')
+      sessionStorage.setItem('spotName',
+        isVenueMode ? getSpotName(selectedSpot) : '')
 
       clearCart()
       navigate('/confirmation' + searchParams)
@@ -190,7 +277,10 @@ export default function CheckoutScreen() {
     color:        '#2D2A26',
     outline:      'none',
     boxSizing:    'border-box',
-    fontFamily:   "'Inter', sans-serif",
+    fontFamily:   arabicFont === 'inherit'
+      ? "'Inter', sans-serif" : arabicFont,
+    textAlign:    rtl ? 'right' : 'left',
+    direction:    rtl ? 'rtl' : 'ltr',
   }
 
   function inputStyle(hasError) {
@@ -207,13 +297,13 @@ export default function CheckoutScreen() {
   function inputIconStyle(hasError) {
     return {
       ...inputStyle(hasError),
-      paddingLeft: 42,
+      [rtl ? 'paddingRight' : 'paddingLeft']: 42,
     }
   }
 
   const iconPos = {
     position:  'absolute',
-    left:      14,
+    [rtl ? 'right' : 'left']: 14,
     top:       '50%',
     transform: 'translateY(-50%)',
     color:     '#2D2A26',
@@ -237,6 +327,7 @@ export default function CheckoutScreen() {
       display:       'flex',
       flexDirection: 'column',
       background:    '#FFF8F0',
+      direction:     rtl ? 'rtl' : 'ltr',
     }}>
 
       {/* Header */}
@@ -266,6 +357,7 @@ export default function CheckoutScreen() {
             alignItems:     'center',
             justifyContent: 'center',
             flexShrink:     0,
+            transform:      rtl ? 'scaleX(-1)' : 'none',
           }}
         >
           <ChevronLeft size={20}
@@ -273,13 +365,16 @@ export default function CheckoutScreen() {
         </button>
 
         <h1 style={{
-          fontFamily: "'Fraunces', serif",
+          fontFamily: arabicFont === 'inherit'
+            ? "'Fraunces', serif" : arabicFont,
           fontSize:   18,
           fontWeight: 600,
           color:      '#1A4D3E',
           margin:     0,
         }}>
-          {t('delivery_details', lang)}
+          {isVenueMode
+            ? t('your_order', lang)
+            : t('delivery_details', lang)}
         </h1>
       </div>
 
@@ -305,8 +400,9 @@ export default function CheckoutScreen() {
             display:        'flex',
             justifyContent: 'space-between',
             alignItems:     'center',
+            flexDirection:  rtl ? 'row-reverse' : 'row',
           }}>
-            <div>
+            <div style={{ textAlign: rtl ? 'right' : 'left' }}>
               <p style={{
                 fontFamily:    "'JetBrains Mono', monospace",
                 fontSize:      11,
@@ -323,6 +419,7 @@ export default function CheckoutScreen() {
                 fontSize:   14,
                 color:      '#2D2A26',
                 margin:     '4px 0 0',
+                fontFamily: arabicFont,
               }}>
                 {itemCount}{' '}
                 {itemCount === 1
@@ -331,7 +428,7 @@ export default function CheckoutScreen() {
                 }
               </p>
             </div>
-            <div style={{ textAlign: 'right' }}>
+            <div style={{ textAlign: rtl ? 'left' : 'right' }}>
               <p style={{
                 fontFamily:    "'JetBrains Mono', monospace",
                 fontSize:      11,
@@ -359,6 +456,7 @@ export default function CheckoutScreen() {
           <div style={sectionBox}>
             <SectionTitle
               text={t('your_information', lang)}
+              lang={lang}
             />
 
             {/* Name */}
@@ -402,92 +500,220 @@ export default function CheckoutScreen() {
                   }
                   pattern=".*"
                   inputMode="tel"
-                  style={inputIconStyle(!!errors.phone)}
-                />
-              </div>
-            </Field>
-          </div>
-
-          {/* Delivery address */}
-          <div style={sectionBox}>
-            <SectionTitle
-              text={t('delivery_address', lang)}
-            />
-
-            {/* Street */}
-            <Field
-              label={t('street_address', lang)}
-              error={errors.address}
-              lang={lang}
-            >
-              <div style={{ position: 'relative' }}>
-                <MapPin size={16}
                   style={{
-                    ...iconPos,
-                    top:       16,
-                    transform: 'none',
+                    ...inputIconStyle(!!errors.phone),
+                    textAlign: 'left',
+                    direction: 'ltr',
                   }}
                 />
-                <input
-                  type="text"
-                  value={address}
-                  onChange={e =>
-                    setAddress(e.target.value)
-                  }
-                  placeholder={
-                    t('street_placeholder', lang)
-                  }
-                  style={inputIconStyle(
-                    !!errors.address
-                  )}
-                />
               </div>
             </Field>
-
-            {/* Apt */}
-            <Field
-              label={t('apt_unit', lang)}
-              optional
-              lang={lang}
-            >
-              <input
-                type="text"
-                value={apt}
-                onChange={e => setApt(e.target.value)}
-                placeholder={
-                  t('apt_placeholder', lang)
-                }
-                style={inputStyle(false)}
-              />
-            </Field>
-
-            {/* Notes */}
-            <Field
-              label={t('delivery_notes', lang)}
-              optional
-              lang={lang}
-            >
-              <textarea
-                value={notes}
-                onChange={e =>
-                  setNotes(e.target.value)
-                }
-                placeholder={
-                  t('notes_placeholder', lang)
-                }
-                rows={2}
-                style={{
-                  ...inputStyle(false),
-                  resize: 'none',
-                }}
-              />
-            </Field>
           </div>
+
+          {/* ── VENUE MODE: Spot Picker ── */}
+          {isVenueMode ? (
+            <div style={sectionBox}>
+              <SectionTitle
+                text={t('your_location', lang)}
+                lang={lang}
+              />
+
+              {spotsLoading ? (
+                <p style={{
+                  fontSize: 13,
+                  color:    '#2D2A26',
+                  opacity:  0.5,
+                  fontFamily: arabicFont,
+                }}>
+                  {t('loading_menu_items', lang)}
+                </p>
+              ) : (
+                <>
+                  <div style={{
+                    display:       'flex',
+                    flexDirection: 'column',
+                    gap:           8,
+                  }}>
+                    {spots.map(spot => {
+                      const isSelected =
+                        selectedSpot?.id === spot.id
+                      return (
+                        <button
+                          key={spot.id}
+                          onClick={() =>
+                            setSelectedSpot(spot)
+                          }
+                          style={{
+                            padding:      '12px 16px',
+                            borderRadius: 14,
+                            border:       isSelected
+                              ? `2px solid ${primary}`
+                              : '1.5px solid rgba(45,42,38,.12)',
+                            background:   isSelected
+                              ? `${primary}10` : '#FFF8F0',
+                            cursor:       'pointer',
+                            textAlign:    rtl
+                              ? 'right' : 'left',
+                            display:      'flex',
+                            alignItems:   'center',
+                            gap:          10,
+                            flexDirection: rtl
+                              ? 'row-reverse' : 'row',
+                            color:        '#2D2A26',
+                            fontWeight:   isSelected
+                              ? 600 : 400,
+                            fontSize:     14,
+                            fontFamily:   arabicFont,
+                          }}
+                        >
+                          <span style={{ fontSize: 18 }}>
+                            {getZoneEmoji(spot.zone)}
+                          </span>
+                          <span style={{ flex: 1 }}>
+                            {getSpotName(spot)}
+                          </span>
+                          {isSelected && (
+                            <span style={{
+                              color:    primary,
+                              fontSize: 18,
+                            }}>
+                              ✓
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {errors.spot && (
+                    <p style={{
+                      fontSize:  12,
+                      color:     '#ef4444',
+                      margin:    0,
+                      textAlign: rtl ? 'right' : 'left',
+                    }}>
+                      {errors.spot}
+                    </p>
+                  )}
+
+                  {/* Optional note */}
+                  <Field
+                    label={t('delivery_notes', lang)}
+                    optional
+                    lang={lang}
+                  >
+                    <input
+                      type="text"
+                      value={spotNote}
+                      onChange={e =>
+                        setSpotNote(e.target.value)
+                      }
+                      placeholder={
+                        t('spot_note_placeholder', lang)
+                      }
+                      style={inputStyle(false)}
+                    />
+                  </Field>
+
+                  {/* Venue delivery note */}
+                  <div style={{
+                    background:   `${primary}08`,
+                    borderRadius: 12,
+                    padding:      '10px 14px',
+                    fontSize:     12,
+                    color:        primary,
+                    fontFamily:   arabicFont,
+                    textAlign:    rtl ? 'right' : 'left',
+                  }}>
+                    📍 {t('venue_order_note', lang)}
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            /* ── REGULAR MODE: Address ── */
+            <div style={sectionBox}>
+              <SectionTitle
+                text={t('delivery_address', lang)}
+                lang={lang}
+              />
+
+              {/* Street */}
+              <Field
+                label={t('street_address', lang)}
+                error={errors.address}
+                lang={lang}
+              >
+                <div style={{ position: 'relative' }}>
+                  <MapPin size={16}
+                    style={{
+                      ...iconPos,
+                      top:       16,
+                      transform: 'none',
+                    }}
+                  />
+                  <input
+                    type="text"
+                    value={address}
+                    onChange={e =>
+                      setAddress(e.target.value)
+                    }
+                    placeholder={
+                      t('street_placeholder', lang)
+                    }
+                    style={inputIconStyle(
+                      !!errors.address
+                    )}
+                  />
+                </div>
+              </Field>
+
+              {/* Apt */}
+              <Field
+                label={t('apt_unit', lang)}
+                optional
+                lang={lang}
+              >
+                <input
+                  type="text"
+                  value={apt}
+                  onChange={e => setApt(e.target.value)}
+                  placeholder={
+                    t('apt_placeholder', lang)
+                  }
+                  style={inputStyle(false)}
+                />
+              </Field>
+
+              {/* Notes */}
+              <Field
+                label={t('delivery_notes', lang)}
+                optional
+                lang={lang}
+              >
+                <textarea
+                  value={notes}
+                  onChange={e =>
+                    setNotes(e.target.value)
+                  }
+                  placeholder={
+                    t('notes_placeholder', lang)
+                  }
+                  rows={2}
+                  style={{
+                    ...inputStyle(false),
+                    resize: 'none',
+                  }}
+                />
+              </Field>
+            </div>
+          )}
 
           {/* Payment */}
           <div style={sectionBox}>
             <SectionTitle
               text={t('payment', lang)}
+              lang={lang}
             />
             <div style={{
               borderRadius: 14,
@@ -496,14 +722,16 @@ export default function CheckoutScreen() {
               display:      'flex',
               alignItems:   'center',
               gap:          12,
+              flexDirection: rtl ? 'row-reverse' : 'row',
             }}>
               <span style={{ fontSize: 24 }}>💵</span>
-              <div>
+              <div style={{ textAlign: rtl ? 'right' : 'left' }}>
                 <p style={{
                   fontWeight: 700,
                   fontSize:   14,
                   color:      '#2D2A26',
                   margin:     0,
+                  fontFamily: arabicFont,
                 }}>
                   {t('cash_on_delivery', lang)}
                 </p>
@@ -512,10 +740,13 @@ export default function CheckoutScreen() {
                   color:    '#2D2A26',
                   opacity:  0.5,
                   margin:   '2px 0 0',
+                  fontFamily: arabicFont,
                 }}>
                   {t('cash_ready', lang)}{' '}
                   ${total.toFixed(2)}{' '}
-                  {t('cash_ready_suffix', lang)}
+                  {isVenueMode
+                    ? t('order_ready_pickup', lang)
+                    : t('cash_ready_suffix', lang)}
                 </p>
               </div>
             </div>
@@ -532,8 +763,12 @@ export default function CheckoutScreen() {
                 display:        'flex',
                 justifyContent: 'space-between',
                 fontSize:       14,
+                flexDirection:  rtl ? 'row-reverse' : 'row',
               }}>
-                <span style={{ opacity: 0.55 }}>
+                <span style={{
+                  opacity: 0.55,
+                  fontFamily: arabicFont,
+                }}>
                   {t('subtotal', lang)}
                 </span>
                 <span style={{
@@ -544,21 +779,27 @@ export default function CheckoutScreen() {
                 </span>
               </div>
 
-              <div style={{
-                display:        'flex',
-                justifyContent: 'space-between',
-                fontSize:       14,
-              }}>
-                <span style={{ opacity: 0.55 }}>
-                  {t('delivery', lang)}
-                </span>
-                <span style={{
-                  fontFamily:
-                    "'JetBrains Mono', monospace",
+              {!isVenueMode && (
+                <div style={{
+                  display:        'flex',
+                  justifyContent: 'space-between',
+                  fontSize:       14,
+                  flexDirection:  rtl ? 'row-reverse' : 'row',
                 }}>
-                  ${deliveryFee.toFixed(2)}
-                </span>
-              </div>
+                  <span style={{
+                    opacity: 0.55,
+                    fontFamily: arabicFont,
+                  }}>
+                    {t('delivery', lang)}
+                  </span>
+                  <span style={{
+                    fontFamily:
+                      "'JetBrains Mono', monospace",
+                  }}>
+                    ${deliveryFee.toFixed(2)}
+                  </span>
+                </div>
+              )}
 
               <div style={{
                 height:     1,
@@ -569,8 +810,12 @@ export default function CheckoutScreen() {
                 display:        'flex',
                 justifyContent: 'space-between',
                 fontWeight:     700,
+                flexDirection:  rtl ? 'row-reverse' : 'row',
               }}>
-                <span style={{ color: '#2D2A26' }}>
+                <span style={{
+                  color: '#2D2A26',
+                  fontFamily: arabicFont,
+                }}>
                   {t('total', lang)}
                 </span>
                 <span style={{
@@ -619,116 +864,69 @@ export default function CheckoutScreen() {
         background: '#FFF8F0',
       }}>
         <button
-
-  onClick={handlePlaceOrder}
-
-  disabled={submitting}
-
-  style={{
-
-    width:          '100%',
-
-    borderRadius:   18,
-
-    padding:        '16px 24px',
-
-    border:         'none',
-
-    cursor:         submitting
-
-      ? 'not-allowed' : 'pointer',
-
-    fontWeight:     600,
-
-    fontSize:       16,
-
-    display:        'flex',
-
-    alignItems:     'center',
-
-    justifyContent: 'center',
-
-    gap:            12,
-
-    transition:     'all 0.2s',
-
-    background:     submitting
-
-      ? 'rgba(45,42,38,0.12)'
-
-      : '#FF7A47',
-
-    color: submitting
-
-      ? 'rgba(45,42,38,0.4)'
-
-      : 'white',
-
-    boxShadow: submitting
-
-      ? 'none'
-
-      : '0 8px 30px #FF7A4744',
-
-  }}
-
->
-
-  {submitting ? (
-
-    <>
-
-      <div style={{
-
-        width:          20,
-
-        height:         20,
-
-        borderRadius:   '50%',
-
-        border:         '2px solid rgba(45,42,38,0.2)',
-
-        borderTopColor: 'rgba(45,42,38,0.5)',
-
-        animation:      'spin 0.8s linear infinite',
-
-      }} />
-
-      <span>{t('placing_order', lang)}</span>
-
-    </>
-
-  ) : (
-
-    <>
-
-      <span>{t('place_order', lang)}</span>
-
-      <span style={{
-
-        fontFamily: "'JetBrains Mono', monospace",
-
-        fontWeight: 700,
-
-      }}>
-
-        ${total.toFixed(2)}
-
-      </span>
-
-    </>
-
-  )}
-
-</button>
+          onClick={handlePlaceOrder}
+          disabled={submitting}
+          style={{
+            width:          '100%',
+            borderRadius:   18,
+            padding:        '16px 24px',
+            border:         'none',
+            cursor:         submitting
+              ? 'not-allowed' : 'pointer',
+            fontWeight:     600,
+            fontSize:       16,
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'center',
+            gap:            12,
+            transition:     'all 0.2s',
+            background:     submitting
+              ? 'rgba(45,42,38,0.12)'
+              : coral,
+            color: submitting
+              ? 'rgba(45,42,38,0.4)'
+              : 'white',
+            boxShadow: submitting
+              ? 'none'
+              : `0 8px 30px ${coral}44`,
+          }}
+        >
+          {submitting ? (
+            <>
+              <div style={{
+                width:          20,
+                height:         20,
+                borderRadius:   '50%',
+                border:         '2px solid rgba(45,42,38,0.2)',
+                borderTopColor: 'rgba(45,42,38,0.5)',
+                animation:      'spin 0.8s linear infinite',
+              }} />
+              <span style={{ fontFamily: arabicFont }}>
+                {t('placing_order', lang)}
+              </span>
+            </>
+          ) : (
+            <>
+              <span style={{ fontFamily: arabicFont }}>
+                {t('place_order', lang)}
+              </span>
+              <span style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontWeight: 700,
+              }}>
+                ${total.toFixed(2)}
+              </span>
+            </>
+          )}
+        </button>
 
         <p style={{
           textAlign:  'center',
           fontSize:   11,
           color:      '#2D2A26',
           opacity:    0.35,
-          marginTop:  8,
           margin:     '8px 0 0',
+          fontFamily: arabicFont,
         }}>
           {t('terms', lang)}
         </p>
