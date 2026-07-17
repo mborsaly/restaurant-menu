@@ -24,6 +24,10 @@ export default function ConfirmationScreen() {
   const [isWhatsApp, setIsWhatsApp]       = useState(false)
   const [isDesktop, setIsDesktop]         = useState(false)
 
+  // Add near the top of the component, alongside existing sessionStorage reads:
+  const isVenueOrder = sessionStorage.getItem('isVenueOrder') === '1'
+  const spotName      = sessionStorage.getItem('spotName') || ''
+
   // Detect platform
   useEffect(() => {
     const ua = navigator.userAgent
@@ -302,7 +306,7 @@ export default function ConfirmationScreen() {
                 }
               />
             )}
-            
+
           <InfoCard
             bg={`${sage}10`}
             border={`${sage}25`}
