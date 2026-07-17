@@ -4,18 +4,17 @@ import { useCart }             from '../context/CartContext'
 import { supabase }            from '../lib/supabase'
 import { t, isRTL }            from '../lib/translations'
 import Header                  from '../components/Header'
-import MenuItemCard             from '../components/MenuItemCard'
+import MenuItemCard            from '../components/MenuItemCard'
 import Cart                    from '../components/Cart'
-import LoadingScreen            from '../components/LoadingScreen'
+import LoadingScreen           from '../components/LoadingScreen'
 
 export default function MenuScreen() {
-  const searchParams = window.location.search
-
   const {
     restaurant,
     loading: sessionLoading,
     lang,
     toggleLang,
+    paths,
   } = useSession()
 
   const { itemCount, subtotal } = useCart()
@@ -63,7 +62,6 @@ export default function MenuScreen() {
     loadMenu()
   }, [restaurant?.id])
 
-  // Get localised category name
   function getCatName(cat) {
     if (lang === 'ar') return cat.name_ar || cat.name_en
     if (lang === 'fr') return cat.name_fr || cat.name_en
@@ -177,8 +175,8 @@ export default function MenuScreen() {
                 key={item.id}
                 item={item}
                 lang={lang}
-                searchParams={searchParams}
                 restaurant={restaurant}
+                linkTo={paths.item(item.id)}
               />
             ))}
           </div>
@@ -206,9 +204,9 @@ export default function MenuScreen() {
       <Cart
         itemCount={itemCount}
         subtotal={subtotal}
-        searchParams={searchParams}
         restaurant={restaurant}
         lang={lang}
+        linkTo={paths.cart()}
       />
 
     </div>

@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { isRTL }       from '../lib/translations'
 
 export default function MenuItemCard({
-  item, lang, searchParams, restaurant
+  item, lang, restaurant, linkTo
 }) {
   const navigate = useNavigate()
   const primary  = restaurant?.primary_color || '#1A4D3E'
@@ -20,15 +20,17 @@ export default function MenuItemCard({
       ? (item.description_fr || item.description_en)
       : item.description_en
 
+  function handleClick() {
+    sessionStorage.setItem(
+      'selectedItem',
+      JSON.stringify(item)
+    )
+    navigate(linkTo)
+  }
+
   return (
     <div
-      onClick={() => {
-        sessionStorage.setItem(
-          'selectedItem',
-          JSON.stringify(item)
-        )
-        navigate(`/item/${item.id}${searchParams}`)
-      }}
+      onClick={handleClick}
       style={{
         background:   'white',
         borderRadius: 20,
@@ -105,7 +107,6 @@ export default function MenuItemCard({
             fontSize:   13,
             color:      primary,
           }}>
-            {/* Currency symbol position */}
             {lang === 'ar'
               ? `${Number(item.base_price).toFixed(0)} ج.م`
               : `$${Number(item.base_price).toFixed(2)}`

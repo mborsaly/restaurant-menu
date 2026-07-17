@@ -1,15 +1,16 @@
 import { useNavigate } from 'react-router-dom'
-import { t }           from '../lib/translations'
+import { t, isRTL }    from '../lib/translations'
 
 export default function Cart({
   itemCount,
   subtotal,
-  searchParams,
   restaurant,
   lang = 'fr',
+  linkTo,
 }) {
   const navigate = useNavigate()
   const primary  = restaurant?.primary_color || '#FF7A47'
+  const rtl      = isRTL(lang)
 
   if (itemCount === 0) return null
 
@@ -24,9 +25,7 @@ export default function Cart({
       zIndex:   20,
     }}>
       <button
-        onClick={() =>
-          navigate('/cart' + searchParams)
-        }
+        onClick={() => navigate(linkTo)}
         style={{
           width:          '100%',
           borderRadius:   18,
@@ -40,6 +39,7 @@ export default function Cart({
           cursor:         'pointer',
           color:          'white',
           fontWeight:     600,
+          flexDirection:  rtl ? 'row-reverse' : 'row',
         }}
       >
         {/* Badge */}
@@ -58,7 +58,12 @@ export default function Cart({
         </div>
 
         {/* Label */}
-        <span style={{ fontSize: 15 }}>
+        <span style={{
+          fontSize:   15,
+          fontFamily: lang === 'ar'
+            ? "'Noto Naskh Arabic', serif"
+            : 'inherit',
+        }}>
           {t('view_cart', lang)}
         </span>
 

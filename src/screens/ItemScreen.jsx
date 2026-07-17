@@ -1,5 +1,6 @@
 import { useState, useEffect }      from 'react'
-import { useNavigate, useParams }   from 'react-router-dom'
+import { useParams }                from 'react-router-dom'
+import { useNavigate }              from 'react-router-dom'
 import { ChevronLeft, ChevronRight,
          Minus, Plus }              from 'lucide-react'
 import { supabase }                 from '../lib/supabase'
@@ -9,17 +10,17 @@ import { t, isRTL }                 from '../lib/translations'
 import LoadingScreen                from '../components/LoadingScreen'
 
 export default function ItemScreen() {
-  const navigate     = useNavigate()
-  const { id }       = useParams()
-  const searchParams = window.location.search
+  const navigate = useNavigate()
+  const { id }   = useParams()
 
   const { addItem }    = useCart()
-  const { restaurant, lang, toggleLang } = useSession()
+  const {
+    restaurant, lang, toggleLang, paths,
+  } = useSession()
 
   const primary = restaurant?.primary_color || '#1A4D3E'
   const coral   = '#FF7A47'
   const rtl     = isRTL(lang)
-
   const BackIcon = rtl ? ChevronRight : ChevronLeft
 
   const [item, setItem]                       = useState(null)
@@ -105,10 +106,9 @@ export default function ItemScreen() {
 
   function handleAddToCart() {
     addItem(item, selectedOptions, quantity)
-    navigate('/menu' + searchParams)
+    navigate(paths.menu())
   }
 
-  // Localised field helpers
   function getName(obj) {
     if (!obj) return ''
     if (lang === 'ar') return obj.name_ar || obj.name_en || ''
@@ -168,7 +168,7 @@ export default function ItemScreen() {
         {t('item_not_found', lang)}
       </h2>
       <button
-        onClick={() => navigate('/menu' + searchParams)}
+        onClick={() => navigate(paths.menu())}
         style={{
           padding:      '12px 28px',
           borderRadius: 14,
@@ -230,9 +230,8 @@ export default function ItemScreen() {
           </span>
         )}
 
-        {/* Back button — flips for RTL */}
         <button
-          onClick={() => navigate('/menu' + searchParams)}
+          onClick={() => navigate(paths.menu())}
           style={{
             position:       'absolute',
             top:            16,
@@ -253,7 +252,6 @@ export default function ItemScreen() {
             style={{ color: '#2D2A26' }} />
         </button>
 
-        {/* Language toggle */}
         <button
           onClick={toggleLang}
           style={{
@@ -309,9 +307,8 @@ export default function ItemScreen() {
           textAlign:    rtl ? 'right' : 'left',
         }}>
           <h1 style={{
-            fontFamily:   lang === 'ar'
-              ? "'Noto Naskh Arabic', serif"
-              : "'Fraunces', serif",
+            fontFamily:   arabicFont === 'inherit'
+              ? "'Fraunces', serif" : arabicFont,
             fontSize:     22,
             fontWeight:   700,
             color:        '#1A4D3E',
@@ -492,7 +489,6 @@ export default function ItemScreen() {
             {t('quantity', lang)}
           </h3>
 
-          {/* Quantity controls — always LTR */}
           <div style={{
             display:    'flex',
             alignItems: 'center',
@@ -563,7 +559,7 @@ export default function ItemScreen() {
         margin:     '0 auto',
         padding:    16,
         background: '#FFF8F0',
-        direction:  'ltr', // button always LTR
+        direction:  'ltr',
       }}>
         <button
           onClick={handleAddToCart}
@@ -596,11 +592,7 @@ export default function ItemScreen() {
           }}>
             {quantity}
           </span>
-          <span style={{
-            fontFamily: lang === 'ar'
-              ? "'Noto Naskh Arabic', serif"
-              : 'inherit',
-          }}>
+          <span style={{ fontFamily: arabicFont }}>
             {t('add_to_cart', lang)}
           </span>
           <span style={{

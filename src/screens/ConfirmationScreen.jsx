@@ -3,19 +3,22 @@ import { useNavigate }             from 'react-router-dom'
 import { CheckCircle, Clock,
          Phone, MessageCircle }    from 'lucide-react'
 import { useSession }              from '../hooks/useSession'
-import { t }                       from '../lib/translations'
+import { t, isRTL }                from '../lib/translations'
 
 export default function ConfirmationScreen() {
-  const navigate     = useNavigate()
-  const searchParams = window.location.search
-  const { restaurant } = useSession()
+  const navigate = useNavigate()
+  const { restaurant, paths } = useSession()
 
-  // Lang comes from sessionStorage
-  // (set during checkout before navigation)
-  const lang  = sessionStorage.getItem('lang') || 'fr'
-  const coral = '#FF7A47'
-  const sage  = '#2D6E5A'
-  const primary = restaurant?.primary_color || '#1A4D3E'
+  const lang        = sessionStorage.getItem('lang') || 'fr'
+  const coral        = '#FF7A47'
+  const sage          = '#2D6E5A'
+  const primary        = restaurant?.primary_color || '#1A4D3E'
+  const rtl             = isRTL(lang)
+  const arabicFont = lang === 'ar'
+    ? "'Noto Naskh Arabic', serif" : 'inherit'
+
+  const isVenueOrder = sessionStorage.getItem('isVenueOrder') === '1'
+  const spotName      = sessionStorage.getItem('spotName') || ''
 
   const [orderNumber, setOrderNumber]     = useState('')
   const [estimatedTime, setEstimatedTime] = useState('')
@@ -24,11 +27,6 @@ export default function ConfirmationScreen() {
   const [isWhatsApp, setIsWhatsApp]       = useState(false)
   const [isDesktop, setIsDesktop]         = useState(false)
 
-  // Add near the top of the component, alongside existing sessionStorage reads:
-  const isVenueOrder = sessionStorage.getItem('isVenueOrder') === '1'
-  const spotName      = sessionStorage.getItem('spotName') || ''
-
-  // Detect platform
   useEffect(() => {
     const ua = navigator.userAgent
     setIsWhatsApp(/WhatsApp/i.test(ua))
@@ -37,22 +35,20 @@ export default function ConfirmationScreen() {
     )
   }, [])
 
-  // Load order data
   useEffect(() => {
     setOrderNumber(
       sessionStorage.getItem('orderNumber')   || '0001'
     )
     setEstimatedTime(
-      sessionStorage.getItem('estimatedTime') || '35-45 mins'
+      sessionStorage.getItem('estimatedTime') || '15-25 mins'
     )
     setCustomerName(
       sessionStorage.getItem('customerName')  || ''
     )
   }, [])
 
-  // Auto return to WhatsApp
   useEffect(() => {
-    if (!isWhatsApp) return
+    if (!isWhatsApp || isVenueOrder) return
 
     const timer = setInterval(() => {
       setCountdown(prev => {
@@ -71,7 +67,7 @@ export default function ConfirmationScreen() {
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [isWhatsApp, restaurant])
+  }, [isWhatsApp, restaurant, isVenueOrder])
 
   function handleReturnToWhatsApp() {
     const twilioNumber =
@@ -92,6 +88,7 @@ export default function ConfirmationScreen() {
         display:      'flex',
         alignItems:   'center',
         gap:          16,
+        flexDirection: rtl ? 'row-reverse' : 'row',
       }}>
         <div style={{
           width:          40,
@@ -105,7 +102,7 @@ export default function ConfirmationScreen() {
         }}>
           {icon}
         </div>
-        <div style={{ textAlign: 'left' }}>
+        <div style={{ textAlign: rtl ? 'right' : 'left' }}>
           <p style={{
             fontFamily:    "'JetBrains Mono', monospace",
             fontSize:      11,
@@ -122,6 +119,7 @@ export default function ConfirmationScreen() {
             fontSize:   14,
             color:      '#2D2A26',
             margin:     '3px 0 0',
+            fontFamily: arabicFont,
           }}>
             {value}
           </p>
@@ -136,6 +134,7 @@ export default function ConfirmationScreen() {
       display:    'flex',
       flexDirection: 'column',
       background: '#FFF8F0',
+      direction:  rtl ? 'rtl' : 'ltr',
     }}>
       <div style={{
         flex:           1,
@@ -199,7 +198,7 @@ export default function ConfirmationScreen() {
           <div style={{
             position:  'absolute',
             top:       -4,
-            right:     -4,
+            [rtl ? 'left' : 'right']: -4,
             fontSize:  28,
             animation: 'bounce 1s infinite',
           }}>
@@ -209,12 +208,13 @@ export default function ConfirmationScreen() {
 
         {/* Title */}
         <h1 style={{
-          fontFamily:   "'Fraunces', serif",
+          fontFamily:   arabicFont === 'inherit'
+            ? "'Fraunces', serif" : arabicFont,
           fontSize:     28,
           fontWeight:   600,
           color:        '#1A4D3E',
           marginBottom: 6,
-          letterSpacing: '-0.01em',
+          letterSpacing: lang === 'ar' ? 0 : '-0.01em',
         }}>
           {t('order_confirmed', lang)}
         </h1>
@@ -225,6 +225,7 @@ export default function ConfirmationScreen() {
             color:        '#2D2A26',
             opacity:      0.6,
             marginBottom: 4,
+            fontFamily:   arabicFont,
           }}>
             {t('thank_you', lang)},{' '}
             {customerName.split(' ')[0]}!
@@ -281,31 +282,31 @@ export default function ConfirmationScreen() {
                 style={{ color: coral }} />
             }
           />
-          // Replace the "On the way" InfoCard block with this conditional version:
-            {isVenueOrder ? (
-              <InfoCard
-                bg="rgba(59,130,246,0.06)"
-                border="rgba(59,130,246,0.2)"
-                labelColor="#3b82f6"
-                label={t('your_location', lang)}
-                value={spotName}
-                icon={
-                  <span style={{ fontSize: 18 }}>📍</span>
-                }
-              />
-            ) : (
-              <InfoCard
-                bg="rgba(59,130,246,0.06)"
-                border="rgba(59,130,246,0.2)"
-                labelColor="#3b82f6"
-                label={t('on_the_way', lang)}
-                value={t('driver_call', lang)}
-                icon={
-                  <Phone size={18}
-                    style={{ color: '#3b82f6' }} />
-                }
-              />
-            )}
+
+          {isVenueOrder ? (
+            <InfoCard
+              bg="rgba(59,130,246,0.06)"
+              border="rgba(59,130,246,0.2)"
+              labelColor="#3b82f6"
+              label={t('your_location', lang)}
+              value={spotName}
+              icon={
+                <span style={{ fontSize: 18 }}>📍</span>
+              }
+            />
+          ) : (
+            <InfoCard
+              bg="rgba(59,130,246,0.06)"
+              border="rgba(59,130,246,0.2)"
+              labelColor="#3b82f6"
+              label={t('on_the_way', lang)}
+              value={t('driver_call', lang)}
+              icon={
+                <Phone size={18}
+                  style={{ color: '#3b82f6' }} />
+              }
+            />
+          )}
 
           <InfoCard
             bg={`${sage}10`}
@@ -321,8 +322,8 @@ export default function ConfirmationScreen() {
           />
         </div>
 
-        {/* WhatsApp countdown + return */}
-        {isWhatsApp && (
+        {/* WhatsApp countdown — only for WhatsApp-origin, non-venue orders */}
+        {isWhatsApp && !isVenueOrder && (
           <>
             <div style={{
               width:        '100%',
@@ -337,6 +338,7 @@ export default function ConfirmationScreen() {
                 fontSize: 14,
                 color:    sage,
                 margin:   '0 0 8px',
+                fontFamily: arabicFont,
               }}>
                 {t('returning_whatsapp', lang)}
                 {' '}
@@ -381,19 +383,17 @@ export default function ConfirmationScreen() {
               }}
             >
               <MessageCircle size={20} />
-              <span>
+              <span style={{ fontFamily: arabicFont }}>
                 {t('return_whatsapp', lang)}
               </span>
             </button>
           </>
         )}
 
-        {/* Non-WhatsApp — order again */}
-        {!isWhatsApp && (
+        {/* Order again — venue orders or non-WhatsApp origin */}
+        {(!isWhatsApp || isVenueOrder) && (
           <button
-            onClick={() =>
-              navigate('/menu' + searchParams)
-            }
+            onClick={() => navigate(paths.menu())}
             style={{
               width:        '100%',
               borderRadius: 18,
@@ -406,6 +406,7 @@ export default function ConfirmationScreen() {
               fontWeight:   600,
               fontSize:     15,
               marginBottom: 12,
+              fontFamily:   arabicFont,
             }}
           >
             {t('order_again', lang)}
@@ -413,7 +414,7 @@ export default function ConfirmationScreen() {
         )}
 
         {/* Desktop message */}
-        {isDesktop && (
+        {isDesktop && !isVenueOrder && (
           <div style={{
             borderRadius: 16,
             padding:      '12px 20px',
@@ -424,6 +425,7 @@ export default function ConfirmationScreen() {
               color:    '#2D2A26',
               opacity:  0.5,
               margin:   0,
+              fontFamily: arabicFont,
             }}>
               {t('check_whatsapp_desktop', lang)}
             </p>
