@@ -10,9 +10,9 @@ import { t, isRTL }               from '../lib/translations'
 // ── Country codes — Egypt default ──────────────
 const COUNTRY_CODES = [
   {
-    code: '+2', flag: '🇪🇬', label: 'EG',
-    placeholder: '010 0000 0000',
-    validate: d => /^(010|011|012|015)\d{8}$/.test(d),
+    code: '+20', flag: '🇪🇬', label: 'EG',
+    placeholder: '10 0000 0000',
+    validate: d => /^(10|11|12|15)\d{8}$/.test(d),
   },
   {
     code: '+966', flag: '🇸🇦', label: 'SA',
