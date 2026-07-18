@@ -1,456 +1,1036 @@
-import { useEffect, useState }     from 'react'
-import { useNavigate }             from 'react-router-dom'
-import { CheckCircle, Clock,
-         Phone, MessageCircle }    from 'lucide-react'
-import { useSession }              from '../hooks/useSession'
-import { t, isRTL }                from '../lib/translations'
+import { useState, useEffect }    from 'react'
+import { useNavigate }            from 'react-router-dom'
+import { ChevronLeft, ChevronRight,
+         MapPin, User, Phone }    from 'lucide-react'
+import { useCart }                from '../context/CartContext'
+import { useSession }             from '../hooks/useSession'
+import { supabase }               from '../lib/supabase'
+import { t, isRTL }               from '../lib/translations'
 
-export default function ConfirmationScreen() {
+// ── Country codes — Egypt default ──────────────
+const COUNTRY_CODES = [
+  { code: '+20',  flag: '🇪🇬', label: 'EG' },
+  { code: '+966', flag: '🇸🇦', label: 'SA' },
+  { code: '+971', flag: '🇦🇪', label: 'AE' },
+  { code: '+965', flag: '🇰🇼', label: 'KW' },
+  { code: '+974', flag: '🇶🇦', label: 'QA' },
+  { code: '+973', flag: '🇧🇭', label: 'BH' },
+  { code: '+968', flag: '🇴🇲', label: 'OM' },
+  { code: '+962', flag: '🇯🇴', label: 'JO' },
+  { code: '+961', flag: '🇱🇧', label: 'LB' },
+  { code: '+1',   flag: '🇨🇦', label: 'CA' },
+  { code: '+33',  flag: '🇫🇷', label: 'FR' },
+]
+
+// ── Field component OUTSIDE CheckoutScreen ──────
+// Critical: if defined inside, it remounts on every
+// keystroke causing inputs to lose focus
+function Field({
+  label, optional, error,
+  lang, children,
+}) {
+  const rtl = isRTL(lang)
+  return (
+    <div>
+      <label style={{
+        fontFamily:    "'JetBrains Mono', monospace",
+        fontSize:      11,
+        fontWeight:    700,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        color:         '#2D2A26',
+        opacity:       0.5,
+        display:       'block',
+        marginBottom:  8,
+        textAlign:     rtl ? 'right' : 'left',
+      }}>
+        {label}
+        {optional && (
+          <span style={{
+            fontFamily:    'inherit',
+            textTransform: 'none',
+            fontWeight:    400,
+            margin:        rtl ? '0 6px 0 0' : '0 0 0 6px',
+            opacity:       0.6,
+          }}>
+            ({t('optional', lang)})
+          </span>
+        )}
+      </label>
+      {children}
+      {error && (
+        <p style={{
+          fontSize:  12,
+          color:     '#ef4444',
+          margin:    '4px 0 0',
+          textAlign: rtl ? 'right' : 'left',
+        }}>
+          {error}
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ── SectionTitle OUTSIDE CheckoutScreen ─────────
+function SectionTitle({ text, lang }) {
+  const rtl = isRTL(lang)
+  return (
+    <h3 style={{
+      fontFamily: lang === 'ar'
+        ? "'Noto Naskh Arabic', serif"
+        : "'Fraunces', serif",
+      fontSize:   16,
+      fontWeight: 600,
+      color:      '#1A4D3E',
+      margin:     0,
+      textAlign:  rtl ? 'right' : 'left',
+    }}>
+      {text}
+    </h3>
+  )
+}
+
+// ── Main component ───────────────────────────────
+export default function CheckoutScreen() {
   const navigate = useNavigate()
-  const { restaurant, paths } = useSession()
+  const {
+    restaurant, customer,
+    session, lang, paths,
+  } = useSession()
+  const {
+    cart, subtotal,
+    itemCount, clearCart,
+  } = useCart()
 
-  const lang        = sessionStorage.getItem('lang') || 'fr'
-  const coral        = '#FF7A47'
-  const sage          = '#2D6E5A'
-  const primary        = restaurant?.primary_color || '#1A4D3E'
-  const rtl             = isRTL(lang)
-  const arabicFont = lang === 'ar'
+  const primary     = restaurant?.primary_color || '#1A4D3E'
+  const coral       = '#FF7A47'
+  const rtl         = isRTL(lang)
+  const BackIcon    = rtl ? ChevronRight : ChevronLeft
+  const arabicFont  = lang === 'ar'
     ? "'Noto Naskh Arabic', serif" : 'inherit'
 
-  const isVenueOrder = sessionStorage.getItem('isVenueOrder') === '1'
-  const spotName      = sessionStorage.getItem('spotName') || ''
+  // ── VENUE MODE DETECTION ────────────────────
+  const isVenueMode = !!restaurant?.is_venue_vendor
+  const deliveryFee = isVenueMode
+    ? 0
+    : (restaurant?.delivery_fee || 3.99)
+  const total = subtotal + deliveryFee
 
-  const [orderNumber, setOrderNumber]     = useState('')
-  const [estimatedTime, setEstimatedTime] = useState('')
-  const [customerName, setCustomerName]   = useState('')
-  const [countdown, setCountdown]         = useState(4)
-  const [isWhatsApp, setIsWhatsApp]       = useState(false)
-  const [isDesktop, setIsDesktop]         = useState(false)
-
-  useEffect(() => {
-    const ua = navigator.userAgent
-    setIsWhatsApp(/WhatsApp/i.test(ua))
-    setIsDesktop(
-      !/Android|iPhone|iPad|iPod/i.test(ua)
-    )
-  }, [])
+  // ── Venue spots state ───────────────────────
+  const [spots, setSpots]               = useState([])
+  const [spotsLoading, setSpotsLoading] = useState(isVenueMode)
+  const [selectedSpot, setSelectedSpot] = useState(null)
+  const [spotNote, setSpotNote]         = useState('')
 
   useEffect(() => {
-    setOrderNumber(
-      sessionStorage.getItem('orderNumber')   || '0001'
-    )
-    setEstimatedTime(
-      sessionStorage.getItem('estimatedTime') || '15-25 mins'
-    )
-    setCustomerName(
-      sessionStorage.getItem('customerName')  || ''
-    )
-  }, [])
+    if (!isVenueMode || !restaurant?.venue_id) {
+      setSpotsLoading(false)
+      return
+    }
 
-  useEffect(() => {
-    if (!isWhatsApp || isVenueOrder) return
+    async function loadSpots() {
+      try {
+        const { data } = await supabase
+          .from('venue_spots')
+          .select('*')
+          .eq('venue_id', restaurant.venue_id)
+          .eq('active', true)
+          .order('sort_order')
 
-    const timer = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(timer)
-          const twilioNumber =
-            restaurant?.twilio_number
-              ?.replace(/\D/g, '') || ''
-          window.location.href = twilioNumber
-            ? `https://wa.me/${twilioNumber}`
-            : 'whatsapp://'
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
+        setSpots(data || [])
+      } catch (err) {
+        console.error('Load spots error:', err)
+      } finally {
+        setSpotsLoading(false)
+      }
+    }
 
-    return () => clearInterval(timer)
-  }, [isWhatsApp, restaurant, isVenueOrder])
+    loadSpots()
+  }, [isVenueMode, restaurant?.venue_id])
 
-  function handleReturnToWhatsApp() {
-    const twilioNumber =
-      restaurant?.twilio_number
-        ?.replace(/\D/g, '') || ''
-    window.location.href = twilioNumber
-      ? `https://wa.me/${twilioNumber}`
-      : 'whatsapp://'
+  function getSpotName(spot) {
+    if (!spot) return ''
+    if (lang === 'ar') return spot.name_ar || spot.name_en
+    if (lang === 'fr') return spot.name_fr || spot.name_en
+    return spot.name_en
   }
 
-  function InfoCard({ bg, border, icon, label, labelColor, value }) {
-    return (
-      <div style={{
-        borderRadius: 20,
-        padding:      '16px 20px',
-        background:   bg,
-        border:       `1px solid ${border}`,
-        display:      'flex',
-        alignItems:   'center',
-        gap:          16,
-        flexDirection: rtl ? 'row-reverse' : 'row',
-      }}>
-        <div style={{
-          width:          40,
-          height:         40,
-          borderRadius:   '50%',
-          background:     border,
-          display:        'flex',
-          alignItems:     'center',
-          justifyContent: 'center',
-          flexShrink:     0,
-        }}>
-          {icon}
-        </div>
-        <div style={{ textAlign: rtl ? 'right' : 'left' }}>
-          <p style={{
-            fontFamily:    "'JetBrains Mono', monospace",
-            fontSize:      11,
-            fontWeight:    700,
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-            color:         labelColor,
-            margin:        0,
-          }}>
-            {label}
-          </p>
-          <p style={{
-            fontWeight: 700,
-            fontSize:   14,
-            color:      '#2D2A26',
-            margin:     '3px 0 0',
-            fontFamily: arabicFont,
-          }}>
-            {value}
-          </p>
-        </div>
-      </div>
-    )
+  function getZoneEmoji(zone) {
+    const map = {
+      pool:      '🏊',
+      garden:    '🌿',
+      clubhouse: '🏛️',
+      tennis:    '🎾',
+      kids:      '🎠',
+      entrance:  '🚪',
+    }
+    return map[zone] || '📍'
+  }
+
+  // ── Standard address fields (non-venue) ─────
+  const [name, setName]         = useState(
+    customer?.name || ''
+  )
+
+  // ── Phone: country code + local number ──────
+  const defaultCountry = isVenueMode ? '+20' : '+1'
+  const [countryCode, setCountryCode] = useState(
+    defaultCountry
+  )
+  const [localPhone, setLocalPhone]   = useState(
+    session?.customer_phone
+      ?.replace('whatsapp:', '')
+      ?.replace(countryCode, '') || ''
+  )
+
+  const [address, setAddress]   = useState(
+    customer?.last_address || ''
+  )
+  const [apt, setApt]           = useState('')
+  const [notes, setNotes]       = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [errors, setErrors]     = useState({})
+
+  function validate() {
+    const e = {}
+    if (!name.trim())
+      e.name    = t('name_required',    lang)
+    if (!localPhone.trim())
+      e.phone   = t('phone_required',   lang)
+
+    if (isVenueMode) {
+      if (!selectedSpot)
+        e.spot  = t('spot_required',    lang)
+    } else {
+      if (!address.trim())
+        e.address = t('address_required', lang)
+    }
+
+    setErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  async function handlePlaceOrder() {
+    if (!validate()) return
+    setSubmitting(true)
+
+    try {
+      const fullPhone = `${countryCode}${localPhone.replace(/^0+/, '')}`
+
+      const orderPayload = {
+        token:            session?.token || 'demo',
+        restaurant_id:    restaurant?.id,
+        customer_phone:   fullPhone,
+        customer_name:    name,
+
+        // ── Venue vs regular delivery ─────────
+        is_venue_order:   isVenueMode,
+        venue_spot_id:    isVenueMode
+          ? selectedSpot?.id : null,
+        delivery_address: isVenueMode
+          ? getSpotName(selectedSpot)
+          : address + (apt ? `, ${apt}` : ''),
+        spot_note:        isVenueMode ? spotNote : null,
+        notes:            isVenueMode ? '' : notes,
+
+        items: cart.map(item => ({
+          itemId:    item.itemId,
+          name:      item.name,
+          name_fr:   item.name_fr,
+          name_ar:   item.name_ar,
+          options:   item.options,
+          quantity:  item.quantity,
+          unitPrice: item.unitPrice,
+          total:     item.total,
+        })),
+        subtotal,
+        delivery_fee: deliveryFee,
+        total,
+        language: lang,
+      }
+
+      const response = await fetch(
+        import.meta.env.VITE_N8N_WEBHOOK_URL,
+        {
+          method:  'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(orderPayload),
+        }
+      )
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error || 'Order failed'
+        )
+      }
+
+      sessionStorage.setItem('orderNumber',
+        result.orderNumber   || '0001')
+      sessionStorage.setItem('estimatedTime',
+        result.estimatedTime || '15-25 mins')
+      sessionStorage.setItem('customerName', name)
+      sessionStorage.setItem('twilioNumber',
+        restaurant?.twilio_number || '')
+      sessionStorage.setItem('lang', lang)
+      sessionStorage.setItem('isVenueOrder',
+        isVenueMode ? '1' : '0')
+      sessionStorage.setItem('spotName',
+        isVenueMode ? getSpotName(selectedSpot) : '')
+
+      clearCart()
+      navigate(paths.confirmation())
+
+    } catch (err) {
+      console.error('Order error:', err)
+      setErrors({ submit: t('order_error', lang) })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // ── Shared styles ──────────────────────────────
+  const inputBase = {
+    width:        '100%',
+    padding:      '12px 16px',
+    borderRadius: 14,
+    fontSize:     14,
+    color:        '#2D2A26',
+    outline:      'none',
+    boxSizing:    'border-box',
+    fontFamily:   arabicFont === 'inherit'
+      ? "'Inter', sans-serif" : arabicFont,
+    textAlign:    rtl ? 'right' : 'left',
+    direction:    rtl ? 'rtl' : 'ltr',
+  }
+
+  function inputStyle(hasError) {
+    return {
+      ...inputBase,
+      border: hasError
+        ? '1px solid #ef4444'
+        : '1px solid rgba(45,42,38,0.12)',
+      background: hasError
+        ? '#fef2f2' : '#FFF8F0',
+    }
+  }
+
+  function inputIconStyle(hasError) {
+    return {
+      ...inputStyle(hasError),
+      [rtl ? 'paddingRight' : 'paddingLeft']: 42,
+    }
+  }
+
+  const iconPos = {
+    position:  'absolute',
+    [rtl ? 'right' : 'left']: 14,
+    top:       '50%',
+    transform: 'translateY(-50%)',
+    color:     '#2D2A26',
+    opacity:   0.35,
+    pointerEvents: 'none',
+  }
+
+  const sectionBox = {
+    background:    'white',
+    borderRadius:  20,
+    padding:       20,
+    border:        '1px solid rgba(45,42,38,0.06)',
+    display:       'flex',
+    flexDirection: 'column',
+    gap:           16,
   }
 
   return (
     <div style={{
-      minHeight:  '100dvh',
-      display:    'flex',
+      height:        '100dvh',
+      display:       'flex',
       flexDirection: 'column',
-      background: '#FFF8F0',
-      direction:  rtl ? 'rtl' : 'ltr',
+      background:    '#FFF8F0',
+      overflow:      'hidden',
+      maxWidth:      448,
+      margin:        '0 auto',
+      direction:     rtl ? 'rtl' : 'ltr',
     }}>
-      <div style={{
-        flex:           1,
-        display:        'flex',
-        flexDirection:  'column',
-        alignItems:     'center',
-        justifyContent: 'center',
-        padding:        32,
-        textAlign:      'center',
-      }}>
 
-        {/* Ringwave checkmark */}
-        <div style={{
-          position:       'relative',
-          display:        'flex',
-          alignItems:     'center',
-          justifyContent: 'center',
-          marginBottom:   32,
-        }}>
-          {[1, 2].map(i => (
-            <div
-              key={i}
-              style={{
-                position:     'absolute',
-                width:        112,
-                height:       112,
-                borderRadius: '50%',
-                border:       `1.5px solid ${sage}`,
-                animation:    `ringwave 2.5s
-                  cubic-bezier(0.2,0.6,0.4,1)
-                  ${i * 0.9}s infinite`,
-              }}
-            />
-          ))}
-          <div style={{
-            width:          112,
-            height:         112,
+      {/* Header — never scrolls */}
+      <div style={{
+        flexShrink:   0,
+        background:   '#FFF8F0',
+        borderBottom: '1px solid rgba(45,42,38,0.08)',
+        padding:      '14px 16px',
+        display:      'flex',
+        alignItems:   'center',
+        gap:          12,
+      }}>
+        <button
+          onClick={() => navigate(paths.cart())}
+          style={{
+            width:          36,
+            height:         36,
             borderRadius:   '50%',
-            background:     `${sage}18`,
+            background:     'rgba(45,42,38,0.06)',
+            border:         'none',
+            cursor:         'pointer',
             display:        'flex',
             alignItems:     'center',
             justifyContent: 'center',
-            zIndex:         1,
-          }}>
-            <div style={{
-              width:          80,
-              height:         80,
-              borderRadius:   '50%',
-              background:     `${sage}28`,
-              display:        'flex',
-              alignItems:     'center',
-              justifyContent: 'center',
-            }}>
-              <CheckCircle
-                size={44}
-                strokeWidth={1.5}
-                style={{ color: sage }}
-              />
-            </div>
-          </div>
-          <div style={{
-            position:  'absolute',
-            top:       -4,
-            [rtl ? 'left' : 'right']: -4,
-            fontSize:  28,
-            animation: 'bounce 1s infinite',
-          }}>
-            🎉
-          </div>
-        </div>
+            flexShrink:     0,
+          }}
+        >
+          <BackIcon size={20}
+            style={{ color: '#2D2A26' }} />
+        </button>
 
-        {/* Title */}
         <h1 style={{
-          fontFamily:   arabicFont === 'inherit'
+          fontFamily: arabicFont === 'inherit'
             ? "'Fraunces', serif" : arabicFont,
-          fontSize:     28,
-          fontWeight:   600,
-          color:        '#1A4D3E',
-          marginBottom: 6,
-          letterSpacing: lang === 'ar' ? 0 : '-0.01em',
+          fontSize:   18,
+          fontWeight: 600,
+          color:      '#1A4D3E',
+          margin:     0,
         }}>
-          {t('order_confirmed', lang)}
+          {isVenueMode
+            ? t('your_order', lang)
+            : t('delivery_details', lang)}
         </h1>
+      </div>
 
-        {customerName && (
-          <p style={{
-            fontSize:     14,
-            color:        '#2D2A26',
-            opacity:      0.6,
-            marginBottom: 4,
-            fontFamily:   arabicFont,
-          }}>
-            {t('thank_you', lang)},{' '}
-            {customerName.split(' ')[0]}!
-          </p>
-        )}
-
-        {/* Order number */}
+      {/* Scrollable content — ONLY this scrolls */}
+      <div style={{
+        flex:          1,
+        minHeight:     0,   // critical: allows flex child to shrink & scroll
+        overflowY:     'auto',
+        overflowX:     'hidden',
+        WebkitOverflowScrolling: 'touch',
+        paddingBottom: 140,
+      }}>
         <div style={{
-          background:   'white',
-          border:       '1px solid rgba(45,42,38,0.06)',
-          borderRadius: 20,
-          padding:      '16px 40px',
-          margin:       '20px 0 28px',
-        }}>
-          <p style={{
-            fontFamily:    "'JetBrains Mono', monospace",
-            fontSize:      11,
-            fontWeight:    700,
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            color:         '#2D2A26',
-            opacity:       0.4,
-            margin:        '0 0 4px',
-          }}>
-            {t('order_number', lang)}
-          </p>
-          <p style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize:   36,
-            fontWeight: 700,
-            color:      coral,
-            margin:     0,
-          }}>
-            #{orderNumber}
-          </p>
-        </div>
-
-        {/* Info cards */}
-        <div style={{
-          width:         '100%',
           display:       'flex',
           flexDirection: 'column',
-          gap:           10,
-          marginBottom:  24,
+          gap:           12,
+          padding:       16,
         }}>
-          <InfoCard
-            bg={`${coral}10`}
-            border={`${coral}25`}
-            labelColor={coral}
-            label={t('estimated_delivery', lang)}
-            value={estimatedTime}
-            icon={
-              <Clock size={18}
-                style={{ color: coral }} />
-            }
-          />
 
-          {isVenueOrder ? (
-            <InfoCard
-              bg="rgba(59,130,246,0.06)"
-              border="rgba(59,130,246,0.2)"
-              labelColor="#3b82f6"
-              label={t('your_location', lang)}
-              value={spotName}
-              icon={
-                <span style={{ fontSize: 18 }}>📍</span>
-              }
+          {/* Order summary banner */}
+          <div style={{
+            borderRadius:   20,
+            padding:        16,
+            background:     `${coral}10`,
+            border:         `1px solid ${coral}20`,
+            display:        'flex',
+            justifyContent: 'space-between',
+            alignItems:     'center',
+            flexDirection:  rtl ? 'row-reverse' : 'row',
+          }}>
+            <div style={{ textAlign: rtl ? 'right' : 'left' }}>
+              <p style={{
+                fontFamily:    "'JetBrains Mono', monospace",
+                fontSize:      11,
+                fontWeight:    700,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color:         coral,
+                margin:        0,
+              }}>
+                {t('your_order', lang)}
+              </p>
+              <p style={{
+                fontWeight: 700,
+                fontSize:   14,
+                color:      '#2D2A26',
+                margin:     '4px 0 0',
+                fontFamily: arabicFont,
+              }}>
+                {itemCount}{' '}
+                {itemCount === 1
+                  ? t('item', lang)
+                  : t('items', lang)
+                }
+              </p>
+            </div>
+            <div style={{ textAlign: rtl ? 'left' : 'right' }}>
+              <p style={{
+                fontFamily:    "'JetBrains Mono', monospace",
+                fontSize:      11,
+                fontWeight:    700,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color:         coral,
+                margin:        0,
+              }}>
+                {t('total', lang)}
+              </p>
+              <p style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontWeight: 700,
+                fontSize:   18,
+                color:      coral,
+                margin:     '4px 0 0',
+              }}>
+                ${total.toFixed(2)}
+              </p>
+            </div>
+          </div>
+
+          {/* Personal info */}
+          <div style={sectionBox}>
+            <SectionTitle
+              text={t('your_information', lang)}
+              lang={lang}
             />
+
+            {/* Name */}
+            <Field
+              label={t('full_name', lang)}
+              error={errors.name}
+              lang={lang}
+            >
+              <div style={{ position: 'relative' }}>
+                <User size={16} style={iconPos} />
+                <input
+                  type="text"
+                  value={name}
+                  onChange={e =>
+                    setName(e.target.value)
+                  }
+                  placeholder={
+                    t('name_placeholder', lang)
+                  }
+                  style={inputIconStyle(!!errors.name)}
+                />
+              </div>
+            </Field>
+
+            {/* Phone — country code dropdown + number */}
+            <Field
+              label={t('phone_number', lang)}
+              error={errors.phone}
+              lang={lang}
+            >
+              <div style={{
+                display:   'flex',
+                gap:       8,
+                direction: 'ltr', // phone row always LTR for readability
+              }}>
+                {/* Country code dropdown */}
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <select
+                    value={countryCode}
+                    onChange={e =>
+                      setCountryCode(e.target.value)
+                    }
+                    style={{
+                      appearance:   'none',
+                      WebkitAppearance: 'none',
+                      padding:      '12px 30px 12px 14px',
+                      borderRadius: 14,
+                      border:       '1px solid rgba(45,42,38,0.12)',
+                      background:   '#FFF8F0',
+                      fontSize:     14,
+                      fontWeight:   600,
+                      color:        '#2D2A26',
+                      outline:      'none',
+                      cursor:       'pointer',
+                      fontFamily:   "'Inter', sans-serif",
+                      minWidth:     92,
+                    }}
+                  >
+                    {COUNTRY_CODES.map(c => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag} {c.code}
+                      </option>
+                    ))}
+                  </select>
+                  {/* Dropdown chevron */}
+                  <span style={{
+                    position:      'absolute',
+                    right:         10,
+                    top:           '50%',
+                    transform:     'translateY(-50%)',
+                    pointerEvents: 'none',
+                    fontSize:      10,
+                    color:         '#2D2A26',
+                    opacity:       0.4,
+                  }}>
+                    ▼
+                  </span>
+                </div>
+
+                {/* Local phone number */}
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <Phone size={16}
+                    style={{
+                      position:  'absolute',
+                      left:      14,
+                      top:       '50%',
+                      transform: 'translateY(-50%)',
+                      color:     '#2D2A26',
+                      opacity:   0.35,
+                      pointerEvents: 'none',
+                    }}
+                  />
+                  <input
+                    type="tel"
+                    value={localPhone}
+                    onChange={e =>
+                      setLocalPhone(
+                        e.target.value.replace(/[^\d]/g, '')
+                      )
+                    }
+                    placeholder={
+                      countryCode === '+20'
+                        ? '10 0000 0000'
+                        : '514 000-0000'
+                    }
+                    pattern="[0-9]*"
+                    inputMode="numeric"
+                    style={{
+                      width:        '100%',
+                      padding:      '12px 16px 12px 42px',
+                      borderRadius: 14,
+                      border:       errors.phone
+                        ? '1px solid #ef4444'
+                        : '1px solid rgba(45,42,38,0.12)',
+                      background:   errors.phone
+                        ? '#fef2f2' : '#FFF8F0',
+                      fontSize:     14,
+                      color:        '#2D2A26',
+                      outline:      'none',
+                      boxSizing:    'border-box',
+                      fontFamily:   "'Inter', sans-serif",
+                      textAlign:    'left',
+                      direction:    'ltr',
+                    }}
+                  />
+                </div>
+              </div>
+            </Field>
+          </div>
+
+          {/* ── VENUE MODE: Spot Picker ── */}
+          {isVenueMode ? (
+            <div style={sectionBox}>
+              <SectionTitle
+                text={t('your_location', lang)}
+                lang={lang}
+              />
+
+              {spotsLoading ? (
+                <p style={{
+                  fontSize: 13,
+                  color:    '#2D2A26',
+                  opacity:  0.5,
+                  fontFamily: arabicFont,
+                }}>
+                  {t('loading_menu_items', lang)}
+                </p>
+              ) : (
+                <>
+                  <div style={{
+                    display:       'flex',
+                    flexDirection: 'column',
+                    gap:           8,
+                  }}>
+                    {spots.map(spot => {
+                      const isSelected =
+                        selectedSpot?.id === spot.id
+                      return (
+                        <button
+                          key={spot.id}
+                          onClick={() =>
+                            setSelectedSpot(spot)
+                          }
+                          style={{
+                            padding:      '12px 16px',
+                            borderRadius: 14,
+                            border:       isSelected
+                              ? `2px solid ${primary}`
+                              : '1.5px solid rgba(45,42,38,.12)',
+                            background:   isSelected
+                              ? `${primary}10` : '#FFF8F0',
+                            cursor:       'pointer',
+                            textAlign:    rtl
+                              ? 'right' : 'left',
+                            display:      'flex',
+                            alignItems:   'center',
+                            gap:          10,
+                            flexDirection: rtl
+                              ? 'row-reverse' : 'row',
+                            color:        '#2D2A26',
+                            fontWeight:   isSelected
+                              ? 600 : 400,
+                            fontSize:     14,
+                            fontFamily:   arabicFont,
+                          }}
+                        >
+                          <span style={{ fontSize: 18 }}>
+                            {getZoneEmoji(spot.zone)}
+                          </span>
+                          <span style={{ flex: 1 }}>
+                            {getSpotName(spot)}
+                          </span>
+                          {isSelected && (
+                            <span style={{
+                              color:    primary,
+                              fontSize: 18,
+                            }}>
+                              ✓
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {errors.spot && (
+                    <p style={{
+                      fontSize:  12,
+                      color:     '#ef4444',
+                      margin:    0,
+                      textAlign: rtl ? 'right' : 'left',
+                    }}>
+                      {errors.spot}
+                    </p>
+                  )}
+
+                  {/* Optional note */}
+                  <Field
+                    label={t('delivery_notes', lang)}
+                    optional
+                    lang={lang}
+                  >
+                    <input
+                      type="text"
+                      value={spotNote}
+                      onChange={e =>
+                        setSpotNote(e.target.value)
+                      }
+                      placeholder={
+                        t('spot_note_placeholder', lang)
+                      }
+                      style={inputStyle(false)}
+                    />
+                  </Field>
+
+                  {/* Venue delivery note */}
+                  <div style={{
+                    background:   `${primary}08`,
+                    borderRadius: 12,
+                    padding:      '10px 14px',
+                    fontSize:     12,
+                    color:        primary,
+                    fontFamily:   arabicFont,
+                    textAlign:    rtl ? 'right' : 'left',
+                  }}>
+                    📍 {t('venue_order_note', lang)}
+                  </div>
+                </>
+              )}
+            </div>
           ) : (
-            <InfoCard
-              bg="rgba(59,130,246,0.06)"
-              border="rgba(59,130,246,0.2)"
-              labelColor="#3b82f6"
-              label={t('on_the_way', lang)}
-              value={t('driver_call', lang)}
-              icon={
-                <Phone size={18}
-                  style={{ color: '#3b82f6' }} />
-              }
-            />
+            /* ── REGULAR MODE: Address ── */
+            <div style={sectionBox}>
+              <SectionTitle
+                text={t('delivery_address', lang)}
+                lang={lang}
+              />
+
+              {/* Street */}
+              <Field
+                label={t('street_address', lang)}
+                error={errors.address}
+                lang={lang}
+              >
+                <div style={{ position: 'relative' }}>
+                  <MapPin size={16}
+                    style={{
+                      ...iconPos,
+                      top:       16,
+                      transform: 'none',
+                    }}
+                  />
+                  <input
+                    type="text"
+                    value={address}
+                    onChange={e =>
+                      setAddress(e.target.value)
+                    }
+                    placeholder={
+                      t('street_placeholder', lang)
+                    }
+                    style={inputIconStyle(
+                      !!errors.address
+                    )}
+                  />
+                </div>
+              </Field>
+
+              {/* Apt */}
+              <Field
+                label={t('apt_unit', lang)}
+                optional
+                lang={lang}
+              >
+                <input
+                  type="text"
+                  value={apt}
+                  onChange={e => setApt(e.target.value)}
+                  placeholder={
+                    t('apt_placeholder', lang)
+                  }
+                  style={inputStyle(false)}
+                />
+              </Field>
+
+              {/* Notes */}
+              <Field
+                label={t('delivery_notes', lang)}
+                optional
+                lang={lang}
+              >
+                <textarea
+                  value={notes}
+                  onChange={e =>
+                    setNotes(e.target.value)
+                  }
+                  placeholder={
+                    t('notes_placeholder', lang)
+                  }
+                  rows={2}
+                  style={{
+                    ...inputStyle(false),
+                    resize: 'none',
+                  }}
+                />
+              </Field>
+            </div>
           )}
 
-          <InfoCard
-            bg={`${sage}10`}
-            border={`${sage}25`}
-            labelColor={sage}
-            label={t('whatsapp_confirmation', lang)}
-            value={t('check_whatsapp', lang)}
-            icon={
-              <span style={{ fontSize: 18 }}>
-                💬
-              </span>
-            }
-          />
-        </div>
-
-        {/* WhatsApp countdown — only for WhatsApp-origin, non-venue orders */}
-        {isWhatsApp && !isVenueOrder && (
-          <>
+          {/* Payment */}
+          <div style={sectionBox}>
+            <SectionTitle
+              text={t('payment', lang)}
+              lang={lang}
+            />
             <div style={{
-              width:        '100%',
-              borderRadius: 20,
-              padding:      '12px 20px',
-              background:   `${sage}10`,
-              border:       `1px solid ${sage}20`,
-              marginBottom: 12,
+              borderRadius: 14,
+              padding:      '12px 16px',
+              background:   'rgba(45,42,38,0.03)',
+              display:      'flex',
+              alignItems:   'center',
+              gap:          12,
+              flexDirection: rtl ? 'row-reverse' : 'row',
+            }}>
+              <span style={{ fontSize: 24 }}>💵</span>
+              <div style={{ textAlign: rtl ? 'right' : 'left' }}>
+                <p style={{
+                  fontWeight: 700,
+                  fontSize:   14,
+                  color:      '#2D2A26',
+                  margin:     0,
+                  fontFamily: arabicFont,
+                }}>
+                  {t('cash_on_delivery', lang)}
+                </p>
+                <p style={{
+                  fontSize: 12,
+                  color:    '#2D2A26',
+                  opacity:  0.5,
+                  margin:   '2px 0 0',
+                  fontFamily: arabicFont,
+                }}>
+                  {t('cash_ready', lang)}{' '}
+                  ${total.toFixed(2)}{' '}
+                  {isVenueMode
+                    ? t('order_ready_pickup', lang)
+                    : t('cash_ready_suffix', lang)}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Price breakdown */}
+          <div style={sectionBox}>
+            <div style={{
+              display:       'flex',
+              flexDirection: 'column',
+              gap:           10,
+            }}>
+              <div style={{
+                display:        'flex',
+                justifyContent: 'space-between',
+                fontSize:       14,
+                flexDirection:  rtl ? 'row-reverse' : 'row',
+              }}>
+                <span style={{
+                  opacity: 0.55,
+                  fontFamily: arabicFont,
+                }}>
+                  {t('subtotal', lang)}
+                </span>
+                <span style={{
+                  fontFamily:
+                    "'JetBrains Mono', monospace",
+                }}>
+                  ${subtotal.toFixed(2)}
+                </span>
+              </div>
+
+              {!isVenueMode && (
+                <div style={{
+                  display:        'flex',
+                  justifyContent: 'space-between',
+                  fontSize:       14,
+                  flexDirection:  rtl ? 'row-reverse' : 'row',
+                }}>
+                  <span style={{
+                    opacity: 0.55,
+                    fontFamily: arabicFont,
+                  }}>
+                    {t('delivery', lang)}
+                  </span>
+                  <span style={{
+                    fontFamily:
+                      "'JetBrains Mono', monospace",
+                  }}>
+                    ${deliveryFee.toFixed(2)}
+                  </span>
+                </div>
+              )}
+
+              <div style={{
+                height:     1,
+                background: 'rgba(45,42,38,0.06)',
+              }} />
+
+              <div style={{
+                display:        'flex',
+                justifyContent: 'space-between',
+                fontWeight:     700,
+                flexDirection:  rtl ? 'row-reverse' : 'row',
+              }}>
+                <span style={{
+                  color: '#2D2A26',
+                  fontFamily: arabicFont,
+                }}>
+                  {t('total', lang)}
+                </span>
+                <span style={{
+                  fontFamily:
+                    "'JetBrains Mono', monospace",
+                  color:    primary,
+                  fontSize: 18,
+                }}>
+                  ${total.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Submit error */}
+          {errors.submit && (
+            <div style={{
+              borderRadius: 16,
+              padding:      '12px 16px',
+              background:   '#fef2f2',
+              border:       '1px solid #fecaca',
               textAlign:    'center',
             }}>
               <p style={{
-                fontSize: 14,
-                color:    sage,
-                margin:   '0 0 8px',
-                fontFamily: arabicFont,
+                fontSize: 13,
+                color:    '#ef4444',
+                margin:   0,
               }}>
-                {t('returning_whatsapp', lang)}
-                {' '}
-                <strong>{countdown}</strong>
-                {' '}
-                {t('seconds', lang)}
+                {errors.submit}
               </p>
-              <div style={{
-                height:       6,
-                borderRadius: 3,
-                background:   `${sage}20`,
-                overflow:     'hidden',
-              }}>
-                <div style={{
-                  height:     '100%',
-                  borderRadius: 3,
-                  background:  sage,
-                  width:       `${(countdown / 4) * 100}%`,
-                  transition:  'width 1s linear',
-                }} />
-              </div>
             </div>
+          )}
 
-            <button
-              onClick={handleReturnToWhatsApp}
-              style={{
-                width:          '100%',
-                borderRadius:   18,
-                padding:        '16px 24px',
-                background:     sage,
-                boxShadow:      `0 8px 24px ${sage}44`,
-                border:         'none',
-                cursor:         'pointer',
-                color:          'white',
-                fontWeight:     600,
-                fontSize:       15,
-                display:        'flex',
-                alignItems:     'center',
-                justifyContent: 'center',
-                gap:            10,
-                marginBottom:   12,
-              }}
-            >
-              <MessageCircle size={20} />
-              <span style={{ fontFamily: arabicFont }}>
-                {t('return_whatsapp', lang)}
-              </span>
-            </button>
-          </>
-        )}
-
-        {/* Order again — venue orders or non-WhatsApp origin */}
-        {(!isWhatsApp || isVenueOrder) && (
-          <button
-            onClick={() => navigate(paths.menu())}
-            style={{
-              width:        '100%',
-              borderRadius: 18,
-              padding:      '16px 24px',
-              background:   coral,
-              boxShadow:    `0 8px 24px ${coral}44`,
-              border:       'none',
-              cursor:       'pointer',
-              color:        'white',
-              fontWeight:   600,
-              fontSize:     15,
-              marginBottom: 12,
-              fontFamily:   arabicFont,
-            }}
-          >
-            {t('order_again', lang)}
-          </button>
-        )}
-
-        {/* Desktop message */}
-        {isDesktop && !isVenueOrder && (
-          <div style={{
-            borderRadius: 16,
-            padding:      '12px 20px',
-            background:   'rgba(45,42,38,0.04)',
-          }}>
-            <p style={{
-              fontSize: 13,
-              color:    '#2D2A26',
-              opacity:  0.5,
-              margin:   0,
-              fontFamily: arabicFont,
-            }}>
-              {t('check_whatsapp_desktop', lang)}
-            </p>
-          </div>
-        )}
-
-        {/* BistroVite footer */}
-        <div style={{
-          marginTop:  24,
-          fontFamily: "'Fraunces', serif",
-          fontSize:   13,
-          color:      '#2D2A26',
-          opacity:    0.3,
-        }}>
-          Bistro
-          <span style={{
-            fontStyle: 'italic',
-            color:     coral,
-            opacity:   1,
-          }}>
-            Vite
-          </span>
         </div>
-
       </div>
+
+      {/* Place order button — fixed, outside scroll flow */}
+      <div style={{
+        flexShrink: 0,
+        padding:    16,
+        background: '#FFF8F0',
+        borderTop:  '1px solid rgba(45,42,38,0.06)',
+      }}>
+        <button
+          onClick={handlePlaceOrder}
+          disabled={submitting}
+          style={{
+            width:          '100%',
+            borderRadius:   18,
+            padding:        '16px 24px',
+            border:         'none',
+            cursor:         submitting
+              ? 'not-allowed' : 'pointer',
+            fontWeight:     600,
+            fontSize:       16,
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'center',
+            gap:            12,
+            transition:     'all 0.2s',
+            background:     submitting
+              ? 'rgba(45,42,38,0.12)'
+              : coral,
+            color: submitting
+              ? 'rgba(45,42,38,0.4)'
+              : 'white',
+            boxShadow: submitting
+              ? 'none'
+              : `0 8px 30px ${coral}44`,
+          }}
+        >
+          {submitting ? (
+            <>
+              <div style={{
+                width:          20,
+                height:         20,
+                borderRadius:   '50%',
+                border:         '2px solid rgba(45,42,38,0.2)',
+                borderTopColor: 'rgba(45,42,38,0.5)',
+                animation:      'spin 0.8s linear infinite',
+              }} />
+              <span style={{ fontFamily: arabicFont }}>
+                {t('placing_order', lang)}
+              </span>
+            </>
+          ) : (
+            <>
+              <span style={{ fontFamily: arabicFont }}>
+                {t('place_order', lang)}
+              </span>
+              <span style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontWeight: 700,
+              }}>
+                ${total.toFixed(2)}
+              </span>
+            </>
+          )}
+        </button>
+
+        <p style={{
+          textAlign:  'center',
+          fontSize:   11,
+          color:      '#2D2A26',
+          opacity:    0.35,
+          margin:     '8px 0 0',
+          fontFamily: arabicFont,
+        }}>
+          {t('terms', lang)}
+        </p>
+      </div>
+
     </div>
   )
 }
