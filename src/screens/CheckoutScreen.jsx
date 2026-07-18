@@ -8,7 +8,6 @@ import { supabase }               from '../lib/supabase'
 import { t, isRTL }               from '../lib/translations'
 
 // ── Country codes — Egypt default ──────────────
-// validate: function(localDigits) -> boolean
 const COUNTRY_CODES = [
   {
     code: '+20', flag: '🇪🇬', label: 'EG',
@@ -67,8 +66,7 @@ const COUNTRY_CODES = [
   },
 ]
 
-// Arabic-Indic (٠-٩) and Eastern Arabic-Indic
-// (Persian ۰-۹) digit conversion → Western digits
+// Arabic-Indic + Persian digit conversion → Western digits
 const ARABIC_DIGIT_MAP = {
   '٠': '0', '١': '1', '٢': '2', '٣': '3', '٤': '4',
   '٥': '5', '٦': '6', '٧': '7', '٨': '8', '٩': '9',
@@ -84,9 +82,29 @@ function normalizeDigits(value) {
     .replace(/[^\d]/g, '')
 }
 
+// ── localStorage helpers for returning customers ──
+const STORAGE_KEY = 'bv_customer_info'
+
+function loadSavedCustomer() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function saveCustomerInfo({ name, countryCode, localPhone }) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      name, countryCode, localPhone,
+    }))
+  } catch {
+    // ignore write errors (private browsing etc.)
+  }
+}
+
 // ── Field component OUTSIDE CheckoutScreen ──────
-// Critical: if defined inside, it remounts on every
-// keystroke causing inputs to lose focus
 function Field({
   label, optional, error,
   lang, children,
@@ -172,7 +190,6 @@ export default function CheckoutScreen() {
   const arabicFont  = lang === 'ar'
     ? "'Noto Naskh Arabic', serif" : 'inherit'
 
-  // ── VENUE MODE DETECTION ────────────────────
   const isVenueMode = !!restaurant?.is_venue_vendor
   const deliveryFee = isVenueMode
     ? 0
@@ -184,6 +201,7 @@ export default function CheckoutScreen() {
   const [spotsLoading, setSpotsLoading] = useState(isVenueMode)
   const [selectedSpot, setSelectedSpot] = useState(null)
   const [spotNote, setSpotNote]         = useState('')
+  const [spotSectionRef, setSpotSectionRef] = useState(null)
 
   useEffect(() => {
     if (!isVenueMode || !restaurant?.venue_id) {
@@ -230,22 +248,44 @@ export default function CheckoutScreen() {
     return map[zone] || '📍'
   }
 
-  // ── Standard address fields (non-venue) ─────
-  const [name, setName]         = useState(
-    customer?.name || ''
+  // ── Load previously saved customer info ─────
+  const saved = loadSavedCustomer()
+
+  // ── Standard fields, seeded from (in order):
+  //    localStorage saved info > Supabase customer ──
+  const [name, setName] = useState(
+    saved?.name || customer?.name || ''
   )
 
-  // ── Phone: country code + local number ──────
-  const defaultCountry = isVenueMode ? '+20' : '+1'
+  // ── Country code: seeded from restaurant's
+  //    default_country_code once it loads ──
   const [countryCode, setCountryCode] = useState(
-    defaultCountry
+    saved?.countryCode || '+1'
   )
-  const [localPhone, setLocalPhone]   = useState(
-    normalizeDigits(
-      session?.customer_phone
-        ?.replace('whatsapp:', '')
-        ?.replace(countryCode, '') || ''
-    )
+  const [countryInitialized, setCountryInitialized] =
+    useState(!!saved?.countryCode) // if we already
+      // have a saved preference, don't override it
+
+  useEffect(() => {
+    if (countryInitialized) return
+    if (!restaurant) return
+
+    const restoDefault = restaurant.default_country_code
+    if (restoDefault) {
+      setCountryCode(restoDefault)
+    } else if (isVenueMode) {
+      setCountryCode('+20')
+    }
+    setCountryInitialized(true)
+  }, [restaurant, isVenueMode, countryInitialized])
+
+  const [localPhone, setLocalPhone] = useState(
+    saved?.localPhone
+      || normalizeDigits(
+          session?.customer_phone
+            ?.replace('whatsapp:', '')
+            ?.replace(countryCode, '') || ''
+        )
   )
   const [phoneTouched, setPhoneTouched] = useState(false)
 
@@ -302,14 +342,24 @@ export default function CheckoutScreen() {
     }
 
     if (isVenueMode) {
-      if (!selectedSpot)
-        e.spot  = t('spot_required',    lang)
+      if (!selectedSpot) {
+        e.spot  = t('spot_required', lang)
+      }
     } else {
       if (!address.trim())
         e.address = t('address_required', lang)
     }
 
     setErrors(e)
+
+    // Scroll to the spot section if that's
+    // the (only) problem, since it's easy to miss
+    if (e.spot && spotSectionRef) {
+      spotSectionRef.scrollIntoView({
+        behavior: 'smooth', block: 'center',
+      })
+    }
+
     return Object.keys(e).length === 0
   }
 
@@ -327,7 +377,6 @@ export default function CheckoutScreen() {
         customer_phone:   fullPhone,
         customer_name:    name,
 
-        // ── Venue vs regular delivery ─────────
         is_venue_order:   isVenueMode,
         venue_spot_id:    isVenueMode
           ? selectedSpot?.id : null,
@@ -371,6 +420,9 @@ export default function CheckoutScreen() {
           result.error || 'Order failed'
         )
       }
+
+      // ── Remember name + phone for next visit ──
+      saveCustomerInfo({ name, countryCode, localPhone })
 
       sessionStorage.setItem('orderNumber',
         result.orderNumber   || '0001')
@@ -439,14 +491,18 @@ export default function CheckoutScreen() {
     pointerEvents: 'none',
   }
 
-  const sectionBox = {
-    background:    'white',
-    borderRadius:  20,
-    padding:       20,
-    border:        '1px solid rgba(45,42,38,0.06)',
-    display:       'flex',
-    flexDirection: 'column',
-    gap:           16,
+  function sectionBoxStyle(hasError) {
+    return {
+      background:    'white',
+      borderRadius:  20,
+      padding:       20,
+      border:        hasError
+        ? '1.5px solid #ef4444'
+        : '1px solid rgba(45,42,38,0.06)',
+      display:       'flex',
+      flexDirection: 'column',
+      gap:           16,
+    }
   }
 
   return (
@@ -582,7 +638,7 @@ export default function CheckoutScreen() {
           </div>
 
           {/* Personal info */}
-          <div style={sectionBox}>
+          <div style={sectionBoxStyle(false)}>
             <SectionTitle
               text={t('your_information', lang)}
               lang={lang}
@@ -619,7 +675,7 @@ export default function CheckoutScreen() {
               <div style={{
                 display:   'flex',
                 gap:       8,
-                direction: 'ltr', // phone row always LTR for readability
+                direction: 'ltr',
               }}>
                 {/* Country code dropdown */}
                 <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -627,6 +683,7 @@ export default function CheckoutScreen() {
                     value={countryCode}
                     onChange={e => {
                       setCountryCode(e.target.value)
+                      setCountryInitialized(true)
                       setPhoneTouched(false)
                     }}
                     style={{
@@ -651,7 +708,6 @@ export default function CheckoutScreen() {
                       </option>
                     ))}
                   </select>
-                  {/* Dropdown chevron */}
                   <span style={{
                     position:      'absolute',
                     right:         10,
@@ -726,7 +782,10 @@ export default function CheckoutScreen() {
 
           {/* ── VENUE MODE: Spot Picker ── */}
           {isVenueMode ? (
-            <div style={sectionBox}>
+            <div
+              ref={setSpotSectionRef}
+              style={sectionBoxStyle(!!errors.spot)}
+            >
               <SectionTitle
                 text={t('your_location', lang)}
                 lang={lang}
@@ -743,6 +802,31 @@ export default function CheckoutScreen() {
                 </p>
               ) : (
                 <>
+                  {errors.spot && (
+                    <div style={{
+                      background:   '#fef2f2',
+                      border:       '1px solid #fecaca',
+                      borderRadius: 12,
+                      padding:      '10px 14px',
+                      display:      'flex',
+                      alignItems:   'center',
+                      gap:          8,
+                      flexDirection: rtl ? 'row-reverse' : 'row',
+                    }}>
+                      <span style={{ fontSize: 16 }}>⚠️</span>
+                      <p style={{
+                        fontSize:   13,
+                        color:      '#ef4444',
+                        margin:     0,
+                        fontWeight: 600,
+                        fontFamily: arabicFont,
+                        textAlign:  rtl ? 'right' : 'left',
+                      }}>
+                        {errors.spot}
+                      </p>
+                    </div>
+                  )}
+
                   <div style={{
                     display:       'flex',
                     flexDirection: 'column',
@@ -754,9 +838,16 @@ export default function CheckoutScreen() {
                       return (
                         <button
                           key={spot.id}
-                          onClick={() =>
+                          onClick={() => {
                             setSelectedSpot(spot)
-                          }
+                            if (errors.spot) {
+                              setErrors(prev => {
+                                const next = { ...prev }
+                                delete next.spot
+                                return next
+                              })
+                            }
+                          }}
                           style={{
                             padding:      '12px 16px',
                             borderRadius: 14,
@@ -799,17 +890,6 @@ export default function CheckoutScreen() {
                     })}
                   </div>
 
-                  {errors.spot && (
-                    <p style={{
-                      fontSize:  12,
-                      color:     '#ef4444',
-                      margin:    0,
-                      textAlign: rtl ? 'right' : 'left',
-                    }}>
-                      {errors.spot}
-                    </p>
-                  )}
-
                   {/* Optional note */}
                   <Field
                     label={t('delivery_notes', lang)}
@@ -846,13 +926,12 @@ export default function CheckoutScreen() {
             </div>
           ) : (
             /* ── REGULAR MODE: Address ── */
-            <div style={sectionBox}>
+            <div style={sectionBoxStyle(!!errors.address)}>
               <SectionTitle
                 text={t('delivery_address', lang)}
                 lang={lang}
               />
 
-              {/* Street */}
               <Field
                 label={t('street_address', lang)}
                 error={errors.address}
@@ -882,7 +961,6 @@ export default function CheckoutScreen() {
                 </div>
               </Field>
 
-              {/* Apt */}
               <Field
                 label={t('apt_unit', lang)}
                 optional
@@ -899,7 +977,6 @@ export default function CheckoutScreen() {
                 />
               </Field>
 
-              {/* Notes */}
               <Field
                 label={t('delivery_notes', lang)}
                 optional
@@ -924,7 +1001,7 @@ export default function CheckoutScreen() {
           )}
 
           {/* Payment */}
-          <div style={sectionBox}>
+          <div style={sectionBoxStyle(false)}>
             <SectionTitle
               text={t('payment', lang)}
               lang={lang}
@@ -967,7 +1044,7 @@ export default function CheckoutScreen() {
           </div>
 
           {/* Price breakdown */}
-          <div style={sectionBox}>
+          <div style={sectionBoxStyle(false)}>
             <div style={{
               display:       'flex',
               flexDirection: 'column',
