@@ -20,7 +20,6 @@ export default function Header({
   const currentLang = LANGUAGES.find(l => l.code === lang)
     || LANGUAGES[0]
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handleClick(e) {
       if (dropdownRef.current
@@ -96,11 +95,14 @@ export default function Header({
   )
 
   return (
-    <div style={{
-      flexShrink:   0,
-      background:   '#FFF8F0',
-      borderBottom: '1px solid rgba(45,42,38,0.08)',
-    }}>
+    <div
+      dir={rtl ? 'rtl' : 'ltr'}
+      style={{
+        flexShrink:   0,
+        background:   '#FFF8F0',
+        borderBottom: '1px solid rgba(45,42,38,0.08)',
+      }}
+    >
       <div style={{
         display:        'flex',
         alignItems:     'center',
@@ -108,22 +110,34 @@ export default function Header({
         padding:        '12px 16px',
         maxWidth:       448,
         margin:         '0 auto',
-        flexDirection:  rtl ? 'row-reverse' : 'row',
+        // Plain 'row' — dir="rtl" on the parent
+        // already places the first child (logo+name)
+        // at the START, which is the RIGHT in RTL.
+        // No row-reverse needed — that would
+        // double-flip it.
+        flexDirection:  'row',
       }}>
 
-        {/* Logo + name group — order flips in RTL:
-            logo sits to the RIGHT of the text */}
+        {/* Logo + name group.
+            RTL:  [Logo] [Name / Open now]  →  reads
+                  right-to-left as Logo, then text,
+                  because dir="rtl" makes 'row' start
+                  from the right.
+            LTR:  [Logo] [Name / Open now] normal. */}
         <div style={{
           display:       'flex',
           alignItems:    'center',
           gap:           12,
-          flexDirection: rtl ? 'row-reverse' : 'row',
+          flexDirection: 'row',
         }}>
           {logoBlock}
           {textBlock}
         </div>
 
-        {/* Language dropdown */}
+        {/* Language dropdown — always at the END
+            of the row: right in LTR, left in RTL,
+            purely from dir + justify-content:
+            space-between. No manual flipping. */}
         <div ref={dropdownRef} style={{ position: 'relative' }}>
           <button
             onClick={() => setDropdownOpen(o => !o)}
@@ -159,6 +173,9 @@ export default function Header({
             <div style={{
               position:     'absolute',
               top:          'calc(100% + 6px)',
+              // Dropdown panel hugs the same side
+              // the button visually sits on:
+              // right in LTR, left in RTL.
               [rtl ? 'left' : 'right']: 0,
               background:   'white',
               borderRadius: 14,
@@ -169,11 +186,13 @@ export default function Header({
               zIndex:       50,
             }}>
               {LANGUAGES.map(l => {
-                const active = l.code === lang
+                const active   = l.code === lang
+                const itemRtl  = isRTL(l.code)
                 return (
                   <button
                     key={l.code}
                     onClick={() => handleSelect(l.code)}
+                    dir={itemRtl ? 'rtl' : 'ltr'}
                     style={{
                       width:          '100%',
                       display:        'flex',
@@ -189,8 +208,6 @@ export default function Header({
                       color:          active ? primary : '#2D2A26',
                       fontFamily:     l.code === 'ar'
                         ? "'Noto Naskh Arabic', serif" : 'inherit',
-                      textAlign:      isRTL(l.code) ? 'right' : 'left',
-                      flexDirection:  isRTL(l.code) ? 'row-reverse' : 'row',
                     }}
                   >
                     <span>{l.label}</span>
