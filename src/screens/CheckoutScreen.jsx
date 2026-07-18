@@ -8,19 +8,81 @@ import { supabase }               from '../lib/supabase'
 import { t, isRTL }               from '../lib/translations'
 
 // ── Country codes — Egypt default ──────────────
+// validate: function(localDigits) -> boolean
 const COUNTRY_CODES = [
-  { code: '+20',  flag: '🇪🇬', label: 'EG' },
-  { code: '+966', flag: '🇸🇦', label: 'SA' },
-  { code: '+971', flag: '🇦🇪', label: 'AE' },
-  { code: '+965', flag: '🇰🇼', label: 'KW' },
-  { code: '+974', flag: '🇶🇦', label: 'QA' },
-  { code: '+973', flag: '🇧🇭', label: 'BH' },
-  { code: '+968', flag: '🇴🇲', label: 'OM' },
-  { code: '+962', flag: '🇯🇴', label: 'JO' },
-  { code: '+961', flag: '🇱🇧', label: 'LB' },
-  { code: '+1',   flag: '🇨🇦', label: 'CA' },
-  { code: '+33',  flag: '🇫🇷', label: 'FR' },
+  {
+    code: '+20', flag: '🇪🇬', label: 'EG',
+    placeholder: '10 0000 0000',
+    validate: d => /^(10|11|12|15)\d{8}$/.test(d),
+  },
+  {
+    code: '+966', flag: '🇸🇦', label: 'SA',
+    placeholder: '5 0000 0000',
+    validate: d => /^5\d{8}$/.test(d),
+  },
+  {
+    code: '+971', flag: '🇦🇪', label: 'AE',
+    placeholder: '50 000 0000',
+    validate: d => /^5\d{8}$/.test(d),
+  },
+  {
+    code: '+965', flag: '🇰🇼', label: 'KW',
+    placeholder: '5000 0000',
+    validate: d => /^\d{8}$/.test(d),
+  },
+  {
+    code: '+974', flag: '🇶🇦', label: 'QA',
+    placeholder: '3000 0000',
+    validate: d => /^\d{8}$/.test(d),
+  },
+  {
+    code: '+973', flag: '🇧🇭', label: 'BH',
+    placeholder: '3600 0000',
+    validate: d => /^\d{8}$/.test(d),
+  },
+  {
+    code: '+968', flag: '🇴🇲', label: 'OM',
+    placeholder: '9000 0000',
+    validate: d => /^\d{8}$/.test(d),
+  },
+  {
+    code: '+962', flag: '🇯🇴', label: 'JO',
+    placeholder: '7 9000 0000',
+    validate: d => /^7\d{8}$/.test(d),
+  },
+  {
+    code: '+961', flag: '🇱🇧', label: 'LB',
+    placeholder: '71 000 000',
+    validate: d => /^\d{7,8}$/.test(d),
+  },
+  {
+    code: '+1', flag: '🇨🇦', label: 'CA',
+    placeholder: '514 000-0000',
+    validate: d => /^\d{10}$/.test(d),
+  },
+  {
+    code: '+33', flag: '🇫🇷', label: 'FR',
+    placeholder: '6 00 00 00 00',
+    validate: d => /^\d{9}$/.test(d),
+  },
 ]
+
+// Arabic-Indic (٠-٩) and Eastern Arabic-Indic
+// (Persian ۰-۹) digit conversion → Western digits
+const ARABIC_DIGIT_MAP = {
+  '٠': '0', '١': '1', '٢': '2', '٣': '3', '٤': '4',
+  '٥': '5', '٦': '6', '٧': '7', '٨': '8', '٩': '9',
+  '۰': '0', '۱': '1', '۲': '2', '۳': '3', '۴': '4',
+  '۵': '5', '۶': '6', '۷': '7', '۸': '8', '۹': '9',
+}
+
+function normalizeDigits(value) {
+  return value
+    .split('')
+    .map(ch => ARABIC_DIGIT_MAP[ch] ?? ch)
+    .join('')
+    .replace(/[^\d]/g, '')
+}
 
 // ── Field component OUTSIDE CheckoutScreen ──────
 // Critical: if defined inside, it remounts on every
@@ -179,10 +241,39 @@ export default function CheckoutScreen() {
     defaultCountry
   )
   const [localPhone, setLocalPhone]   = useState(
-    session?.customer_phone
-      ?.replace('whatsapp:', '')
-      ?.replace(countryCode, '') || ''
+    normalizeDigits(
+      session?.customer_phone
+        ?.replace('whatsapp:', '')
+        ?.replace(countryCode, '') || ''
+    )
   )
+  const [phoneTouched, setPhoneTouched] = useState(false)
+
+  const currentCountry = COUNTRY_CODES.find(
+    c => c.code === countryCode
+  ) || COUNTRY_CODES[0]
+
+  const phoneIsValid = currentCountry.validate(
+    localPhone.replace(/^0+/, '')
+  )
+
+  const phoneErrorMsg = (() => {
+    if (!phoneTouched) return ''
+    if (!localPhone.trim())
+      return t('phone_required', lang)
+    if (!phoneIsValid)
+      return lang === 'ar'
+        ? `رقم غير صحيح لـ ${currentCountry.label} — جرّب صيغة مثل ${currentCountry.placeholder}`
+        : lang === 'fr'
+          ? `Numéro invalide pour ${currentCountry.label} — format attendu ${currentCountry.placeholder}`
+          : `Invalid number for ${currentCountry.label} — expected format ${currentCountry.placeholder}`
+    return ''
+  })()
+
+  function handlePhoneChange(e) {
+    const cleaned = normalizeDigits(e.target.value)
+    setLocalPhone(cleaned)
+  }
 
   const [address, setAddress]   = useState(
     customer?.last_address || ''
@@ -194,10 +285,21 @@ export default function CheckoutScreen() {
 
   function validate() {
     const e = {}
+    setPhoneTouched(true)
+
     if (!name.trim())
       e.name    = t('name_required',    lang)
-    if (!localPhone.trim())
+
+    if (!localPhone.trim()) {
       e.phone   = t('phone_required',   lang)
+    } else if (!phoneIsValid) {
+      e.phone   = phoneErrorMsg ||
+        (lang === 'ar'
+          ? 'رقم الهاتف غير صحيح'
+          : lang === 'fr'
+            ? 'Numéro de téléphone invalide'
+            : 'Invalid phone number')
+    }
 
     if (isVenueMode) {
       if (!selectedSpot)
@@ -216,7 +318,8 @@ export default function CheckoutScreen() {
     setSubmitting(true)
 
     try {
-      const fullPhone = `${countryCode}${localPhone.replace(/^0+/, '')}`
+      const fullPhone =
+        `${countryCode}${localPhone.replace(/^0+/, '')}`
 
       const orderPayload = {
         token:            session?.token || 'demo',
@@ -404,7 +507,7 @@ export default function CheckoutScreen() {
       {/* Scrollable content — ONLY this scrolls */}
       <div style={{
         flex:          1,
-        minHeight:     0,   // critical: allows flex child to shrink & scroll
+        minHeight:     0,
         overflowY:     'auto',
         overflowX:     'hidden',
         WebkitOverflowScrolling: 'touch',
@@ -510,7 +613,7 @@ export default function CheckoutScreen() {
             {/* Phone — country code dropdown + number */}
             <Field
               label={t('phone_number', lang)}
-              error={errors.phone}
+              error={errors.phone || phoneErrorMsg}
               lang={lang}
             >
               <div style={{
@@ -522,9 +625,10 @@ export default function CheckoutScreen() {
                 <div style={{ position: 'relative', flexShrink: 0 }}>
                   <select
                     value={countryCode}
-                    onChange={e =>
+                    onChange={e => {
                       setCountryCode(e.target.value)
-                    }
+                      setPhoneTouched(false)
+                    }}
                     style={{
                       appearance:   'none',
                       WebkitAppearance: 'none',
@@ -578,26 +682,21 @@ export default function CheckoutScreen() {
                   <input
                     type="tel"
                     value={localPhone}
-                    onChange={e =>
-                      setLocalPhone(
-                        e.target.value.replace(/[^\d]/g, '')
-                      )
-                    }
-                    placeholder={
-                      countryCode === '+20'
-                        ? '10 0000 0000'
-                        : '514 000-0000'
-                    }
-                    pattern="[0-9]*"
+                    onChange={handlePhoneChange}
+                    onBlur={() => setPhoneTouched(true)}
+                    placeholder={currentCountry.placeholder}
                     inputMode="numeric"
+                    lang="ar"
                     style={{
                       width:        '100%',
                       padding:      '12px 16px 12px 42px',
                       borderRadius: 14,
-                      border:       errors.phone
+                      border:       (errors.phone || phoneErrorMsg)
                         ? '1px solid #ef4444'
-                        : '1px solid rgba(45,42,38,0.12)',
-                      background:   errors.phone
+                        : phoneTouched && phoneIsValid
+                          ? '1px solid #2D6E5A'
+                          : '1px solid rgba(45,42,38,0.12)',
+                      background:   (errors.phone || phoneErrorMsg)
                         ? '#fef2f2' : '#FFF8F0',
                       fontSize:     14,
                       color:        '#2D2A26',
@@ -608,6 +707,18 @@ export default function CheckoutScreen() {
                       direction:    'ltr',
                     }}
                   />
+                  {phoneTouched && phoneIsValid && (
+                    <span style={{
+                      position:  'absolute',
+                      right:     12,
+                      top:       '50%',
+                      transform: 'translateY(-50%)',
+                      color:     '#2D6E5A',
+                      fontSize:  16,
+                    }}>
+                      ✓
+                    </span>
+                  )}
                 </div>
               </div>
             </Field>
