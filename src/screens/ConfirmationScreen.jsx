@@ -202,7 +202,6 @@ export default function ConfirmationScreen() {
             fontSize:  28,
             animation: 'bounce 1s infinite',
           }}>
-            🎉
           </div>
         </div>
 
