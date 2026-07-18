@@ -303,9 +303,9 @@ export const t = (key, lang = 'fr') => {
       ar: 'العودة لواتساب',
     },
     order_again: {
-      en: 'Order Again 🍕',
-      fr: 'Commander à nouveau 🍕',
-      ar: 'اطلب مرة أخرى 🍕',
+      en: 'Order Again',
+      fr: 'Commander à nouveau',
+      ar: 'اطلب مرة أخرى',
     },
     check_whatsapp_desktop: {
       en: '📱 Check your WhatsApp for confirmation',
