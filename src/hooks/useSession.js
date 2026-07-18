@@ -123,6 +123,14 @@ export function useSession() {
     setLang(newLang)
     sessionStorage.setItem('lang', newLang)
   }
+  // Add this return value alongside the existing ones,
+  // right next to toggleLang:
+
+  function setLangDirect(newLang) {
+    setLang(newLang)
+    sessionStorage.setItem('lang', newLang)
+  }
+
 
   // ── Path helpers — use these instead of
   //    hardcoded '/menu' + searchParams ──
@@ -165,6 +173,7 @@ export function useSession() {
     error,
     lang,
     toggleLang,
+    setLang: setLangDirect,   // ← add this line
     isVenueMode,
     venueSlug,
     restaurantSlug,

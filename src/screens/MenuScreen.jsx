@@ -13,7 +13,7 @@ export default function MenuScreen() {
     restaurant,
     loading: sessionLoading,
     lang,
-    toggleLang,
+    setLang,       // see useSession update below
     paths,
   } = useSession()
 
@@ -96,10 +96,10 @@ export default function MenuScreen() {
       <Header
         restaurant={restaurant}
         lang={lang}
-        onLangToggle={toggleLang}
+        onLangSelect={setLang}
       />
 
-      {/* Category bar */}
+      {/* Category bar — right-to-left in Arabic */}
       <div style={{
         flexShrink:   0,
         background:   'white',
