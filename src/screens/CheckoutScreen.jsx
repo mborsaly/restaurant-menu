@@ -1,11 +1,26 @@
 import { useState, useEffect }    from 'react'
 import { useNavigate }            from 'react-router-dom'
-import { ChevronLeft, MapPin,
-         User, Phone }            from 'lucide-react'
+import { ChevronLeft, ChevronRight,
+         MapPin, User, Phone }    from 'lucide-react'
 import { useCart }                from '../context/CartContext'
 import { useSession }             from '../hooks/useSession'
 import { supabase }               from '../lib/supabase'
 import { t, isRTL }               from '../lib/translations'
+
+// ── Country codes — Egypt default ──────────────
+const COUNTRY_CODES = [
+  { code: '+20',  flag: '🇪🇬', label: 'EG' },
+  { code: '+966', flag: '🇸🇦', label: 'SA' },
+  { code: '+971', flag: '🇦🇪', label: 'AE' },
+  { code: '+965', flag: '🇰🇼', label: 'KW' },
+  { code: '+974', flag: '🇶🇦', label: 'QA' },
+  { code: '+973', flag: '🇧🇭', label: 'BH' },
+  { code: '+968', flag: '🇴🇲', label: 'OM' },
+  { code: '+962', flag: '🇯🇴', label: 'JO' },
+  { code: '+961', flag: '🇱🇧', label: 'LB' },
+  { code: '+1',   flag: '🇨🇦', label: 'CA' },
+  { code: '+33',  flag: '🇫🇷', label: 'FR' },
+]
 
 // ── Field component OUTSIDE CheckoutScreen ──────
 // Critical: if defined inside, it remounts on every
@@ -78,11 +93,10 @@ function SectionTitle({ text, lang }) {
 
 // ── Main component ───────────────────────────────
 export default function CheckoutScreen() {
-  const navigate     = useNavigate()
-  const searchParams = window.location.search
+  const navigate = useNavigate()
   const {
     restaurant, customer,
-    session, lang,
+    session, lang, paths,
   } = useSession()
   const {
     cart, subtotal,
@@ -92,6 +106,7 @@ export default function CheckoutScreen() {
   const primary     = restaurant?.primary_color || '#1A4D3E'
   const coral       = '#FF7A47'
   const rtl         = isRTL(lang)
+  const BackIcon    = rtl ? ChevronRight : ChevronLeft
   const arabicFont  = lang === 'ar'
     ? "'Noto Naskh Arabic', serif" : 'inherit'
 
@@ -157,10 +172,18 @@ export default function CheckoutScreen() {
   const [name, setName]         = useState(
     customer?.name || ''
   )
-  const [phone, setPhone]       = useState(
-    session?.customer_phone
-      ?.replace('whatsapp:+', '+') || ''
+
+  // ── Phone: country code + local number ──────
+  const defaultCountry = isVenueMode ? '+20' : '+1'
+  const [countryCode, setCountryCode] = useState(
+    defaultCountry
   )
+  const [localPhone, setLocalPhone]   = useState(
+    session?.customer_phone
+      ?.replace('whatsapp:', '')
+      ?.replace(countryCode, '') || ''
+  )
+
   const [address, setAddress]   = useState(
     customer?.last_address || ''
   )
@@ -173,7 +196,7 @@ export default function CheckoutScreen() {
     const e = {}
     if (!name.trim())
       e.name    = t('name_required',    lang)
-    if (!phone.trim())
+    if (!localPhone.trim())
       e.phone   = t('phone_required',   lang)
 
     if (isVenueMode) {
@@ -193,10 +216,12 @@ export default function CheckoutScreen() {
     setSubmitting(true)
 
     try {
+      const fullPhone = `${countryCode}${localPhone.replace(/^0+/, '')}`
+
       const orderPayload = {
         token:            session?.token || 'demo',
         restaurant_id:    restaurant?.id,
-        customer_phone:   phone,
+        customer_phone:   fullPhone,
         customer_name:    name,
 
         // ── Venue vs regular delivery ─────────
@@ -258,7 +283,7 @@ export default function CheckoutScreen() {
         isVenueMode ? getSpotName(selectedSpot) : '')
 
       clearCart()
-      navigate('/confirmation' + searchParams)
+      navigate(paths.confirmation())
 
     } catch (err) {
       console.error('Order error:', err)
@@ -323,18 +348,19 @@ export default function CheckoutScreen() {
 
   return (
     <div style={{
-      minHeight:     '100dvh',
+      height:        '100dvh',
       display:       'flex',
       flexDirection: 'column',
       background:    '#FFF8F0',
+      overflow:      'hidden',
+      maxWidth:      448,
+      margin:        '0 auto',
       direction:     rtl ? 'rtl' : 'ltr',
     }}>
 
-      {/* Header */}
+      {/* Header — never scrolls */}
       <div style={{
-        position:     'sticky',
-        top:          0,
-        zIndex:       10,
+        flexShrink:   0,
         background:   '#FFF8F0',
         borderBottom: '1px solid rgba(45,42,38,0.08)',
         padding:      '14px 16px',
@@ -343,9 +369,7 @@ export default function CheckoutScreen() {
         gap:          12,
       }}>
         <button
-          onClick={() =>
-            navigate('/cart' + searchParams)
-          }
+          onClick={() => navigate(paths.cart())}
           style={{
             width:          36,
             height:         36,
@@ -357,10 +381,9 @@ export default function CheckoutScreen() {
             alignItems:     'center',
             justifyContent: 'center',
             flexShrink:     0,
-            transform:      rtl ? 'scaleX(-1)' : 'none',
           }}
         >
-          <ChevronLeft size={20}
+          <BackIcon size={20}
             style={{ color: '#2D2A26' }} />
         </button>
 
@@ -378,10 +401,13 @@ export default function CheckoutScreen() {
         </h1>
       </div>
 
-      {/* Scrollable content */}
+      {/* Scrollable content — ONLY this scrolls */}
       <div style={{
         flex:          1,
+        minHeight:     0,   // critical: allows flex child to shrink & scroll
         overflowY:     'auto',
+        overflowX:     'hidden',
+        WebkitOverflowScrolling: 'touch',
         paddingBottom: 140,
       }}>
         <div style={{
@@ -481,31 +507,108 @@ export default function CheckoutScreen() {
               </div>
             </Field>
 
-            {/* Phone */}
+            {/* Phone — country code dropdown + number */}
             <Field
               label={t('phone_number', lang)}
               error={errors.phone}
               lang={lang}
             >
-              <div style={{ position: 'relative' }}>
-                <Phone size={16} style={iconPos} />
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={e =>
-                    setPhone(e.target.value)
-                  }
-                  placeholder={
-                    t('phone_placeholder', lang)
-                  }
-                  pattern=".*"
-                  inputMode="tel"
-                  style={{
-                    ...inputIconStyle(!!errors.phone),
-                    textAlign: 'left',
-                    direction: 'ltr',
-                  }}
-                />
+              <div style={{
+                display:   'flex',
+                gap:       8,
+                direction: 'ltr', // phone row always LTR for readability
+              }}>
+                {/* Country code dropdown */}
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <select
+                    value={countryCode}
+                    onChange={e =>
+                      setCountryCode(e.target.value)
+                    }
+                    style={{
+                      appearance:   'none',
+                      WebkitAppearance: 'none',
+                      padding:      '12px 30px 12px 14px',
+                      borderRadius: 14,
+                      border:       '1px solid rgba(45,42,38,0.12)',
+                      background:   '#FFF8F0',
+                      fontSize:     14,
+                      fontWeight:   600,
+                      color:        '#2D2A26',
+                      outline:      'none',
+                      cursor:       'pointer',
+                      fontFamily:   "'Inter', sans-serif",
+                      minWidth:     92,
+                    }}
+                  >
+                    {COUNTRY_CODES.map(c => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag} {c.code}
+                      </option>
+                    ))}
+                  </select>
+                  {/* Dropdown chevron */}
+                  <span style={{
+                    position:      'absolute',
+                    right:         10,
+                    top:           '50%',
+                    transform:     'translateY(-50%)',
+                    pointerEvents: 'none',
+                    fontSize:      10,
+                    color:         '#2D2A26',
+                    opacity:       0.4,
+                  }}>
+                    ▼
+                  </span>
+                </div>
+
+                {/* Local phone number */}
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <Phone size={16}
+                    style={{
+                      position:  'absolute',
+                      left:      14,
+                      top:       '50%',
+                      transform: 'translateY(-50%)',
+                      color:     '#2D2A26',
+                      opacity:   0.35,
+                      pointerEvents: 'none',
+                    }}
+                  />
+                  <input
+                    type="tel"
+                    value={localPhone}
+                    onChange={e =>
+                      setLocalPhone(
+                        e.target.value.replace(/[^\d]/g, '')
+                      )
+                    }
+                    placeholder={
+                      countryCode === '+20'
+                        ? '10 0000 0000'
+                        : '514 000-0000'
+                    }
+                    pattern="[0-9]*"
+                    inputMode="numeric"
+                    style={{
+                      width:        '100%',
+                      padding:      '12px 16px 12px 42px',
+                      borderRadius: 14,
+                      border:       errors.phone
+                        ? '1px solid #ef4444'
+                        : '1px solid rgba(45,42,38,0.12)',
+                      background:   errors.phone
+                        ? '#fef2f2' : '#FFF8F0',
+                      fontSize:     14,
+                      color:        '#2D2A26',
+                      outline:      'none',
+                      boxSizing:    'border-box',
+                      fontFamily:   "'Inter', sans-serif",
+                      textAlign:    'left',
+                      direction:    'ltr',
+                    }}
+                  />
+                </div>
               </div>
             </Field>
           </div>
@@ -852,16 +955,12 @@ export default function CheckoutScreen() {
         </div>
       </div>
 
-      {/* Place order button */}
+      {/* Place order button — fixed, outside scroll flow */}
       <div style={{
-        position:   'fixed',
-        bottom:     0,
-        left:       0,
-        right:      0,
-        maxWidth:   448,
-        margin:     '0 auto',
+        flexShrink: 0,
         padding:    16,
         background: '#FFF8F0',
+        borderTop:  '1px solid rgba(45,42,38,0.06)',
       }}>
         <button
           onClick={handlePlaceOrder}
