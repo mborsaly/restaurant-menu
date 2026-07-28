@@ -403,7 +403,7 @@ export default function CheckoutScreen() {
       }
 
       const response = await fetch(
-        import.meta.env.VITE_N8N_WEBHOOK_URL,
+        import.meta.env.VITE_N8N_WEBHOOK_URL, 
         {
           method:  'POST',
           headers: {
