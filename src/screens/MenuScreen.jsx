@@ -5,6 +5,7 @@ import { supabase }            from '../lib/supabase'
 import { t, isRTL }            from '../lib/translations'
 import Header                  from '../components/Header'
 import MenuItemCard            from '../components/MenuItemCard'
+import ProductCard             from '../components/ProductCard'
 import Cart                    from '../components/Cart'
 import LoadingScreen           from '../components/LoadingScreen'
 
@@ -13,8 +14,9 @@ export default function MenuScreen() {
     restaurant,
     loading: sessionLoading,
     lang,
-    setLang,       // see useSession update below
+    setLang,
     paths,
+    isGrocery,
   } = useSession()
 
   const { itemCount, subtotal } = useCart()
@@ -35,19 +37,35 @@ export default function MenuScreen() {
         const { data: cats } = await supabase
           .from('categories')
           .select('*')
-          .eq('restaurant_id', restaurant.id)
+          .eq('vendor_id', restaurant.id)
           .eq('active', true)
           .order('sort_order')
 
-        const { data: items } = await supabase
-          .from('menu_items')
-          .select('*, item_options(*)')
-          .eq('restaurant_id', restaurant.id)
-          .eq('available', true)
-          .order('sort_order')
+        // ── Branch product table by vendor type ──
+        let items = []
+        if (isGrocery) {
+          const { data } = await supabase
+            .from('grocery_products')
+            .select('*, grocery_product_options(*)')
+            .eq('vendor_id', restaurant.id)
+            .eq('available', true)
+            .order('sort_order')
+          items = (data || []).map(p => ({
+            ...p,
+            item_options: p.grocery_product_options,
+          }))
+        } else {
+          const { data } = await supabase
+            .from('menu_items')
+            .select('*, item_options(*)')
+            .eq('vendor_id', restaurant.id)
+            .eq('available', true)
+            .order('sort_order')
+          items = data || []
+        }
 
         setCategories(cats || [])
-        setMenuItems(items || [])
+        setMenuItems(items)
 
         if (cats?.length > 0) {
           setActiveCategory(cats[0].id)
@@ -60,7 +78,7 @@ export default function MenuScreen() {
     }
 
     loadMenu()
-  }, [restaurant?.id])
+  }, [restaurant?.id, isGrocery])
 
   function getCatName(cat) {
     if (lang === 'ar') return cat.name_ar || cat.name_en
@@ -92,14 +110,13 @@ export default function MenuScreen() {
       direction:     rtl ? 'rtl' : 'ltr',
     }}>
 
-      {/* Header */}
       <Header
         restaurant={restaurant}
         lang={lang}
         onLangSelect={setLang}
       />
 
-      {/* Category bar — right-to-left in Arabic */}
+      {/* Category bar */}
       <div style={{
         flexShrink:   0,
         background:   'white',
@@ -112,7 +129,7 @@ export default function MenuScreen() {
           overflowX:       'auto',
           msOverflowStyle: 'none',
           scrollbarWidth:  'none',
-          flexDirection:   rtl ? 'row-reverse' : 'row',
+          flexDirection:   'row',
           WebkitOverflowScrolling: 'touch',
         }}>
           {categories.map(cat => {
@@ -120,9 +137,7 @@ export default function MenuScreen() {
             return (
               <button
                 key={cat.id}
-                onClick={() =>
-                  setActiveCategory(cat.id)
-                }
+                onClick={() => setActiveCategory(cat.id)}
                 style={{
                   flexShrink:   0,
                   padding:      '8px 18px',
@@ -136,17 +151,13 @@ export default function MenuScreen() {
                   fontFamily:   lang === 'ar'
                     ? "'Noto Naskh Arabic', serif"
                     : 'inherit',
-                  background:   active
-                    ? primary : '#FFF8F0',
-                  color: active
-                    ? '#FFF8F0' : '#2D2A26',
-                  opacity: active ? 1 : 0.7,
+                  background:   active ? primary : '#FFF8F0',
+                  color:        active ? '#FFF8F0' : '#2D2A26',
+                  opacity:      active ? 1 : 0.7,
                 }}
               >
                 {cat.emoji && (
-                  <span style={{ marginInlineEnd: 6 }}>
-                    {cat.emoji}
-                  </span>
+                  <span style={{ marginInlineEnd: 6 }}>{cat.emoji}</span>
                 )}
                 {getCatName(cat)}
               </button>
@@ -155,43 +166,44 @@ export default function MenuScreen() {
         </div>
       </div>
 
-      {/* Items — only this scrolls */}
+      {/* Items */}
       <div style={{
-        flex:          1,
-        overflowY:     'auto',
-        overflowX:     'hidden',
-        paddingBottom: 100,
-        WebkitOverflowScrolling: 'touch',
+        flex: 1, overflowY: 'auto', overflowX: 'hidden',
+        paddingBottom: 100, WebkitOverflowScrolling: 'touch',
       }}>
         {filteredItems.length > 0 ? (
           <div style={{
-            display:             'grid',
-            gridTemplateColumns: 'repeat(2, 1fr)',
-            gap:                 12,
-            padding:             16,
+            display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)',
+            gap: 12, padding: 16,
           }}>
-            {filteredItems.map(item => (
-              <MenuItemCard
-                key={item.id}
-                item={item}
-                lang={lang}
-                restaurant={restaurant}
-                linkTo={paths.item(item.id)}
-              />
-            ))}
+            {filteredItems.map(item =>
+              isGrocery ? (
+                <ProductCard
+                  key={item.id}
+                  item={item}
+                  lang={lang}
+                  restaurant={restaurant}
+                  linkTo={paths.item(item.id)}
+                />
+              ) : (
+                <MenuItemCard
+                  key={item.id}
+                  item={item}
+                  lang={lang}
+                  restaurant={restaurant}
+                  linkTo={paths.item(item.id)}
+                />
+              )
+            )}
           </div>
         ) : (
           <div style={{
-            display:        'flex',
-            flexDirection:  'column',
-            alignItems:     'center',
-            justifyContent: 'center',
-            padding:        '80px 24px',
-            textAlign:      'center',
-            opacity:        0.5,
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', padding: '80px 24px', textAlign: 'center',
+            opacity: 0.5,
           }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>
-              🍽️
+              {isGrocery ? '🛒' : '🍽️'}
             </div>
             <p style={{ color: '#2D2A26', fontSize: 15 }}>
               {t('no_items', lang)}
@@ -200,7 +212,6 @@ export default function MenuScreen() {
         )}
       </div>
 
-      {/* Cart button */}
       <Cart
         itemCount={itemCount}
         subtotal={subtotal}
