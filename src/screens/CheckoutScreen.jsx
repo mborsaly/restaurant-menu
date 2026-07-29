@@ -373,7 +373,7 @@ export default function CheckoutScreen() {
 
       const orderPayload = {
         token:            session?.token || 'demo',
-        restaurant_id:    restaurant?.id,
+        vendor_id:        restaurant?.id,
         customer_phone:   fullPhone,
         customer_name:    name,
 
