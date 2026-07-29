@@ -15,7 +15,7 @@ export function useMenu(restaurantId) {
         const { data: cats } = await supabase
           .from('categories')
           .select('*')
-          .eq('restaurant_id', restaurantId)
+          .eq('vendor_id', restaurantId)
           .eq('active', true)
           .order('sort_order')
 
@@ -23,7 +23,7 @@ export function useMenu(restaurantId) {
         const { data: menuItems } = await supabase
           .from('menu_items')
           .select('*, item_options(*)')
-          .eq('restaurant_id', restaurantId)
+          .eq('vendor_id', restaurantId)
           .eq('available', true)
           .order('sort_order')
 
