@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react'
-import { t, isRTL } from '../lib/translations'
 import LangSwitcher from './LangSwitcher'
 import { t, isRTL } from '../lib/translations'
 
