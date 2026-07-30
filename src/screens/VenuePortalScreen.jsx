@@ -2,9 +2,8 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase }            from '../lib/supabase'
 import LoadingScreen           from '../components/LoadingScreen'
-
-const LANG_LABELS = { ar: 'ع', en: 'EN', fr: 'FR' }
-const CYCLE = { ar: 'en', en: 'fr', fr: 'ar' }
+import LangSwitcher            from '../components/LangSwitcher'
+import { isRTL }                from '../lib/translations'
 
 export default function VenuePortalScreen() {
   const { venueSlug } = useParams()
@@ -14,9 +13,9 @@ export default function VenuePortalScreen() {
   const [vendors, setVendors] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
-  const [lang, setLang] = useState(sessionStorage.getItem('lang') || 'ar')
+  const [lang, setLangState]  = useState(sessionStorage.getItem('lang') || 'ar')
 
-  const rtl        = lang === 'ar'
+  const rtl        = isRTL(lang)
   const arabicFont = lang === 'ar' ? "'Noto Naskh Arabic', serif" : 'inherit'
 
   useEffect(() => {
@@ -49,14 +48,20 @@ export default function VenuePortalScreen() {
     load()
   }, [venueSlug])
 
-  function toggleLang() {
-    const next = CYCLE[lang] || 'ar'
-    setLang(next)
-    sessionStorage.setItem('lang', next)
+  function setLang(newLang) {
+    setLangState(newLang)
+    sessionStorage.setItem('lang', newLang)
   }
 
-  function getName(v) {
-    if (lang === 'ar') return v.name_ar || v.name_en || v.name
+  function getVenueName() {
+    if (!venue) return ''
+    if (lang === 'ar') return venue.name_ar || venue.name
+    if (lang === 'fr') return venue.name_fr || venue.name
+    return venue.name
+  }
+
+  function getVendorName(v) {
+    if (lang === 'ar') return v.name_ar || v.name
     if (lang === 'fr') return v.name_fr || v.name
     return v.name
   }
@@ -72,7 +77,7 @@ export default function VenuePortalScreen() {
   }
 
   const texts = {
-    title: { ar: venue?.name || 'المطاعم', en: venue?.name || 'Vendors', fr: venue?.name || 'Vendeurs' },
+    title: { ar: getVenueName() || 'المطاعم', en: getVenueName() || 'Vendors', fr: getVenueName() || 'Vendeurs' },
     subtitle: {
       ar: 'اختر مكانك المفضل واطلب دلوقتي',
       en: 'Pick a spot and order now',
@@ -107,20 +112,21 @@ export default function VenuePortalScreen() {
     <div style={{ minHeight: '100dvh', background: '#FFF8F0', direction: rtl ? 'rtl' : 'ltr' }}>
 
       <div style={{ background: primary, padding: '40px 24px 32px', textAlign: 'center', position: 'relative' }}>
-        <button
-          onClick={toggleLang}
-          style={{
-            position: 'absolute', top: 16, [rtl ? 'left' : 'right']: 16,
-            padding: '6px 14px', borderRadius: 100, background: 'rgba(255,255,255,0.15)',
-            border: 'none', cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace",
-            fontSize: 12, fontWeight: 700, color: 'white',
-          }}
-        >
-          {LANG_LABELS[lang]}
-        </button>
+
+        {/* Language dropdown — same component/pattern as Header.jsx */}
+        <div style={{
+          position: 'absolute', top: 16,
+          [rtl ? 'left' : 'right']: 16,
+        }}>
+          <LangSwitcher
+            lang={lang}
+            onSelect={setLang}
+            primary="#FFFFFF"
+          />
+        </div>
 
         {venue.logo_url ? (
-          <img src={venue.logo_url} alt={venue.name}
+          <img src={venue.logo_url} alt={getVenueName()}
             style={{ width: 72, height: 72, borderRadius: 20, objectFit: 'cover', marginBottom: 16, boxShadow: '0 8px 24px rgba(0,0,0,.2)' }} />
         ) : (
           <div style={{
@@ -136,7 +142,7 @@ export default function VenuePortalScreen() {
           fontFamily: arabicFont === 'inherit' ? "'Fraunces', serif" : arabicFont,
           fontSize: 24, fontWeight: 700, color: 'white', margin: '0 0 6px',
         }}>
-          {texts.title[lang]}
+          {getVenueName()}
         </h1>
         <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', margin: 0, fontFamily: arabicFont }}>
           {texts.subtitle[lang]}
@@ -167,7 +173,7 @@ export default function VenuePortalScreen() {
                   flexShrink: 0, overflow: 'hidden',
                 }}>
                   {v.logo_url ? (
-                    <img src={v.logo_url} alt={getName(v)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={v.logo_url} alt={getVendorName(v)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (v.logo_emoji || getVendorTypeIcon(v))}
                 </div>
 
@@ -176,7 +182,7 @@ export default function VenuePortalScreen() {
                     fontFamily: arabicFont === 'inherit' ? "'Fraunces', serif" : arabicFont,
                     fontSize: 16, fontWeight: 700, color: '#1A4D3E', margin: '0 0 2px',
                   }}>
-                    {getName(v)}
+                    {getVendorName(v)}
                   </h3>
                   {getCuisine(v) && (
                     <p style={{ fontSize: 12, color: '#2D2A26', opacity: 0.55, margin: 0, fontFamily: arabicFont }}>
