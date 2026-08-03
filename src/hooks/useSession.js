@@ -5,16 +5,14 @@ const RESERVED = ['welcome','menu','item','cart','checkout','confirmation']
 
 export function useSession() {
   const [session, setSession]       = useState(null)
-  const [restaurant, setRestaurant] = useState(null) // kept as `restaurant` for
-                                                       // backward-compat with
-                                                       // existing components;
-                                                       // now sourced from `vendors`
+  const [restaurant, setRestaurant] = useState(null)
   const [venue, setVenue]           = useState(null)
   const [customer, setCustomer]     = useState(null)
   const [loading, setLoading]       = useState(true)
   const [error, setError]           = useState(null)
   const [lang, setLangState]        = useState('ar')
   const [isVenueMode, setIsVenueMode] = useState(false)
+  const [isStandalone, setIsStandalone] = useState(false)
   const [venueSlug, setVenueSlug]     = useState(null)
   const [restaurantSlug, setRestaurantSlug] = useState(null)
 
@@ -27,6 +25,7 @@ export function useSession() {
           .split('/').filter(Boolean)
 
         // ── VENUE MODE: /:venueSlug/:vendorSlug ──
+        // (two path segments, first is a real venue)
         if (!token && pathParts.length >= 2
             && !RESERVED.includes(pathParts[0])) {
 
@@ -40,31 +39,61 @@ export function useSession() {
             .eq('active', true)
             .single()
 
-          if (!venueData) throw new Error('Venue not found')
+          if (venueData) {
+            const { data: vendorData } = await supabase
+              .from('vendors')
+              .select('*')
+              .eq('slug', rSlug)
+              .eq('venue_id', venueData.id)
+              .eq('active', true)
+              .single()
+
+            if (vendorData) {
+              setVenue(venueData)
+              setRestaurant(vendorData)
+              setIsVenueMode(true)
+              setVenueSlug(vSlug)
+              setRestaurantSlug(rSlug)
+
+              const savedLang = sessionStorage.getItem('lang') || 'ar'
+              setLangState(savedLang)
+              setLoading(false)
+              return
+            }
+          }
+          // Falls through to standalone check below
+          // if not a real venue/vendor combo
+        }
+
+        // ── STANDALONE VENDOR MODE: /:vendorSlug ──
+        // (one path segment, not a reserved route,
+        //  matches a standalone vendor with no venue_id)
+        if (!token && pathParts.length === 1
+            && !RESERVED.includes(pathParts[0])) {
+
+          const rSlug = pathParts[0]
 
           const { data: vendorData } = await supabase
             .from('vendors')
             .select('*')
             .eq('slug', rSlug)
-            .eq('venue_id', venueData.id)
             .eq('active', true)
             .single()
 
-          if (!vendorData) throw new Error('Vendor not found')
+          if (vendorData) {
+            setRestaurant(vendorData)
+            setIsVenueMode(!!vendorData.venue_id)
+            setIsStandalone(!vendorData.venue_id)
+            setRestaurantSlug(rSlug)
 
-          setVenue(venueData)
-          setRestaurant(vendorData)
-          setIsVenueMode(true)
-          setVenueSlug(vSlug)
-          setRestaurantSlug(rSlug)
-
-          const savedLang = sessionStorage.getItem('lang') || 'ar'
-          setLangState(savedLang)
-          setLoading(false)
-          return
+            const savedLang = sessionStorage.getItem('lang') || 'ar'
+            setLangState(savedLang)
+            setLoading(false)
+            return
+          }
         }
 
-        // ── No token, no venue path — demo fallback ──
+        // ── No token, no matching path — demo fallback ──
         if (!token) {
           const { data: vendor } = await supabase
             .from('vendors')
@@ -77,7 +106,7 @@ export function useSession() {
           return
         }
 
-        // ── WHATSAPP TOKEN MODE ──
+        // ── WHATSAPP TOKEN MODE (unchanged) ──
         const { data: sessionData, error: sessionError } =
           await supabase
             .from('sessions')
@@ -132,39 +161,41 @@ export function useSession() {
     sessionStorage.setItem('lang', newLang)
   }
 
+  // ── Path helpers ──
   function basePath() {
-    return isVenueMode
-      ? `/${venueSlug}/${restaurantSlug}`
-      : ''
+    if (isVenueMode && venueSlug) return `/${venueSlug}/${restaurantSlug}`
+    if (isStandalone && restaurantSlug) return `/${restaurantSlug}`
+    return ''
   }
 
   function suffix() {
-    return isVenueMode ? '' : window.location.search
+    return (isVenueMode || isStandalone) ? '' : window.location.search
   }
 
+  const usesCleanPath = isVenueMode || isStandalone
+
   const paths = {
-    menu:  () => isVenueMode ? basePath() : `/menu${suffix()}`,
-    item:  (id) => isVenueMode
+    menu:         () => usesCleanPath ? basePath() : `/menu${suffix()}`,
+    item:  (id)   => usesCleanPath
       ? `${basePath()}/item/${id}`
       : `/item/${id}${suffix()}`,
-    cart:  () => isVenueMode
+    cart:         () => usesCleanPath
       ? `${basePath()}/cart`
       : `/cart${suffix()}`,
-    checkout: () => isVenueMode
+    checkout:     () => usesCleanPath
       ? `${basePath()}/checkout`
       : `/checkout${suffix()}`,
-    confirmation: () => isVenueMode
+    confirmation: () => usesCleanPath
       ? `${basePath()}/confirmation`
       : `/confirmation${suffix()}`,
   }
 
-  // vendor_type drives which product table/UI to use
   const vendorType = restaurant?.vendor_type || 'restaurant'
   const isGrocery   = vendorType === 'grocery' || vendorType === 'kiosk'
 
   return {
     session,
-    restaurant,       // vendor row (kept name for compatibility)
+    restaurant,
     vendor: restaurant,
     venue,
     customer,
@@ -174,6 +205,7 @@ export function useSession() {
     toggleLang,
     setLang,
     isVenueMode,
+    isStandalone,
     venueSlug,
     restaurantSlug,
     vendorType,

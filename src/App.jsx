@@ -22,12 +22,21 @@ export default function App() {
           <Route path="/checkout"     element={<CheckoutScreen />} />
           <Route path="/confirmation" element={<ConfirmationScreen />} />
 
-          {/* ── Venue QR flow ── */}
-          <Route path="/:venueSlug"
-            element={<VenuePortalScreen />} />
-
-          <Route path="/:venueSlug/:restaurantSlug"
+          {/* ── Standalone vendor direct URL: /:vendorSlug ── */}
+          <Route path="/:vendorSlug"
             element={<MenuScreen />} />
+          <Route path="/:vendorSlug/item/:id"
+            element={<ItemScreen />} />
+          <Route path="/:vendorSlug/cart"
+            element={<CartScreen />} />
+          <Route path="/:vendorSlug/checkout"
+            element={<CheckoutScreen />} />
+          <Route path="/:vendorSlug/confirmation"
+            element={<ConfirmationScreen />} />
+
+          {/* ── Venue QR flow: /:venueSlug/:vendorSlug ── */}
+          <Route path="/:venueSlug/:restaurantSlug"
+            element={<VenuePortalScreen />} />
           <Route path="/:venueSlug/:restaurantSlug/item/:id"
             element={<ItemScreen />} />
           <Route path="/:venueSlug/:restaurantSlug/cart"

@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BistroVite for Mountain View Ras El Hekma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:      #0E3A53;
+  --navy-deep: #082A3D;
+  --aegean:    #1C6E8C;
+  --sky:       #6FA8C4;
+  --white:     #FFFFFF;
+  --whitewash: #FBFAF7;
+  --sand:      #C9A15A;
+  --sand-lt:   #E8D5AC;
+  --terracotta:#B5652E;
+  --ink:       #1B2530;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:210mm;height:297mm}
+body{
+  font-family:'Inter',sans-serif;
+  color:var(--ink);
+  background:var(--whitewash);
+  -webkit-print-color-adjust:exact;
+  print-color-adjust:exact;
+  overflow:hidden;
+}
+.page{
+  width:210mm;height:297mm;
+  display:flex;flex-direction:column;
+  position:relative;
+}
+ 
+/* ── Aegean wave texture (decorative) ── */
+.wave-bg{
+  position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(circle at 92% 4%, rgba(28,110,140,.08) 0%, transparent 40%),
+    radial-gradient(circle at 6% 96%, rgba(201,161,90,.10) 0%, transparent 40%);
+}
+ 
+/* ── HEADER ── */
+.header{
+  position:relative;z-index:1;
+  padding:11mm 14mm 8mm;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid rgba(14,58,83,.12);
+}
+.bv-lockup{display:flex;align-items:center;gap:9px}
+.bv-mark{
+  width:30px;height:30px;border-radius:8px;background:var(--navy);
+  display:flex;align-items:center;justify-content:center;
+}
+.bv-mark svg{width:16px;height:16px}
+.bv-word{font-family:'Inter',sans-serif;font-weight:800;font-size:16px;color:var(--navy);letter-spacing:-.01em}
+.bv-word em{font-style:italic;color:var(--sand);font-weight:600}
+.x-mark{font-size:14px;color:rgba(27,37,48,.3);margin:0 4px}
+.mv-word{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:17px;color:var(--navy);letter-spacing:.02em}
+.prepared-tag{
+  font-family:'JetBrains Mono',monospace;font-size:8.5px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;color:rgba(14,58,83,.45);
+  text-align:right;
+}
+ 
+/* ── HERO ── */
+.hero{
+  position:relative;z-index:1;
+  padding:9mm 14mm 7mm;
+  text-align:center;
+}
+.eyebrow{
+  font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--sand);
+  margin-bottom:7px;display:flex;align-items:center;justify-content:center;gap:10px;
+}
+.eyebrow::before,.eyebrow::after{content:'';width:24px;height:1px;background:var(--sand);opacity:.6}
+.hero h1{
+  font-family:'Cormorant Garamond',serif;font-weight:600;font-size:32px;
+  color:var(--navy-deep);letter-spacing:-.01em;line-height:1.08;margin-bottom:8px;
+}
+.hero h1 em{font-style:italic;color:var(--sand)}
+.hero p{
+  font-size:12.5px;color:var(--ink);opacity:.68;max-width:145mm;margin:0 auto;
+  line-height:1.55;
+}
+ 
+/* ── MAIN GRID ── */
+.main-grid{
+  position:relative;z-index:1;
+  flex:1;
+  display:grid;
+  grid-template-columns:1fr 66mm;
+  gap:6mm;
+  padding:2mm 14mm 0;
+}
+ 
+/* Left column: steps + benefits */
+.left-col{display:flex;flex-direction:column;gap:5mm}
+ 
+.block-title{
+  font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--aegean);
+  margin-bottom:6px;display:flex;align-items:center;gap:6px;
+}
+.block-title::before{content:'';width:14px;height:1.5px;background:var(--sand)}
+ 
+.steps{display:flex;flex-direction:column;gap:6px}
+.step{
+  display:flex;gap:9px;align-items:flex-start;
+  background:var(--white);border:1px solid rgba(14,58,83,.08);
+  border-radius:9px;padding:8px 11px;
+}
+.step-num{
+  width:19px;height:19px;border-radius:50%;background:var(--navy);color:var(--white);
+  font-family:'Cormorant Garamond',serif;font-weight:700;font-size:11px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;
+}
+.step-text h4{font-size:10.5px;font-weight:700;color:var(--navy-deep);margin-bottom:1px}
+.step-text p{font-size:9px;color:var(--ink);opacity:.62;line-height:1.35}
+ 
+.benefits{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.benefit{
+  background:linear-gradient(135deg,var(--navy) 0%,var(--navy-deep) 100%);
+  border-radius:9px;padding:9px 11px;color:var(--white);
+}
+.benefit .icon{font-size:15px;margin-bottom:3px;display:block}
+.benefit h4{font-size:9.5px;font-weight:700;margin-bottom:2px;color:var(--sand-lt)}
+.benefit p{font-size:8.3px;line-height:1.35;color:rgba(255,255,255,.78)}
+ 
+.channel-note{
+  background:var(--sand-lt);border-radius:9px;padding:9px 12px;
+  border-left:3px solid var(--sand);
+}
+.channel-note p{font-size:9px;color:var(--navy-deep);line-height:1.45}
+.channel-note strong{color:var(--terracotta)}
+ 
+/* Right column: phone mockup */
+.right-col{display:flex;flex-direction:column;align-items:center;justify-content:flex-start}
+.phone-shell{
+  width:52mm;background:var(--navy-deep);border-radius:16px;padding:5px;
+  box-shadow:0 10px 30px rgba(14,58,83,.28);
+}
+.phone-screen{
+  background:#F0EEE6;border-radius:12px;overflow:hidden;
+}
+.wa-header{
+  background:var(--navy);padding:7px 9px;display:flex;align-items:center;gap:7px;
+}
+.wa-avatar{width:20px;height:20px;border-radius:50%;background:var(--sand);display:flex;align-items:center;justify-content:center;font-size:10px}
+.wa-title{font-size:8px;font-weight:700;color:var(--white)}
+.wa-sub{font-size:6.5px;color:rgba(255,255,255,.6)}
+ 
+.wa-body{padding:8px;display:flex;flex-direction:column;gap:6px}
+.bubble{
+  background:var(--white);border-radius:8px 8px 8px 2px;padding:6px 8px;
+  font-size:6.8px;line-height:1.4;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.06);
+}
+.bubble b{color:var(--navy)}
+.bubble .banner{
+  height:26px;border-radius:6px;background:linear-gradient(135deg,var(--navy),var(--aegean));
+  margin-bottom:5px;display:flex;align-items:center;justify-content:center;
+  font-family:'Cormorant Garamond',serif;font-size:8px;font-weight:600;color:var(--sand-lt);
+}
+ 
+.spot-card{
+  background:var(--white);border-radius:8px;padding:6px 8px;box-shadow:0 1px 3px rgba(0,0,0,.06);
+}
+.spot-title{font-size:6.5px;font-weight:700;color:var(--navy-deep);margin-bottom:4px}
+.spot-row{
+  display:flex;align-items:center;gap:5px;padding:3.5px 6px;border-radius:5px;
+  font-size:6.3px;margin-bottom:2.5px;
+}
+.spot-row.active{background:rgba(28,110,140,.1);border:1px solid var(--aegean);color:var(--navy)}
+.spot-row:not(.active){background:#F5F4EF;color:rgba(27,37,48,.55)}
+ 
+.stats-strip{
+  margin-top:8px;width:52mm;
+  background:var(--white);border:1px solid rgba(14,58,83,.1);
+  border-radius:10px;padding:8px 6px;
+  display:grid;grid-template-columns:1fr 1fr;gap:6px;
+}
+.stat{text-align:center}
+.stat .num{font-family:'Cormorant Garamond',serif;font-weight:700;font-size:17px;color:var(--navy-deep);line-height:1}
+.stat .num em{font-style:italic;color:var(--sand)}
+.stat .lbl{font-family:'JetBrains Mono',monospace;font-size:6.3px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:rgba(14,58,83,.5);margin-top:2px}
+ 
+/* ── FOOTER / STATUS ── */
+.footer-band{
+  position:relative;z-index:1;
+  margin:6mm 14mm 0;
+  background:var(--navy-deep);
+  border-radius:12px;
+  padding:8mm 10mm;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10mm;
+}
+.status-left{flex:1}
+.status-left .tag{
+  font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--sand);margin-bottom:4px;
+}
+.status-left p{font-size:9.5px;color:rgba(255,255,255,.82);line-height:1.5;max-width:100mm}
+.status-right{text-align:right;flex-shrink:0}
+.status-right .cta{font-size:10px;font-weight:700;color:var(--white);margin-bottom:3px}
+.status-right .contact{font-size:8.5px;color:var(--sand-lt);line-height:1.6}
+ 
+.bottom-strip{
+  position:relative;z-index:1;
+  margin-top:auto;
+  padding:5mm 14mm 8mm;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.bottom-strip .left{font-family:'Cormorant Garamond',serif;font-size:11px;color:rgba(14,58,83,.5)}
+.bottom-strip .left em{color:var(--sand);font-style:italic}
+.bottom-strip .right{font-family:'JetBrains Mono',monospace;font-size:7.5px;color:rgba(14,58,83,.4);letter-spacing:.04em}
+ 
+@page{size:A4;margin:0}
+@media print{body{width:210mm;height:297mm}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="wave-bg"></div>
+ 
+  <!-- HEADER -->
+  <div class="header">
+    <div class="bv-lockup">
+      <div class="bv-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#FBFAF7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2v6"/><path d="M5 12a7 7 0 0 1 14 0v8H5v-8z"/>
+        </svg>
+      </div>
+      <span class="bv-word">Bistro<em>Vite</em></span>
+      <span class="x-mark">×</span>
+      <span class="mv-word">Mountain View</span>
+    </div>
+    <div class="prepared-tag">Prepared for MV Leadership<br>Ras El Hekma Partnership Brief</div>
+  </div>
+ 
+  <!-- HERO -->
+  <div class="hero">
+    <div class="eyebrow">A Private Ordering Experience, Built Exclusively for MV</div>
+    <h1>Every restaurant. Every café.<br>One <em>seamless</em> MV experience.</h1>
+    <p>A fully branded, MV-exclusive ordering platform connecting every restaurant, café, and retail point of sale across MV-Ras El Hekma — giving residents and guests one effortless way to order, pay, and receive it anywhere within the community.</p>
+  </div>
+ 
+  <!-- MAIN GRID -->
+  <div class="main-grid">
+ 
+    <div class="left-col">
+ 
+      <div>
+        <div class="block-title">The Resident Experience</div>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-text"><h4>One link, every vendor</h4><p>A single MV-branded hub gives access to every participating restaurant, café, and shop on-site — no separate apps to install.</p></div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-text"><h4>Order, pay, choose a location</h4><p>Residents and guests order and pay instantly, selecting exactly where to receive it — a villa, the Light House, the Beach, the Lagoon.</p></div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-text"><h4>Delivered to the exact spot</h4><p>No only to unit address — orders route directly to a defined location inside the community, MV-side.</p></div>
+          </div>
+        </div>
+      </div>
+ 
+      <div>
+        <div class="block-title">Why It Matters for MV</div>
+        <div class="benefits">
+          <div class="benefit"><span class="icon">🏝️</span><h4>A Signature Amenity</h4><p>A private, MV-branded ordering ecosystem — genuinely rare among Egypt's premium destinations.</p></div>
+          <div class="benefit"><span class="icon">🔗</span><h4>Unified Vendor Network</h4><p>Every restaurant and café on-site, under one seamless MV experience — not fragmented, third-party tools.</p></div>
+          <div class="benefit"><span class="icon">📊</span><h4>Full Visibility</h4><p>Complete insight into resident ordering activity and on-site vendor performance.</p></div>
+          <div class="benefit"><span class="icon">🤝</span><h4>Zero Commission for Vendors</h4><p>On-site restaurants and cafés keep 100% — no 15–25% aggregator fees eating into their margins.</p></div>
+        </div>
+      </div>
+ 
+      <div class="channel-note">
+        <p><strong>Built API-first:</strong> Live via WhatsApp today for instant, zero-download access — with the underlying ordering, payment, and delivery-routing engine fully ready to embed directly inside MV's own resident app as the partnership grows.</p>
+      </div>
+ 
+    </div>
+ 
+    <div class="right-col">
+      <div class="phone-shell">
+        <div class="phone-screen">
+          <div class="wa-header">
+            <div class="wa-avatar">🏖️</div>
+            <div>
+              <div class="wa-title">MV Ras El Hekma</div>
+              <div class="wa-sub">Powered by BistroVite</div>
+            </div>
+          </div>
+          <div class="wa-body">
+            <div class="bubble">
+              <div class="banner">MV Ras El Hekma</div>
+              Welcome! 👋 Browse every restaurant &amp; café at MV — order in seconds, right here on WhatsApp.
+            </div>
+            <div class="spot-card">
+              <div class="spot-title">📍 Deliver to:</div>
+              <div class="spot-row active">🏖️&nbsp; Beach Club — Cabana 4</div>
+              <div class="spot-row">🏡&nbsp; Villa Address</div>
+              <div class="spot-row">⛵&nbsp; Marina Deck</div>
+            </div>
+            <div class="bubble">
+              <b>Order confirmed ✅</b><br>
+              On its way to your cabana — arriving in ~15 min.
+            </div>
+          </div>
+        </div>
+      </div>
+ 
+      <div class="stats-strip">
+        <div class="stat"><div class="num">0<em>%</em></div><div class="lbl">Commission</div></div>
+        <div class="stat"><div class="num">0<em>app</em></div><div class="lbl">Downloads Needed</div></div>
+        <div class="stat"><div class="num">1<em>hub</em></div><div class="lbl">For All Vendors</div></div>
+        <div class="stat"><div class="num">24<em>h</em></div><div class="lbl">Vendor Onboarding</div></div>
+      </div>
+    </div>
+ 
+  </div>
+ 
+  <!-- FOOTER STATUS BAND -->
+  <div class="footer-band">
+    <div class="status-left">
+      <div class="tag">Current Status</div>
+      <p>The core platform is fully built and tested. We are currently completing a pilot deployment at a private club in Cairo — exactly the closed-community setting this was designed for — before scaling to a destination the size of MV -Ras El Hekma.</p>
+    </div>
+    <div class="status-right">
+      <div class="cta">Let's arrange a live walkthrough</div>
+      <div class="contact">📱 +1(514)660-8818 <br>📧 partnerships@bistrovite.com</div>
+    </div>
+  </div>
+ 
+  <div class="bottom-strip">
+    <div class="left">Bistro<em>Vite</em> — A private ordering experience, custom-built for Mountain View</div>
+    <div class="right">CONFIDENTIAL · PREPARED FOR MV LEADERSHIP · 2026</div>
+  </div>
+ 
+</div>
+</body>
+</html>
