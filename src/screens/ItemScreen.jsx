@@ -124,9 +124,6 @@ export default function ItemScreen() {
 
   function handleAddToCart() {
     addItem(item, selectedOptions, quantity)
-  console.log('DEBUG paths.menu():', paths.menu())
-  console.log('DEBUG isStandalone:', isStandalone)
-  console.log('DEBUG restaurantSlug:', restaurantSlug)
     navigate(paths.menu())
   }
 

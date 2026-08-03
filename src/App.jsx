@@ -6,7 +6,7 @@ import ItemScreen              from './screens/ItemScreen'
 import CartScreen              from './screens/CartScreen'
 import CheckoutScreen          from './screens/CheckoutScreen'
 import ConfirmationScreen      from './screens/ConfirmationScreen'
-import VenuePortalScreen       from './screens/VenuePortalScreen'
+import VendorOrVenueRouter     from './screens/VendorOrVenueRouter'
 
 export default function App() {
   return (
@@ -14,7 +14,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
 
-          {/* ── WhatsApp token flow (unchanged) ── */}
+          {/* ── WhatsApp token flow ── */}
           <Route path="/welcome"      element={<WelcomeScreen />} />
           <Route path="/menu"         element={<MenuScreen />} />
           <Route path="/item/:id"     element={<ItemScreen />} />
@@ -22,9 +22,29 @@ export default function App() {
           <Route path="/checkout"     element={<CheckoutScreen />} />
           <Route path="/confirmation" element={<ConfirmationScreen />} />
 
-          {/* ── Standalone vendor direct URL: /:vendorSlug ── */}
-          <Route path="/:vendorSlug"
+          {/* ── Venue vendor: /:venueSlug/:vendorSlug ──
+              Must be registered BEFORE the standalone
+              sub-routes below so a real venue+vendor
+              pair (e.g. /esc-giza/dokan-el-kahwa) isn't
+              accidentally caught by a static-segment
+              standalone route first. React Router ranks
+              static segments higher than dynamic ones,
+              so this ordering is for readability, not
+              strictly required — but keep it for clarity. */}
+          <Route path="/:venueSlug/:vendorSlug"
             element={<MenuScreen />} />
+          <Route path="/:venueSlug/:vendorSlug/item/:id"
+            element={<ItemScreen />} />
+          <Route path="/:venueSlug/:vendorSlug/cart"
+            element={<CartScreen />} />
+          <Route path="/:venueSlug/:vendorSlug/checkout"
+            element={<CheckoutScreen />} />
+          <Route path="/:venueSlug/:vendorSlug/confirmation"
+            element={<ConfirmationScreen />} />
+
+          {/* ── Standalone vendor sub-routes
+              (static second segment wins matching
+              priority over the dynamic route above) ── */}
           <Route path="/:vendorSlug/item/:id"
             element={<ItemScreen />} />
           <Route path="/:vendorSlug/cart"
@@ -34,17 +54,11 @@ export default function App() {
           <Route path="/:vendorSlug/confirmation"
             element={<ConfirmationScreen />} />
 
-          {/* ── Venue QR flow: /:venueSlug/:vendorSlug ── */}
-          <Route path="/:venueSlug/:restaurantSlug"
-            element={<VenuePortalScreen />} />
-          <Route path="/:venueSlug/:restaurantSlug/item/:id"
-            element={<ItemScreen />} />
-          <Route path="/:venueSlug/:restaurantSlug/cart"
-            element={<CartScreen />} />
-          <Route path="/:venueSlug/:restaurantSlug/checkout"
-            element={<CheckoutScreen />} />
-          <Route path="/:venueSlug/:restaurantSlug/confirmation"
-            element={<ConfirmationScreen />} />
+          {/* ── Single segment: could be a venue portal
+              OR a standalone vendor — resolved at runtime.
+              MUST be registered so this actually renders,
+              not MenuScreen directly. ── */}
+          <Route path="/:slug" element={<VendorOrVenueRouter />} />
 
         </Routes>
       </BrowserRouter>

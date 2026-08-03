@@ -11,13 +11,23 @@ export default function VendorOrVenueRouter() {
   const [loading, setLoading]   = useState(true)
 
   useEffect(() => {
+    let cancelled = false
+
     async function resolve() {
+      setLoading(true)
+      setResolved(null)
+
+      // Check venues FIRST — a venue slug should
+      // always win over a vendor slug in the
+      // (extremely unlikely) case both exist
       const { data: venueData } = await supabase
         .from('venues')
         .select('id')
         .eq('slug', slug)
         .eq('active', true)
         .maybeSingle()
+
+      if (cancelled) return
 
       if (venueData) {
         setResolved('venue')
@@ -32,11 +42,15 @@ export default function VendorOrVenueRouter() {
         .eq('active', true)
         .maybeSingle()
 
+      if (cancelled) return
+
       setResolved(vendorData ? 'vendor' : 'notfound')
       setLoading(false)
     }
 
     resolve()
+
+    return () => { cancelled = true }
   }, [slug])
 
   if (loading) return <LoadingScreen message="Loading..." />

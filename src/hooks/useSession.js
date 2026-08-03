@@ -28,13 +28,6 @@ export function useSession() {
         const slug1 = pathParts[0]
         const slug2 = pathParts[1]
 
-        // ── Determine mode BEFORE querying anything ──
-        // Case A: /:venueSlug/:vendorSlug[/sub...]
-        //   → slug2 exists AND is not a reserved sub-route
-        //     name (cart/checkout/confirmation/item)
-        // Case B: /:vendorSlug[/sub...]  (standalone)
-        //   → slug2 is missing, OR slug2 IS one of the
-        //     reserved sub-route names
         const looksLikeVenuePair =
           !!slug1 && !RESERVED.includes(slug1) &&
           !!slug2 && !SUB_ROUTES.includes(slug2)
@@ -43,7 +36,7 @@ export function useSession() {
           !!slug1 && !RESERVED.includes(slug1) &&
           (!slug2 || SUB_ROUTES.includes(slug2))
 
-        // ── CASE A: VENUE MODE ──
+        // ── VENUE MODE: /:venueSlug/:vendorSlug ──
         if (!token && looksLikeVenuePair) {
           const { data: venueData } = await supabase
             .from('venues')
@@ -74,11 +67,9 @@ export function useSession() {
               return
             }
           }
-          // Falls through to standalone/demo checks below
-          // if slug1 isn't actually a real venue
         }
 
-        // ── CASE B: STANDALONE VENDOR ──
+        // ── STANDALONE VENDOR: /:vendorSlug[/sub-route] ──
         if (!token && looksLikeStandalone) {
           const { data: vendorData } = await supabase
             .from('vendors')
@@ -93,9 +84,6 @@ export function useSession() {
             setIsStandalone(!vendorData.venue_id)
             setRestaurantSlug(slug1)
 
-            // If this vendor unexpectedly DOES belong to
-            // a venue, also resolve venueSlug so paths
-            // still build correctly
             if (vendorData.venue_id) {
               const { data: venueData } = await supabase
                 .from('venues')
@@ -125,7 +113,7 @@ export function useSession() {
           return
         }
 
-        // ── WHATSAPP TOKEN MODE (unchanged) ──
+        // ── WHATSAPP TOKEN MODE ──
         const { data: sessionData, error: sessionError } =
           await supabase
             .from('sessions')
