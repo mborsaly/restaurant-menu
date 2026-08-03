@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase }            from '../lib/supabase'
 
-const RESERVED = ['welcome','menu','item','cart','checkout','confirmation']
+const RESERVED   = ['welcome','menu','item','cart','checkout','confirmation']
+const SUB_ROUTES = ['cart','checkout','confirmation','item']
 
 export function useSession() {
   const [session, setSession]       = useState(null)
@@ -24,18 +25,30 @@ export function useSession() {
         const pathParts = window.location.pathname
           .split('/').filter(Boolean)
 
-        // ── VENUE MODE: /:venueSlug/:vendorSlug ──
-        // (two path segments, first is a real venue)
-        if (!token && pathParts.length >= 2
-            && !RESERVED.includes(pathParts[0])) {
+        const slug1 = pathParts[0]
+        const slug2 = pathParts[1]
 
-          const vSlug = pathParts[0]
-          const rSlug = pathParts[1]
+        // ── Determine mode BEFORE querying anything ──
+        // Case A: /:venueSlug/:vendorSlug[/sub...]
+        //   → slug2 exists AND is not a reserved sub-route
+        //     name (cart/checkout/confirmation/item)
+        // Case B: /:vendorSlug[/sub...]  (standalone)
+        //   → slug2 is missing, OR slug2 IS one of the
+        //     reserved sub-route names
+        const looksLikeVenuePair =
+          !!slug1 && !RESERVED.includes(slug1) &&
+          !!slug2 && !SUB_ROUTES.includes(slug2)
 
+        const looksLikeStandalone =
+          !!slug1 && !RESERVED.includes(slug1) &&
+          (!slug2 || SUB_ROUTES.includes(slug2))
+
+        // ── CASE A: VENUE MODE ──
+        if (!token && looksLikeVenuePair) {
           const { data: venueData } = await supabase
             .from('venues')
             .select('*')
-            .eq('slug', vSlug)
+            .eq('slug', slug1)
             .eq('active', true)
             .single()
 
@@ -43,7 +56,7 @@ export function useSession() {
             const { data: vendorData } = await supabase
               .from('vendors')
               .select('*')
-              .eq('slug', rSlug)
+              .eq('slug', slug2)
               .eq('venue_id', venueData.id)
               .eq('active', true)
               .single()
@@ -52,8 +65,8 @@ export function useSession() {
               setVenue(venueData)
               setRestaurant(vendorData)
               setIsVenueMode(true)
-              setVenueSlug(vSlug)
-              setRestaurantSlug(rSlug)
+              setVenueSlug(slug1)
+              setRestaurantSlug(slug2)
 
               const savedLang = sessionStorage.getItem('lang') || 'ar'
               setLangState(savedLang)
@@ -61,22 +74,16 @@ export function useSession() {
               return
             }
           }
-          // Falls through to standalone check below
-          // if not a real venue/vendor combo
+          // Falls through to standalone/demo checks below
+          // if slug1 isn't actually a real venue
         }
 
-        // ── STANDALONE VENDOR MODE: /:vendorSlug ──
-        // (one path segment, not a reserved route,
-        //  matches a standalone vendor with no venue_id)
-        if (!token && pathParts.length === 1
-            && !RESERVED.includes(pathParts[0])) {
-
-          const rSlug = pathParts[0]
-
+        // ── CASE B: STANDALONE VENDOR ──
+        if (!token && looksLikeStandalone) {
           const { data: vendorData } = await supabase
             .from('vendors')
             .select('*')
-            .eq('slug', rSlug)
+            .eq('slug', slug1)
             .eq('active', true)
             .single()
 
@@ -84,7 +91,19 @@ export function useSession() {
             setRestaurant(vendorData)
             setIsVenueMode(!!vendorData.venue_id)
             setIsStandalone(!vendorData.venue_id)
-            setRestaurantSlug(rSlug)
+            setRestaurantSlug(slug1)
+
+            // If this vendor unexpectedly DOES belong to
+            // a venue, also resolve venueSlug so paths
+            // still build correctly
+            if (vendorData.venue_id) {
+              const { data: venueData } = await supabase
+                .from('venues')
+                .select('slug')
+                .eq('id', vendorData.venue_id)
+                .single()
+              if (venueData) setVenueSlug(venueData.slug)
+            }
 
             const savedLang = sessionStorage.getItem('lang') || 'ar'
             setLangState(savedLang)
@@ -161,9 +180,8 @@ export function useSession() {
     sessionStorage.setItem('lang', newLang)
   }
 
-  // ── Path helpers ──
   function basePath() {
-    if (isVenueMode && venueSlug) return `/${venueSlug}/${restaurantSlug}`
+    if (isVenueMode && venueSlug && restaurantSlug) return `/${venueSlug}/${restaurantSlug}`
     if (isStandalone && restaurantSlug) return `/${restaurantSlug}`
     return ''
   }
