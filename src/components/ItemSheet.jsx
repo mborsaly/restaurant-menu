@@ -3,6 +3,7 @@ import { X, Minus, Plus }      from 'lucide-react'
 import { supabase }            from '../lib/supabase'
 import { useCart }             from '../context/CartContext'
 import { t, isRTL }            from '../lib/translations'
+import { motion }              from 'framer-motion'
 
 export default function ItemSheet({
   item, lang, restaurant, isGrocery, onClose, onAdded
@@ -191,7 +192,14 @@ export default function ItemSheet({
 
           {/* Quantity */}
           <div style={{ padding: 20, borderTop: '1px solid rgba(45,42,38,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#2D2A26', fontFamily: arabicFont }}>{t('quantity', lang)}</span>
+            <motion.span
+              key={quantity}
+              initial={{ scale: 1.3, opacity: 0.5 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+              style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, minWidth: 40, textAlign: 'center', display: 'inline-block' }} >
+              {quantity}
+            </motion.span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, direction: 'ltr' }}>
               <button onClick={() => setQuantity(q => Math.max(isGrocery ? step : 1, isGrocery ? +(q - step).toFixed(3) : q - 1))}
                 style={{ width: 32, height: 32, borderRadius: '50%', border: '2px solid rgba(45,42,38,.15)', background: 'white', cursor: 'pointer' }}>
@@ -211,14 +219,14 @@ export default function ItemSheet({
 
       {/* Sticky add button */}
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, maxWidth: 480, margin: '0 auto', padding: 16, background: '#FFF8F0' }}>
-        <button onClick={handleAdd} style={{
+        <motion.button whileTap={{ scale: 0.97 }} onClick={handleAdd} style={{
           width: '100%', borderRadius: 18, padding: '15px 22px', background: coral, border: 'none',
           color: 'white', fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center',
           justifyContent: 'space-between', cursor: 'pointer', boxShadow: `0 8px 24px ${coral}44`,
         }}>
           <span style={{ fontFamily: arabicFont }}>{t('add_to_cart', lang)}</span>
           <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatPrice(totalPrice)}</span>
-        </button>
+        </motion.button>
       </div>
     </div>
   )

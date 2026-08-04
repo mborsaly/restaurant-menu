@@ -60,7 +60,7 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-html, body {
+html {
   background:           #FFF8F0;
   font-family:          'Inter', system-ui, sans-serif;
   color:                #2D2A26;
@@ -70,9 +70,12 @@ html, body {
   overflow:             hidden;
 }
 
+body { font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; }
+[dir="rtl"] body { font-family: 'Noto Naskh Arabic', serif; }
+
 /* Apply Arabic font automatically
-   when dir=rtl is set */
-[dir="rtl"] body,
+   when dir=rtl is set 
+[dir="rtl"] body,*/
 [dir="rtl"] input,
 [dir="rtl"] button,
 [dir="rtl"] textarea {

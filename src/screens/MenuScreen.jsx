@@ -4,11 +4,12 @@ import { useCart }             from '../context/CartContext'
 import { supabase }            from '../lib/supabase'
 import { t, isRTL }            from '../lib/translations'
 import Header                  from '../components/Header'
+import CategoryTabs            from '../components/CategoryTabs'
 import MenuItemCard            from '../components/MenuItemCard'
 import ProductCard             from '../components/ProductCard'
 import Cart                    from '../components/Cart'
-import LoadingScreen           from '../components/LoadingScreen'
-import BottomSheet             from '../components/BottomSheet'
+import { SkeletonGrid }        from '../components/SkeletonCard'
+import Modal                   from '../components/Modal'
 import ItemSheet                from '../components/ItemSheet'
 import CartSheet                from '../components/CartSheet'
 import CheckoutSheet            from '../components/CheckoutSheet'
@@ -22,10 +23,8 @@ export default function MenuScreen() {
   const [activeCategory, setActiveCategory] = useState(null)
   const [loading, setLoading]               = useState(true)
 
-  // Sheet state — replaces page navigation
-  const [activeItem, setActiveItem]   = useState(null) // opens ItemSheet
-  const [sheetView, setSheetView]     = useState(null) // 'cart' | 'checkout' | null
-  const [justAdded, setJustAdded]     = useState(false)
+  const [activeItem, setActiveItem]   = useState(null)
+  const [sheetView, setSheetView]     = useState(null)
 
   const primary = restaurant?.primary_color || '#1A4D3E'
   const rtl     = isRTL(lang)
@@ -68,7 +67,11 @@ export default function MenuScreen() {
 
   const filteredItems = activeCategory ? menuItems.filter(i => i.category_id === activeCategory) : menuItems
 
-  if (sessionLoading || loading) return <LoadingScreen message={t('loading_menu_items', lang)} />
+  // Header renders immediately (restaurant data is
+  // already resolved by useSession before this runs);
+  // only the menu grid shows a skeleton, avoiding a
+  // full-page blocking spinner — reduces perceived LCP.
+  if (sessionLoading) return null
 
   return (
     <div style={{
@@ -78,38 +81,31 @@ export default function MenuScreen() {
     }}>
       <Header restaurant={restaurant} lang={lang} onLangSelect={setLang} />
 
-      <div style={{ flexShrink: 0, background: 'white', borderBottom: '1px solid rgba(45,42,38,0.06)' }}>
-        <div style={{ display: 'flex', gap: 8, padding: '12px 16px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-          {categories.map(cat => {
-            const active = cat.id === activeCategory
-            return (
-              <button key={cat.id} onClick={() => setActiveCategory(cat.id)} style={{
-                flexShrink: 0, padding: '8px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600,
-                border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
-                background: active ? primary : '#FFF8F0', color: active ? '#FFF8F0' : '#2D2A26', opacity: active ? 1 : 0.7,
-              }}>
-                {cat.emoji && <span style={{ marginInlineEnd: 6 }}>{cat.emoji}</span>}
-                {getCatName(cat)}
-              </button>
-            )
-          })}
-        </div>
-      </div>
+      {categories.length > 0 && (
+        <CategoryTabs
+          categories={categories}
+          activeCategory={activeCategory}
+          onSelect={setActiveCategory}
+          lang={lang}
+          primary={primary}
+          getName={getCatName}
+        />
+      )}
 
       <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 100 }}>
-        {filteredItems.length > 0 ? (
+        {loading ? (
+          <SkeletonGrid count={6} />
+        ) : filteredItems.length > 0 ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, padding: 16 }}>
             {filteredItems.map(item => {
-              const Card = isGrocery ? ProductCard : MenuItemCard
+              const CardComponent = isGrocery ? ProductCard : MenuItemCard
               return (
-                <Card
+                <CardComponent
                   key={item.id}
                   item={item}
                   lang={lang}
                   restaurant={restaurant}
-                  // Instead of navigating away, open the ItemSheet in place
                   onQuickView={() => setActiveItem(item)}
-                  linkTo={null}
                 />
               )
             })}
@@ -117,38 +113,31 @@ export default function MenuScreen() {
         ) : (
           <div style={{ textAlign: 'center', padding: '80px 24px', opacity: 0.5 }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>{isGrocery ? '🛒' : '🍽️'}</div>
-            <p style={{ fontSize: 15 }}>{t('no_items', lang)}</p>
+            <p style={{ fontSize: 15, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{t('no_items', lang)}</p>
           </div>
         )}
       </div>
 
-      {/* Floating cart button opens CartSheet instead of navigating */}
       <Cart itemCount={itemCount} subtotal={subtotal} restaurant={restaurant} lang={lang}
-        onOpen={() => setSheetView('cart')} linkTo={null} />
+        onOpen={() => setSheetView('cart')} />
 
-      {/* Item detail sheet */}
-      <BottomSheet open={!!activeItem} onClose={() => setActiveItem(null)}>
+      <Modal open={!!activeItem} onClose={() => setActiveItem(null)}>
         {activeItem && (
           <ItemSheet
             item={activeItem} lang={lang} restaurant={restaurant} isGrocery={isGrocery}
             onClose={() => setActiveItem(null)}
-            onAdded={() => { setJustAdded(true); setTimeout(() => setJustAdded(false), 1200) }}
           />
         )}
-      </BottomSheet>
+      </Modal>
 
-      {/* Cart sheet */}
-      <BottomSheet open={sheetView === 'cart'} onClose={() => setSheetView(null)}>
+      <Modal open={sheetView === 'cart'} onClose={() => setSheetView(null)}>
         <CartSheet lang={lang} restaurant={restaurant} onClose={() => setSheetView(null)}
           onCheckout={() => setSheetView('checkout')} />
-      </BottomSheet>
+      </Modal>
 
-      {/* Checkout sheet */}
-      <BottomSheet open={sheetView === 'checkout'} onClose={() => setSheetView(null)}>
-        <CheckoutSheet lang={lang} restaurant={restaurant} onClose={() => setSheetView(null)}
-          onSuccess={() => {}} />
-      </BottomSheet>
-
+      <Modal open={sheetView === 'checkout'} onClose={() => setSheetView(null)}>
+        <CheckoutSheet lang={lang} restaurant={restaurant} onClose={() => setSheetView(null)} onSuccess={() => {}} />
+      </Modal>
     </div>
   )
 }
