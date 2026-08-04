@@ -21,12 +21,8 @@ export default function MenuItemCard({
       : item.description_en
 
   function handleClick() {
-    sessionStorage.setItem(
-      'selectedItem',
-      JSON.stringify(item)
-    )
-    navigate(linkTo)
-  }
+  onQuickView?.()
+}
 
   return (
     <div

@@ -25,7 +25,7 @@ export default function Cart({
       zIndex:   20,
     }}>
       <button
-        onClick={() => navigate(linkTo)}
+        onClick={() => onOpen?.()}
         style={{
           width:          '100%',
           borderRadius:   18,

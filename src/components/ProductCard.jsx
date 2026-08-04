@@ -27,10 +27,8 @@ export default function ProductCard({
   const unitLabel = unit[lang] || unit.en
 
   function handleClick() {
-    if (outOfStock) return
-    sessionStorage.setItem('selectedItem', JSON.stringify(item))
-    navigate(linkTo)
-  }
+  onQuickView?.()
+}
 
   return (
     <div
