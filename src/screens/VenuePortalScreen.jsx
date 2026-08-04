@@ -6,8 +6,13 @@ import LangSwitcher            from '../components/LangSwitcher'
 import { isRTL }                from '../lib/translations'
 
 export default function VenuePortalScreen() {
-  const { venueSlug } = useParams()
-  const navigate       = useNavigate()
+  const params = useParams()
+  // Accept either param name — this screen can be
+  // reached via /:venueSlug directly OR via
+  // VendorOrVenueRouter's /:slug wrapper
+  const venueSlug = params.venueSlug || params.slug
+
+  const navigate = useNavigate()
 
   const [venue, setVenue]     = useState(null)
   const [vendors, setVendors] = useState([])
@@ -19,6 +24,12 @@ export default function VenuePortalScreen() {
   const arabicFont = lang === 'ar' ? "'Noto Naskh Arabic', serif" : 'inherit'
 
   useEffect(() => {
+    if (!venueSlug) {
+      setError('No venue slug provided')
+      setLoading(false)
+      return
+    }
+
     async function load() {
       try {
         const { data: venueData, error: venueErr } = await supabase
@@ -113,7 +124,6 @@ export default function VenuePortalScreen() {
 
       <div style={{ background: primary, padding: '40px 24px 32px', textAlign: 'center', position: 'relative' }}>
 
-        {/* Language dropdown — same component/pattern as Header.jsx */}
         <div style={{
           position: 'absolute', top: 16,
           [rtl ? 'left' : 'right']: 16,
