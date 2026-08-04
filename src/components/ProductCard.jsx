@@ -27,8 +27,8 @@ export default function ProductCard({
   const unitLabel = unit[lang] || unit.en
 
   function handleClick() {
-  onQuickView?.()
-}
+    onQuickView?.()
+  }
 
   return (
     <div

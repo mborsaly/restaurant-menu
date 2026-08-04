@@ -21,8 +21,8 @@ export default function MenuItemCard({
       : item.description_en
 
   function handleClick() {
-  onQuickView?.()
-}
+    onQuickView?.()
+  }
 
   return (
     <div
