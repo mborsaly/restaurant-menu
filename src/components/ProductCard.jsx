@@ -1,100 +1,107 @@
-import { motion } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import { isRTL } from '../lib/translations'
 
-export default function MenuItemCard({
-  item, lang, restaurant, onQuickView
+const UNIT_LABELS = {
+  piece: { en: 'pc',   ar: 'قطعة', fr: 'pc'  },
+  kg:    { en: 'kg',   ar: 'كجم',  fr: 'kg'  },
+  gram:  { en: 'g',    ar: 'جم',   fr: 'g'   },
+  liter: { en: 'L',    ar: 'لتر',  fr: 'L'   },
+  pack:  { en: 'pack', ar: 'عبوة', fr: 'paq' },
+  dozen: { en: 'dz',   ar: 'دستة', fr: 'dz'  },
+}
+
+export default function ProductCard({
+  item, lang, restaurant, linkTo
 }) {
-  const primary = restaurant?.primary_color || '#1A4D3E'
-  const coral   = '#FF7A47'
-  const rtl     = isRTL(lang)
+  const navigate = useNavigate()
+  const primary  = restaurant?.primary_color || '#2E7D4F'
+  const rtl      = isRTL(lang)
+  const outOfStock = item.in_stock === false
 
-  const name = lang === 'ar' ? (item.name_ar || item.name_en)
-    : lang === 'fr' ? (item.name_fr || item.name_en) : item.name_en
-  const desc = lang === 'ar' ? (item.description_ar || item.description_en)
-    : lang === 'fr' ? (item.description_fr || item.description_en) : item.description_en
+  const name = lang === 'ar'
+    ? (item.name_ar || item.name_en)
+    : lang === 'fr' ? (item.name_fr || item.name_en)
+    : item.name_en
 
-  const imgSrc = item.image_url
-    ? `${item.image_url}${item.image_url.includes('?') ? '&' : '?'}fm=webp&auto=format`
-    : null
+  const unit = UNIT_LABELS[item.unit_type] || UNIT_LABELS.piece
+  const unitLabel = unit[lang] || unit.en
+
+  function handleClick() {
+    onQuickView?.()
+  }
 
   return (
-    <motion.div
-      onClick={onQuickView}
-      whileTap={{ scale: 0.97 }}
-      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+    <div
+      onClick={handleClick}
       style={{
-        background: 'white', borderRadius: 20, overflow: 'hidden', cursor: 'pointer',
-        border: '1px solid rgba(45,42,38,0.06)', direction: rtl ? 'rtl' : 'ltr',
-        boxShadow: '0 1px 3px rgba(27,37,48,0.04)', display: 'flex', flexDirection: 'column',
+        background: 'white', borderRadius: 18, overflow: 'hidden',
+        cursor: outOfStock ? 'not-allowed' : 'pointer',
+        border: '1px solid rgba(36,39,43,0.06)',
+        opacity: outOfStock ? 0.5 : 1,
+        direction: rtl ? 'rtl' : 'ltr', position: 'relative',
       }}
     >
-      {/* Image — 65% of card height via aspect ratio */}
-      <div style={{ width: '100%', aspectRatio: '4/3', overflow: 'hidden', background: `${primary}12`, position: 'relative' }}>
-        {imgSrc ? (
-          <img
-            src={imgSrc}
-            alt={name}
-            loading="lazy"
-            width={400}
-            height={300}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
-        ) : (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 46 }}>
-            {item.emoji || '🍽️'}
-          </div>
-        )}
-        {item.is_popular && (
-          <div style={{
-            position: 'absolute', top: 8, [rtl ? 'right' : 'left']: 8,
-            background: 'rgba(255,255,255,0.94)', color: coral,
-            fontSize: 9.5, fontWeight: 800, padding: '4px 9px', borderRadius: 100,
-            letterSpacing: '0.03em', textTransform: 'uppercase',
-            fontFamily: "'Plus Jakarta Sans', sans-serif",
-          }}>
-            ⭐ Popular
-          </div>
-        )}
-      </div>
+      {outOfStock && (
+        <div style={{
+          position: 'absolute', top: 8, [rtl ? 'left' : 'right']: 8,
+          background: '#24272B', color: 'white', fontSize: 10,
+          fontWeight: 700, padding: '3px 8px', borderRadius: 100, zIndex: 2,
+        }}>
+          {lang === 'ar' ? 'غير متوفر' : lang === 'fr' ? 'Rupture' : 'Out of stock'}
+        </div>
+      )}
 
-      {/* Content */}
-      <div style={{ padding: '13px 14px 15px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+      {item.image_url ? (
+        <img src={item.image_url} alt={name}
+          style={{ width: '100%', height: 120, objectFit: 'cover' }} />
+      ) : (
+        <div style={{
+          width: '100%', height: 100, display: 'flex', alignItems: 'center',
+          justifyContent: 'center', fontSize: 40, background: '#2E7D4F15',
+        }}>
+          {item.emoji || '🛒'}
+        </div>
+      )}
+
+      <div style={{ padding: '10px 12px' }}>
+        {item.brand_name && (
+          <p style={{
+            fontSize: 10, color: primary, opacity: 0.7, margin: '0 0 2px',
+            fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4,
+          }}>
+            {item.brand_name}
+          </p>
+        )}
         <h3 style={{
-          fontWeight: 700, fontSize: 14.5, color: '#1B2530', marginBottom: 3, lineHeight: 1.3,
-          fontFamily: lang === 'ar' ? "'Noto Naskh Arabic', serif" : "'Plus Jakarta Sans', sans-serif",
+          fontWeight: 600, fontSize: 13, color: '#24272B',
+          marginBottom: 6, lineHeight: 1.3,
         }}>
           {name}
         </h3>
 
-        {desc && (
-          <p style={{
-            fontSize: 11.5, color: '#1B2530', opacity: 0.5, marginBottom: 10, lineHeight: 1.4,
-            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-            fontFamily: lang === 'ar' ? "'Noto Naskh Arabic', serif" : "'Plus Jakarta Sans', sans-serif",
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+          <span style={{
+            fontFamily: "'JetBrains Mono', monospace", fontWeight: 700,
+            fontSize: 13, color: primary,
           }}>
-            {desc}
-          </p>
-        )}
-
-        <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, fontSize: 14.5, color: coral }}>
-            {lang === 'ar' ? `${Number(item.base_price).toFixed(2)} ج.م` : `$${Number(item.base_price).toFixed(2)}`}
-            <span style={{ fontSize: 10, opacity: 0.5, fontWeight: 600 }}> / {unitLabel}</span>
+            {lang === 'ar'
+              ? `${Number(item.base_price).toFixed(2)} ج.م`
+              : `$${Number(item.base_price).toFixed(2)}`}
+            <span style={{ fontSize: 10, opacity: 0.55, fontWeight: 500 }}>
+              {' '}/ {unitLabel}
+            </span>
           </span>
 
-          <motion.div
-            whileTap={{ scale: 0.85 }}
-            style={{
-              width: 34, height: 34, borderRadius: '50%', background: primary,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'white', fontSize: 19, fontWeight: 700, lineHeight: 1,
-              boxShadow: `0 3px 10px ${primary}40`,
-            }}
-          >
+          <div style={{
+            width: 26, height: 26, borderRadius: '50%',
+            background: outOfStock ? '#ccc' : primary,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'white', fontSize: 16, fontWeight: 700,
+          }}>
             +
-          </motion.div>
+          </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   )
 }
