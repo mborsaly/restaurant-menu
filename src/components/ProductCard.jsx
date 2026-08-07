@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { isRTL } from '../lib/translations'
 
 const UNIT_LABELS = {
@@ -11,11 +11,11 @@ const UNIT_LABELS = {
 }
 
 export default function ProductCard({
-  item, lang, restaurant, linkTo
+  item, lang, restaurant, onQuickView
 }) {
-  const navigate = useNavigate()
-  const primary  = restaurant?.primary_color || '#2E7D4F'
-  const rtl      = isRTL(lang)
+  const primary = restaurant?.primary_color || '#2E7D4F'
+  const coral   = '#FF9142'
+  const rtl     = isRTL(lang)
   const outOfStock = item.in_stock === false
 
   const name = lang === 'ar'
@@ -26,82 +26,103 @@ export default function ProductCard({
   const unit = UNIT_LABELS[item.unit_type] || UNIT_LABELS.piece
   const unitLabel = unit[lang] || unit.en
 
-  function handleClick() {
-    onQuickView?.()
-  }
+  const imgSrc = item.image_url
+    ? `${item.image_url}${item.image_url.includes('?') ? '&' : '?'}fm=webp&auto=format`
+    : null
 
   return (
-    <div
-      onClick={handleClick}
+    <motion.div
+      onClick={() => !outOfStock && onQuickView?.()}
+      whileTap={outOfStock ? {} : { scale: 0.97 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
       style={{
-        background: 'white', borderRadius: 18, overflow: 'hidden',
+        background: 'white', borderRadius: 20, overflow: 'hidden',
         cursor: outOfStock ? 'not-allowed' : 'pointer',
-        border: '1px solid rgba(36,39,43,0.06)',
-        opacity: outOfStock ? 0.5 : 1,
-        direction: rtl ? 'rtl' : 'ltr', position: 'relative',
+        border: '1px solid rgba(45,42,38,0.06)',
+        opacity: outOfStock ? 0.55 : 1,
+        direction: rtl ? 'rtl' : 'ltr',
+        boxShadow: '0 1px 3px rgba(27,37,48,0.04)',
+        display: 'flex', flexDirection: 'column',
+        position: 'relative',
       }}
     >
-      {outOfStock && (
-        <div style={{
-          position: 'absolute', top: 8, [rtl ? 'left' : 'right']: 8,
-          background: '#24272B', color: 'white', fontSize: 10,
-          fontWeight: 700, padding: '3px 8px', borderRadius: 100, zIndex: 2,
-        }}>
-          {lang === 'ar' ? 'غير متوفر' : lang === 'fr' ? 'Rupture' : 'Out of stock'}
-        </div>
-      )}
+      {/* Image — 65% of card height via aspect ratio */}
+      <div style={{
+        width: '100%', aspectRatio: '4/3', overflow: 'hidden',
+        background: `${primary}12`, position: 'relative',
+      }}>
+        {imgSrc ? (
+          <img
+            src={imgSrc}
+            alt={name}
+            loading="lazy"
+            width={400}
+            height={300}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+        ) : (
+          <div style={{
+            width: '100%', height: '100%', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', fontSize: 46,
+          }}>
+            {item.emoji || '🛒'}
+          </div>
+        )}
 
-      {item.image_url ? (
-        <img src={item.image_url} alt={name}
-          style={{ width: '100%', height: 120, objectFit: 'cover' }} />
-      ) : (
-        <div style={{
-          width: '100%', height: 100, display: 'flex', alignItems: 'center',
-          justifyContent: 'center', fontSize: 40, background: '#2E7D4F15',
-        }}>
-          {item.emoji || '🛒'}
-        </div>
-      )}
+        {outOfStock && (
+          <div style={{
+            position: 'absolute', top: 8, [rtl ? 'left' : 'right']: 8,
+            background: '#24272B', color: 'white', fontSize: 9.5, fontWeight: 800,
+            padding: '4px 9px', borderRadius: 100, letterSpacing: '0.03em',
+            textTransform: 'uppercase', fontFamily: "'Plus Jakarta Sans', sans-serif",
+          }}>
+            {lang === 'ar' ? 'غير متوفر' : lang === 'fr' ? 'Rupture' : 'Out of stock'}
+          </div>
+        )}
+      </div>
 
-      <div style={{ padding: '10px 12px' }}>
+      {/* Content */}
+      <div style={{ padding: '13px 14px 15px', display: 'flex', flexDirection: 'column', flex: 1 }}>
         {item.brand_name && (
           <p style={{
-            fontSize: 10, color: primary, opacity: 0.7, margin: '0 0 2px',
-            fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4,
+            fontSize: 10, color: primary, opacity: 0.75, margin: '0 0 2px',
+            fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
           }}>
             {item.brand_name}
           </p>
         )}
+
         <h3 style={{
-          fontWeight: 600, fontSize: 13, color: '#24272B',
-          marginBottom: 6, lineHeight: 1.3,
+          fontWeight: 700, fontSize: 14.5, color: '#1B2530', marginBottom: 3, lineHeight: 1.3,
+          fontFamily: lang === 'ar' ? "'Noto Naskh Arabic', serif" : "'Plus Jakarta Sans', sans-serif",
         }}>
           {name}
         </h3>
 
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+        <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6 }}>
           <span style={{
-            fontFamily: "'JetBrains Mono', monospace", fontWeight: 700,
-            fontSize: 13, color: primary,
+            fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, fontSize: 14, color: coral,
           }}>
-            {lang === 'ar'
-              ? `${Number(item.base_price).toFixed(2)} ج.م`
-              : `$${Number(item.base_price).toFixed(2)}`}
-            <span style={{ fontSize: 10, opacity: 0.55, fontWeight: 500 }}>
-              {' '}/ {unitLabel}
-            </span>
+            {lang === 'ar' ? `${Number(item.base_price).toFixed(2)} ج.م` : `$${Number(item.base_price).toFixed(2)}`}
+            <span style={{ fontSize: 10, opacity: 0.5, fontWeight: 600 }}> / {unitLabel}</span>
           </span>
 
-          <div style={{
-            width: 26, height: 26, borderRadius: '50%',
-            background: outOfStock ? '#ccc' : primary,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'white', fontSize: 16, fontWeight: 700,
-          }}>
+          <motion.div
+            whileTap={{ scale: 0.85 }}
+            style={{
+              width: 32, height: 32, borderRadius: '50%',
+              background: outOfStock ? '#ccc' : primary,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'white', fontSize: 18, fontWeight: 700, lineHeight: 1,
+              boxShadow: outOfStock ? 'none' : `0 3px 10px ${primary}40`,
+              flexShrink: 0,
+            }}
+          >
             +
-          </div>
+          </motion.div>
         </div>
       </div>
-    </div>
+    </motion.div>
   )
 }

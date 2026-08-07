@@ -1,48 +1,4 @@
-@import "tailwindcss";
-
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap');
-
-@theme {
-  --color-bv-green:    #1A4D3E;
-  --color-bv-coral:    #FF7A47;
-  --color-bv-cream:    #FFF8F0;
-  --color-bv-espresso: #2D2A26;
-  --color-bv-sage:     #2D6E5A;
-  --color-bv-peach:    #FFA47D;
-
-  --font-display: 'Fraunces', Georgia, serif;
-  --font-body:    'Inter', system-ui, sans-serif;
-  --font-mono:    'JetBrains Mono', monospace;
-  --font-arabic:  'Noto Naskh Arabic', serif;
-
-  --animate-ringwave: ringwave 2.5s
-    cubic-bezier(0.2,0.6,0.4,1) infinite;
-
-  @keyframes ringwave {
-    0%   { transform: scale(1);   opacity: 0.6; }
-    100% { transform: scale(2.2); opacity: 0;   }
-  }
-
-  @keyframes slideIn {
-    0%   { transform: translateY(16px); opacity: 0; }
-    100% { transform: translateY(0);    opacity: 1; }
-  }
-
-  @keyframes fadeIn {
-    0%   { opacity: 0; }
-    100% { opacity: 1; }
-  }
-
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
-  }
-
-  @keyframes bounce {
-    0%, 100% { transform: translateY(0); }
-    50%       { transform: translateY(-6px); }
-  }
-}
+/* ── Font imports handled in index.html <link> tags ── */
 
 :root {
   --bv-green:    #1A4D3E;
@@ -51,6 +7,14 @@
   --bv-espresso: #2D2A26;
   --bv-sage:     #2D6E5A;
   --bv-peach:    #FFA47D;
+
+  --bv-green-grocery: #2E7D4F;
+  --bv-coral-grocery: #FF9142;
+
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body:    'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  --font-arabic:  'Noto Naskh Arabic', serif;
+  --font-mono:    'JetBrains Mono', monospace;
 }
 
 *, *::before, *::after {
@@ -60,41 +24,99 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-html {
+html, body {
   background:           #FFF8F0;
-  font-family:          'Inter', system-ui, sans-serif;
-  color:                #2D2A26;
-  overscroll-behavior:  none;
-  overflow-x:           hidden;
-  height:               100%;
-  overflow:             hidden;
+  font-family:           var(--font-body);
+  color:                 #2D2A26;
+  overscroll-behavior:   none;
+  overflow-x:            hidden;
+  height:                100%;
+  overflow:              hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering:         optimizeLegibility;
 }
 
-body { font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; }
-[dir="rtl"] body { font-family: 'Noto Naskh Arabic', serif; }
-
-/* Apply Arabic font automatically
-   when dir=rtl is set 
-[dir="rtl"] body,*/
+/* Arabic RTL pages switch the default body font,
+   while Fraunces stays reserved for the restaurant
+   name / brand headings specifically (set inline
+   in Header.jsx, ItemSheet.jsx, etc.) */
+[dir="rtl"] body,
 [dir="rtl"] input,
 [dir="rtl"] button,
-[dir="rtl"] textarea {
-  font-family: 'Noto Naskh Arabic', serif;
+[dir="rtl"] textarea,
+[dir="rtl"] select {
+  font-family: var(--font-arabic);
 }
 
-#root { height: 100%; }
+#root {
+  height: 100%;
+}
 
 input, textarea, select {
   -webkit-user-select: text;
   user-select: text;
 }
 
-/* Hide scrollbars */
-div::-webkit-scrollbar,
-.no-scrollbar::-webkit-scrollbar {
+button {
+  font-family: inherit;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+/* ── Scrollbar hiding (category tabs, horizontal lists) ── */
+.no-scrollbar::-webkit-scrollbar,
+div::-webkit-scrollbar {
   display: none;
 }
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width:    none;
+}
+
+/* ── Shared keyframes ── */
+@keyframes ringwave {
+  0%   { transform: scale(1);   opacity: 0.6; }
+  100% { transform: scale(2.2); opacity: 0;   }
+}
+
+@keyframes slideIn {
+  0%   { transform: translateY(16px); opacity: 0; }
+  100% { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes fadeIn {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-6px); }
+}
+
+@keyframes bv-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Safe area support for iPhone notch/home bar ── */
+.safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 16px);
+}
+
+/* ── Reduced motion accessibility ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
