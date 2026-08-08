@@ -268,7 +268,7 @@ export default function MenuScreen() {
       <Header
         restaurant={restaurant}
         lang={lang}
-        setLang={setLang}
+        onLangSelect={setLang}
       />
 
       {/* ─────────────────────────────────────── */}
