@@ -168,7 +168,7 @@ export default function MenuScreen() {
           section.getBoundingClientRect().top -
           containerTop
 
-        if (sectionTop <= 80) {
+        if (sectionTop <= 100) {
           currentCategory = category.id
         } else {
           break
@@ -235,17 +235,9 @@ export default function MenuScreen() {
     }
   }, [])
 
-  // ─────────────────────────────────────────────
-  // Session Loading
-  // ─────────────────────────────────────────────
-
   if (sessionLoading) {
     return null
   }
-
-  // ─────────────────────────────────────────────
-  // Render
-  // ─────────────────────────────────────────────
 
   return (
     <div
@@ -261,9 +253,9 @@ export default function MenuScreen() {
       }}
     >
 
-      {/* ─────────────────────────────────────── */}
-      {/* Restaurant Header */}
-      {/* ─────────────────────────────────────── */}
+      {/* ═══════════════════════════════════════ */}
+      {/* RESTAURANT HEADER */}
+      {/* ═══════════════════════════════════════ */}
 
       <Header
         restaurant={restaurant}
@@ -271,9 +263,9 @@ export default function MenuScreen() {
         onLangSelect={setLang}
       />
 
-      {/* ─────────────────────────────────────── */}
-      {/* Category Navigation */}
-      {/* ─────────────────────────────────────── */}
+      {/* ═══════════════════════════════════════ */}
+      {/* CATEGORY NAVIGATION */}
+      {/* ═══════════════════════════════════════ */}
 
       {categories.length > 0 && (
         <div
@@ -282,6 +274,7 @@ export default function MenuScreen() {
             position: 'relative',
             zIndex: 20,
             background: '#FFF8F0',
+            borderBottom: '1px solid rgba(26, 77, 62, 0.08)',
           }}
         >
           <CategoryTabs
@@ -295,9 +288,9 @@ export default function MenuScreen() {
         </div>
       )}
 
-      {/* ─────────────────────────────────────── */}
-      {/* Scrollable Menu */}
-      {/* ─────────────────────────────────────── */}
+      {/* ═══════════════════════════════════════ */}
+      {/* SCROLLABLE MENU */}
+      {/* ═══════════════════════════════════════ */}
 
       <div
         ref={scrollContainerRef}
@@ -315,7 +308,7 @@ export default function MenuScreen() {
 
         ) : categories.length > 0 ? (
 
-          categories.map(category => {
+          categories.map((category, index) => {
 
             const categoryItems = menuItems.filter(
               item => item.category_id === category.id
@@ -332,39 +325,74 @@ export default function MenuScreen() {
                 style={{
                   width: '100%',
                   direction: rtl ? 'rtl' : 'ltr',
+
+                  // Large separation between categories
+                  paddingTop: index === 0 ? 20 : 38,
+
+                  // Subtle section separation
+                  borderTop:
+                    index === 0
+                      ? 'none'
+                      : '1px solid rgba(26, 77, 62, 0.10)',
                 }}
               >
 
-                {/* Category Title */}
+                {/* ═══════════════════════════════ */}
+                {/* CATEGORY HEADER */}
+                {/* ═══════════════════════════════ */}
 
                 <div
                   style={{
-                    padding: '18px 16px 8px',
+                    padding:
+                      rtl
+                        ? '8px 20px 16px 16px'
+                        : '8px 16px 16px 20px',
+
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 8,
 
-                    // Arabic → right aligned
-                    // English/French → left aligned
                     justifyContent: rtl
                       ? 'flex-end'
                       : 'flex-start',
+
+                    textAlign: rtl
+                      ? 'right'
+                      : 'left',
 
                     flexDirection: rtl
                       ? 'row-reverse'
                       : 'row',
 
-                    textAlign: rtl
-                      ? 'right'
-                      : 'left',
+                    gap: 10,
                   }}
                 >
 
+                  {/* Category Accent */}
+
+                  <div
+                    style={{
+                      width: 4,
+                      height: 32,
+                      borderRadius: 4,
+                      background: primary,
+                      flexShrink: 0,
+                    }}
+                  />
+
+                  {/* Emoji */}
+
                   {category.emoji && (
-                    <span style={{ fontSize: 17 }}>
+                    <span
+                      style={{
+                        fontSize: 24,
+                        lineHeight: 1,
+                      }}
+                    >
                       {category.emoji}
                     </span>
                   )}
+
+                  {/* Category Name */}
 
                   <h2
                     style={{
@@ -373,9 +401,22 @@ export default function MenuScreen() {
                           ? "'Noto Naskh Arabic', serif"
                           : "'Fraunces', serif",
 
-                      fontSize: 17,
+                      fontSize:
+                        lang === 'ar'
+                          ? 25
+                          : 23,
+
                       fontWeight: 700,
+
+                      letterSpacing:
+                        lang === 'ar'
+                          ? 0
+                          : '-0.3px',
+
+                      lineHeight: 1.1,
+
                       color: '#1A4D3E',
+
                       margin: 0,
 
                       textAlign: rtl
@@ -388,19 +429,25 @@ export default function MenuScreen() {
 
                 </div>
 
-                {/* Menu Items */}
+                {/* ═══════════════════════════════ */}
+                {/* CATEGORY ITEMS */}
+                {/* ═══════════════════════════════ */}
 
                 <div
                   style={{
                     display: 'grid',
                     gridTemplateColumns:
-                      'repeat(2, 1fr)',
-                    gap: 12,
-                    padding: '4px 16px 8px',
+                      'repeat(2, minmax(0, 1fr))',
 
-                    direction: rtl
-                      ? 'rtl'
-                      : 'ltr',
+                    gap: 12,
+
+                    padding:
+                      rtl
+                        ? '0 16px 20px 16px'
+                        : '0 16px 20px 16px',
+
+                    direction:
+                      rtl ? 'rtl' : 'ltr',
                   }}
                 >
 
@@ -455,9 +502,9 @@ export default function MenuScreen() {
 
       </div>
 
-      {/* ─────────────────────────────────────── */}
-      {/* Cart */}
-      {/* ─────────────────────────────────────── */}
+      {/* ═══════════════════════════════════════ */}
+      {/* CART */}
+      {/* ═══════════════════════════════════════ */}
 
       <Cart
         itemCount={itemCount}
@@ -467,9 +514,9 @@ export default function MenuScreen() {
         onOpen={() => setSheetView('cart')}
       />
 
-      {/* ─────────────────────────────────────── */}
-      {/* Item Modal */}
-      {/* ─────────────────────────────────────── */}
+      {/* ═══════════════════════════════════════ */}
+      {/* ITEM MODAL */}
+      {/* ═══════════════════════════════════════ */}
 
       <Modal
         open={!!activeItem}
@@ -486,9 +533,9 @@ export default function MenuScreen() {
         )}
       </Modal>
 
-      {/* ─────────────────────────────────────── */}
-      {/* Cart Modal */}
-      {/* ─────────────────────────────────────── */}
+      {/* ═══════════════════════════════════════ */}
+      {/* CART MODAL */}
+      {/* ═══════════════════════════════════════ */}
 
       <Modal
         open={sheetView === 'cart'}
@@ -502,9 +549,9 @@ export default function MenuScreen() {
         />
       </Modal>
 
-      {/* ─────────────────────────────────────── */}
-      {/* Checkout Modal */}
-      {/* ─────────────────────────────────────── */}
+      {/* ═══════════════════════════════════════ */}
+      {/* CHECKOUT MODAL */}
+      {/* ═══════════════════════════════════════ */}
 
       <Modal
         open={sheetView === 'checkout'}
