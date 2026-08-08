@@ -15,7 +15,14 @@ import CartSheet               from '../components/CartSheet'
 import CheckoutSheet           from '../components/CheckoutSheet'
 
 export default function MenuScreen() {
-  const { restaurant, loading: sessionLoading, lang, setLang, isGrocery } = useSession()
+  const {
+    restaurant,
+    loading: sessionLoading,
+    lang,
+    setLang,
+    isGrocery
+  } = useSession()
+
   const { itemCount, subtotal } = useCart()
 
   const [categories, setCategories] = useState([])
@@ -81,7 +88,7 @@ export default function MenuScreen() {
           items = data || []
         }
 
-        // Only show categories that actually contain items
+        // Only show categories that contain items
         const nonEmptyCats = (cats || []).filter(category =>
           items.some(item => item.category_id === category.id)
         )
@@ -135,9 +142,6 @@ export default function MenuScreen() {
 
   // ─────────────────────────────────────────────
   // Scroll Spy
-  //
-  // Determines the active category based on
-  // the section currently closest to the top.
   // ─────────────────────────────────────────────
 
   useEffect(() => {
@@ -150,7 +154,8 @@ export default function MenuScreen() {
     const handleScroll = () => {
       if (isProgrammaticScroll.current) return
 
-      const containerTop = container.getBoundingClientRect().top
+      const containerTop =
+        container.getBoundingClientRect().top
 
       let currentCategory = categories[0]?.id
 
@@ -160,23 +165,17 @@ export default function MenuScreen() {
         if (!section) continue
 
         const sectionTop =
-          section.getBoundingClientRect().top - containerTop
+          section.getBoundingClientRect().top -
+          containerTop
 
-        // Once a section reaches the top area,
-        // make it the active category.
         if (sectionTop <= 80) {
           currentCategory = category.id
         } else {
-          // Categories are ordered vertically,
-          // so once we find one below the threshold,
-          // we can stop.
           break
         }
       }
 
-      if (currentCategory !== activeCategory) {
-        setActiveCategory(currentCategory)
-      }
+      setActiveCategory(currentCategory)
     }
 
     container.addEventListener(
@@ -185,7 +184,6 @@ export default function MenuScreen() {
       { passive: true }
     )
 
-    // Set initial active category
     handleScroll()
 
     return () => {
@@ -194,7 +192,7 @@ export default function MenuScreen() {
         handleScroll
       )
     }
-  }, [loading, categories, activeCategory])
+  }, [loading, categories])
 
   // ─────────────────────────────────────────────
   // Category Tab Click
@@ -206,11 +204,8 @@ export default function MenuScreen() {
 
     if (!container || !target) return
 
-    // Immediately highlight selected category
     setActiveCategory(categoryId)
 
-    // Temporarily disable scroll-spy while smooth
-    // scrolling to prevent it from fighting the click.
     isProgrammaticScroll.current = true
 
     const targetTop =
@@ -265,6 +260,16 @@ export default function MenuScreen() {
         direction: rtl ? 'rtl' : 'ltr',
       }}
     >
+
+      {/* ─────────────────────────────────────── */}
+      {/* Restaurant Header */}
+      {/* ─────────────────────────────────────── */}
+
+      <Header
+        restaurant={restaurant}
+        lang={lang}
+        setLang={setLang}
+      />
 
       {/* ─────────────────────────────────────── */}
       {/* Category Navigation */}
@@ -325,7 +330,8 @@ export default function MenuScreen() {
                 ref={setSectionRef(category.id)}
                 data-category-id={category.id}
                 style={{
-                  scrollMarginTop: 0,
+                  width: '100%',
+                  direction: rtl ? 'rtl' : 'ltr',
                 }}
               >
 
@@ -337,9 +343,20 @@ export default function MenuScreen() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 8,
+
+                    // Arabic → right aligned
+                    // English/French → left aligned
+                    justifyContent: rtl
+                      ? 'flex-end'
+                      : 'flex-start',
+
                     flexDirection: rtl
                       ? 'row-reverse'
                       : 'row',
+
+                    textAlign: rtl
+                      ? 'right'
+                      : 'left',
                   }}
                 >
 
@@ -360,6 +377,10 @@ export default function MenuScreen() {
                       fontWeight: 700,
                       color: '#1A4D3E',
                       margin: 0,
+
+                      textAlign: rtl
+                        ? 'right'
+                        : 'left',
                     }}
                   >
                     {getCatName(category)}
@@ -376,6 +397,10 @@ export default function MenuScreen() {
                       'repeat(2, 1fr)',
                     gap: 12,
                     padding: '4px 16px 8px',
+
+                    direction: rtl
+                      ? 'rtl'
+                      : 'ltr',
                   }}
                 >
 
