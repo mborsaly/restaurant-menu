@@ -1,6 +1,7 @@
 import { Trash2, Plus, Minus } from 'lucide-react'
 import { useCart }             from '../context/CartContext'
 import { t, isRTL }            from '../lib/translations'
+import SheetCloseButton        from './SheetCloseButton'
 
 export default function CartSheet({
   lang, restaurant, onClose, onCheckout
@@ -21,9 +22,12 @@ export default function CartSheet({
     return item.name
   }
 
+  const titleSidePad = { [rtl ? 'paddingLeft' : 'paddingRight']: 40 }
+
   if (itemCount === 0) {
     return (
-      <div dir={rtl ? 'rtl' : 'ltr'} style={{ padding: '50px 24px', textAlign: 'center' }}>
+      <div dir={rtl ? 'rtl' : 'ltr'} style={{ position: 'relative', padding: '50px 24px', textAlign: 'center' }}>
+        <SheetCloseButton lang={lang} onClose={onClose} />
         <div style={{ fontSize: 44, marginBottom: 14 }}>🛒</div>
         <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: 18, color: '#1A4D3E', marginBottom: 6 }}>
           {t('cart_empty', lang)}
@@ -34,10 +38,13 @@ export default function CartSheet({
   }
 
   return (
-    <div dir={rtl ? 'rtl' : 'ltr'} style={{ padding: '4px 16px 20px' }}>
+    <div dir={rtl ? 'rtl' : 'ltr'} style={{ position: 'relative', padding: '4px 16px 20px' }}>
+      <SheetCloseButton lang={lang} onClose={onClose} />
+
       <h2 style={{
         fontFamily: arabicFont === 'inherit' ? "'Fraunces', serif" : arabicFont,
-        fontSize: 18, fontWeight: 700, color: '#1A4D3E', margin: '10px 0 14px', textAlign: rtl ? 'right' : 'left',
+        fontSize: 18, fontWeight: 700, color: '#1A4D3E', margin: '10px 0 14px',
+        textAlign: rtl ? 'right' : 'left', ...titleSidePad,
       }}>
         {t('your_cart', lang)} · {itemCount}
       </h2>

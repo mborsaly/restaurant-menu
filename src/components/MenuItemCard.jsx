@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { isRTL } from '../lib/translations'
+import { useCart } from '../context/CartContext'
 
 export default function MenuItemCard({
   item, lang, restaurant, onQuickView
@@ -7,6 +9,10 @@ export default function MenuItemCard({
   const primary = restaurant?.primary_color || '#1A4D3E'
   const coral   = '#FF7A47'
   const rtl     = isRTL(lang)
+  const { addItem } = useCart()
+  const [justAdded, setJustAdded] = useState(false)
+
+  const hasOptions = !!(item.item_options && item.item_options.length > 0)
 
   const name = lang === 'ar' ? (item.name_ar || item.name_en)
     : lang === 'fr' ? (item.name_fr || item.name_en) : item.name_en
@@ -16,6 +22,17 @@ export default function MenuItemCard({
   const imgSrc = item.image_url
     ? `${item.image_url}${item.image_url.includes('?') ? '&' : '?'}fm=webp&auto=format`
     : null
+
+  function handlePlusClick(e) {
+    e.stopPropagation()
+    if (hasOptions) {
+      onQuickView?.()
+      return
+    }
+    addItem(item, {}, 1)
+    setJustAdded(true)
+    setTimeout(() => setJustAdded(false), 700)
+  }
 
   return (
     <motion.div
@@ -28,7 +45,6 @@ export default function MenuItemCard({
         boxShadow: '0 1px 3px rgba(27,37,48,0.04)', display: 'flex', flexDirection: 'column',
       }}
     >
-      {/* Image — 65% of card height via aspect ratio */}
       <div style={{ width: '100%', aspectRatio: '4/3', overflow: 'hidden', background: `${primary}12`, position: 'relative' }}>
         {imgSrc ? (
           <img
@@ -57,7 +73,6 @@ export default function MenuItemCard({
         )}
       </div>
 
-      {/* Content */}
       <div style={{ padding: '13px 14px 15px', display: 'flex', flexDirection: 'column', flex: 1 }}>
         <h3 style={{
           fontWeight: 700, fontSize: 14.5, color: '#1B2530', marginBottom: 3, lineHeight: 1.3,
@@ -77,23 +92,26 @@ export default function MenuItemCard({
         )}
 
         <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{
-            fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, fontSize: 14.5, color: coral,
-          }}>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, fontSize: 14.5, color: coral }}>
             {lang === 'ar' ? `${Number(item.base_price).toFixed(2)} ج.م` : `$${Number(item.base_price).toFixed(2)}`}
           </span>
 
-          <motion.div
-            whileTap={{ scale: 0.85 }}
+          <motion.button
+            onClick={handlePlusClick}
+            whileTap={{ scale: 0.8 }}
+            animate={justAdded ? { scale: [1, 1.15, 1] } : {}}
+            transition={{ duration: 0.35 }}
+            aria-label={hasOptions ? 'View options' : 'Add to cart'}
             style={{
-              width: 34, height: 34, borderRadius: '50%', background: primary,
+              width: 34, height: 34, borderRadius: '50%',
+              background: justAdded ? '#2D6E5A' : primary, border: 'none', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: 'white', fontSize: 19, fontWeight: 700, lineHeight: 1,
-              boxShadow: `0 3px 10px ${primary}40`,
+              boxShadow: `0 3px 10px ${(justAdded ? '#2D6E5A' : primary)}40`,
             }}
           >
-            +
-          </motion.div>
+            {justAdded ? '✓' : '+'}
+          </motion.button>
         </div>
       </div>
     </motion.div>

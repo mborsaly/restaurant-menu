@@ -1,12 +1,12 @@
-import { useState, useRef, useEffect } from 'react'
 import LangSwitcher from './LangSwitcher'
 import { t, isRTL } from '../lib/translations'
 
-const LANGUAGES = [
-  { code: 'ar', label: 'العربية', short: 'ع' },
-  { code: 'en', label: 'English', short: 'EN' },
-  { code: 'fr', label: 'Français', short: 'FR' },
-]
+function getLocalizedVendorName(vendor, lang) {
+  if (!vendor) return ''
+  if (lang === 'ar') return vendor.name_ar || vendor.name
+  if (lang === 'fr') return vendor.name_fr || vendor.name
+  return vendor.name
+}
 
 export default function Header({
   restaurant, lang, onLangSelect
@@ -14,6 +14,7 @@ export default function Header({
   const primary = restaurant?.primary_color || '#1A4D3E'
   const emoji   = restaurant?.logo_emoji    || '🍽️'
   const rtl     = isRTL(lang)
+  const displayName = getLocalizedVendorName(restaurant, lang)
 
   const logoBlock = (
     <div style={{
@@ -23,7 +24,7 @@ export default function Header({
       fontSize: 20, flexShrink: 0,
     }}>
       {restaurant?.logo_url ? (
-        <img src={restaurant.logo_url} alt={restaurant.name}
+        <img src={restaurant.logo_url} alt={displayName}
           style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 12 }} />
       ) : emoji}
     </div>
@@ -35,7 +36,7 @@ export default function Header({
         fontFamily: lang === 'ar' ? "'Noto Naskh Arabic', serif" : "'Fraunces', serif",
         fontWeight: 600, fontSize: 14, color: '#1A4D3E', margin: 0, lineHeight: 1.2,
       }}>
-        {restaurant?.name || 'BistroVite'}
+        {displayName || 'BistroVite'}
       </h1>
       <p style={{
         fontSize: 12, fontWeight: 600, color: primary, margin: '2px 0 0',
@@ -59,7 +60,6 @@ export default function Header({
           {logoBlock}
           {textBlock}
         </div>
-
         <LangSwitcher lang={lang} onSelect={onLangSelect} primary={primary} />
       </div>
     </div>
