@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSession }          from '../hooks/useSession'
 import { useCart }             from '../context/CartContext'
 import { supabase }            from '../lib/supabase'
@@ -29,6 +29,12 @@ export default function MenuScreen() {
   const primary = restaurant?.primary_color || '#1A4D3E'
   const rtl     = isRTL(lang)
 
+  // ── Scroll-spy refs ──
+  const scrollContainerRef = useRef(null)
+  const sectionRefs        = useRef({}) // { [categoryId]: HTMLElement }
+  const isProgrammaticScroll = useRef(false)
+  const programmaticTimeout  = useRef(null)
+
   useEffect(() => {
     if (!restaurant?.id) return
     async function loadMenu() {
@@ -49,9 +55,15 @@ export default function MenuScreen() {
           items = data || []
         }
 
-        setCategories(cats || [])
+        // Only keep categories that actually have items —
+        // avoids empty sections in the vertical scroll
+        const nonEmptyCats = (cats || []).filter(
+          cat => items.some(i => i.category_id === cat.id)
+        )
+
+        setCategories(nonEmptyCats)
         setMenuItems(items)
-        if (cats?.length > 0) setActiveCategory(cats[0].id)
+        if (nonEmptyCats.length > 0) setActiveCategory(nonEmptyCats[0].id)
       } finally {
         setLoading(false)
       }
@@ -65,12 +77,80 @@ export default function MenuScreen() {
     return cat.name_en
   }
 
-  const filteredItems = activeCategory ? menuItems.filter(i => i.category_id === activeCategory) : menuItems
+  // ── Register a section DOM node ──
+  const setSectionRef = useCallback((categoryId) => (node) => {
+    if (node) sectionRefs.current[categoryId] = node
+    else delete sectionRefs.current[categoryId]
+  }, [])
 
-  // Header renders immediately (restaurant data is
-  // already resolved by useSession before this runs);
-  // only the menu grid shows a skeleton, avoiding a
-  // full-page blocking spinner — reduces perceived LCP.
+  // ── Scroll-spy: watch which section is at the top
+  //    of the scroll container and update the active tab ──
+  useEffect(() => {
+    if (loading || categories.length === 0) return
+    const container = scrollContainerRef.current
+    if (!container) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (isProgrammaticScroll.current) return
+
+        // Determine which observed section is currently
+        // intersecting the "active band" (top portion of
+        // the scroll container). Multiple sections can be
+        // intersecting at once near boundaries — pick the
+        // topmost one in DOM/category order for stability.
+        const intersectingIds = new Set(
+          entries.filter(e => e.isIntersecting)
+            .map(e => e.target.dataset.categoryId)
+        )
+        if (intersectingIds.size === 0) return
+
+        const topmost = categories.find(cat => intersectingIds.has(String(cat.id)))
+        if (topmost) setActiveCategory(topmost.id)
+      },
+      {
+        root: container,
+        // Trigger band: top of the scroll container down to
+        // 65% of its height. A section becomes "active" once
+        // its top has scrolled up into this band.
+        rootMargin: '0px 0px -65% 0px',
+        threshold: 0,
+      }
+    )
+
+    categories.forEach(cat => {
+      const el = sectionRefs.current[cat.id]
+      if (el) observer.observe(el)
+    })
+
+    return () => observer.disconnect()
+  }, [loading, categories])
+
+  // ── Tap a category tab → smooth-scroll to that section ──
+  function handleCategorySelect(categoryId) {
+    const container = scrollContainerRef.current
+    const target = sectionRefs.current[categoryId]
+    if (!container || !target) return
+
+    // Suppress scroll-spy updates while the programmatic
+    // scroll animation is in flight, so it doesn't fight
+    // with the tap and briefly highlight the wrong tab
+    isProgrammaticScroll.current = true
+    setActiveCategory(categoryId)
+
+    const targetTop = target.offsetTop - container.offsetTop
+    container.scrollTo({ top: targetTop, behavior: 'smooth' })
+
+    clearTimeout(programmaticTimeout.current)
+    programmaticTimeout.current = setTimeout(() => {
+      isProgrammaticScroll.current = false
+    }, 600)
+  }
+
+  useEffect(() => {
+    return () => clearTimeout(programmaticTimeout.current)
+  }, [])
+
   if (sessionLoading) return null
 
   return (
@@ -85,31 +165,60 @@ export default function MenuScreen() {
         <CategoryTabs
           categories={categories}
           activeCategory={activeCategory}
-          onSelect={setActiveCategory}
+          onSelect={handleCategorySelect}
           lang={lang}
           primary={primary}
           getName={getCatName}
         />
       )}
 
-      <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 100 }}>
+      <div ref={scrollContainerRef} style={{ flex: 1, overflowY: 'auto', paddingBottom: 100 }}>
         {loading ? (
           <SkeletonGrid count={6} />
-        ) : filteredItems.length > 0 ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, padding: 16 }}>
-            {filteredItems.map(item => {
-              const CardComponent = isGrocery ? ProductCard : MenuItemCard
-              return (
-                <CardComponent
-                  key={item.id}
-                  item={item}
-                  lang={lang}
-                  restaurant={restaurant}
-                  onQuickView={() => setActiveItem(item)}
-                />
-              )
-            })}
-          </div>
+        ) : categories.length > 0 ? (
+          categories.map(cat => {
+            const catItems = menuItems.filter(i => i.category_id === cat.id)
+            return (
+              <section
+                key={cat.id}
+                ref={setSectionRef(cat.id)}
+                data-category-id={cat.id}
+                style={{ scrollMarginTop: 0 }}
+              >
+                <div style={{
+                  padding: '18px 16px 8px',
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  flexDirection: rtl ? 'row-reverse' : 'row',
+                }}>
+                  {cat.emoji && <span style={{ fontSize: 17 }}>{cat.emoji}</span>}
+                  <h2 style={{
+                    fontFamily: lang === 'ar' ? "'Noto Naskh Arabic', serif" : "'Fraunces', serif",
+                    fontSize: 17, fontWeight: 700, color: '#1A4D3E', margin: 0,
+                  }}>
+                    {getCatName(cat)}
+                  </h2>
+                </div>
+
+                <div style={{
+                  display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: 12, padding: '4px 16px 8px',
+                }}>
+                  {catItems.map(item => {
+                    const CardComponent = isGrocery ? ProductCard : MenuItemCard
+                    return (
+                      <CardComponent
+                        key={item.id}
+                        item={item}
+                        lang={lang}
+                        restaurant={restaurant}
+                        onQuickView={() => setActiveItem(item)}
+                      />
+                    )
+                  })}
+                </div>
+              </section>
+            )
+          })
         ) : (
           <div style={{ textAlign: 'center', padding: '80px 24px', opacity: 0.5 }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>{isGrocery ? '🛒' : '🍽️'}</div>
