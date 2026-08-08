@@ -64,7 +64,10 @@ export default function MenuScreen() {
           .order('sort_order')
 
         if (categoriesError) {
-          console.error('Error loading categories:', categoriesError)
+          console.error(
+            'Error loading categories:',
+            categoriesError
+          )
         }
 
         let items = []
@@ -78,7 +81,10 @@ export default function MenuScreen() {
             .order('sort_order')
 
           if (error) {
-            console.error('Error loading grocery products:', error)
+            console.error(
+              'Error loading grocery products:',
+              error
+            )
           }
 
           items = (data || []).map(product => ({
@@ -94,13 +100,15 @@ export default function MenuScreen() {
             .order('sort_order')
 
           if (error) {
-            console.error('Error loading menu items:', error)
+            console.error(
+              'Error loading menu items:',
+              error
+            )
           }
 
           items = data || []
         }
 
-        // Only show categories that actually contain items
         const nonEmptyCats = (cats || []).filter(category =>
           items.some(item => item.category_id === category.id)
         )
@@ -115,7 +123,10 @@ export default function MenuScreen() {
         }
 
       } catch (error) {
-        console.error('Error loading menu:', error)
+        console.error(
+          'Error loading menu:',
+          error
+        )
       } finally {
         setLoading(false)
       }
@@ -172,7 +183,8 @@ export default function MenuScreen() {
       let currentCategory = categories[0]?.id
 
       for (const category of categories) {
-        const section = sectionRefs.current[category.id]
+        const section =
+          sectionRefs.current[category.id]
 
         if (!section) continue
 
@@ -211,8 +223,11 @@ export default function MenuScreen() {
   // ─────────────────────────────────────────────
 
   function handleCategorySelect(categoryId) {
-    const container = scrollContainerRef.current
-    const target = sectionRefs.current[categoryId]
+    const container =
+      scrollContainerRef.current
+
+    const target =
+      sectionRefs.current[categoryId]
 
     if (!container || !target) return
 
@@ -230,11 +245,14 @@ export default function MenuScreen() {
       behavior: 'smooth'
     })
 
-    clearTimeout(programmaticTimeout.current)
+    clearTimeout(
+      programmaticTimeout.current
+    )
 
-    programmaticTimeout.current = setTimeout(() => {
-      isProgrammaticScroll.current = false
-    }, 700)
+    programmaticTimeout.current =
+      setTimeout(() => {
+        isProgrammaticScroll.current = false
+      }, 700)
   }
 
   // ─────────────────────────────────────────────
@@ -243,13 +261,11 @@ export default function MenuScreen() {
 
   useEffect(() => {
     return () => {
-      clearTimeout(programmaticTimeout.current)
+      clearTimeout(
+        programmaticTimeout.current
+      )
     }
   }, [])
-
-  // ─────────────────────────────────────────────
-  // Session Loading
-  // ─────────────────────────────────────────────
 
   if (sessionLoading) {
     return null
@@ -269,6 +285,8 @@ export default function MenuScreen() {
         overflow: 'hidden',
         maxWidth: 448,
         margin: '0 auto',
+
+        // Overall page direction
         direction: rtl ? 'rtl' : 'ltr',
       }}
     >
@@ -321,19 +339,24 @@ export default function MenuScreen() {
           overflowX: 'hidden',
           paddingBottom: 100,
           WebkitOverflowScrolling: 'touch',
+
+          direction: rtl ? 'rtl' : 'ltr',
         }}
       >
 
         {loading ? (
+
           <SkeletonGrid count={6} />
 
         ) : categories.length > 0 ? (
 
           categories.map((category, index) => {
 
-            const categoryItems = menuItems.filter(
-              item => item.category_id === category.id
-            )
+            const categoryItems =
+              menuItems.filter(
+                item =>
+                  item.category_id === category.id
+              )
 
             const CardComponent =
               isGrocery
@@ -347,10 +370,10 @@ export default function MenuScreen() {
                 data-category-id={category.id}
                 style={{
                   width: '100%',
-                  direction: rtl ? 'rtl' : 'ltr',
 
-                  // Strong visual separation
-                  // between menu categories.
+                  direction:
+                    rtl ? 'rtl' : 'ltr',
+
                   paddingTop:
                     index === 0
                       ? 20
@@ -369,29 +392,54 @@ export default function MenuScreen() {
 
                 <div
                   style={{
-                    padding: rtl
-                      ? '8px 20px 16px 16px'
-                      : '8px 16px 16px 20px',
+                    width: '100%',
+                    boxSizing: 'border-box',
+
+                    padding:
+                      rtl
+                        ? '8px 20px 16px 16px'
+                        : '8px 16px 16px 20px',
 
                     display: 'flex',
                     alignItems: 'center',
                     gap: 10,
 
                     /*
-                     * English/French:
+                     * IMPORTANT:
+                     *
+                     * English / French:
+                     *
                      * │  ☕  Category
                      *
                      * Arabic:
+                     *
                      * Category  ☕  │
                      */
-                    flexDirection: rtl
-                      ? 'row-reverse'
-                      : 'row',
 
-                    justifyContent: 'flex-start',
+                    flexDirection:
+                      rtl
+                        ? 'row-reverse'
+                        : 'row',
 
-                    width: '100%',
-                    boxSizing: 'border-box',
+                    /*
+                     * Anchor the complete group:
+                     *
+                     * English/French → LEFT
+                     * Arabic         → RIGHT
+                     */
+
+                    justifyContent:
+                      rtl
+                        ? 'flex-end'
+                        : 'flex-start',
+
+                    /*
+                     * Explicitly override the parent's
+                     * RTL direction so flex positioning
+                     * behaves predictably.
+                     */
+
+                    direction: 'ltr',
                   }}
                 >
 
@@ -448,10 +496,15 @@ export default function MenuScreen() {
 
                       margin: 0,
 
+                      /*
+                       * Text itself follows its language.
+                       */
+
+                      direction:
+                        rtl ? 'rtl' : 'ltr',
+
                       textAlign:
-                        rtl
-                          ? 'right'
-                          : 'left',
+                        rtl ? 'right' : 'left',
                     }}
                   >
                     {getCatName(category)}
