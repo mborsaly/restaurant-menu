@@ -56,39 +56,51 @@ export default function MenuScreen() {
       setLoading(true)
 
       try {
-        const { data: cats } = await supabase
+        const { data: cats, error: categoriesError } = await supabase
           .from('categories')
           .select('*')
           .eq('vendor_id', restaurant.id)
           .eq('active', true)
           .order('sort_order')
 
+        if (categoriesError) {
+          console.error('Error loading categories:', categoriesError)
+        }
+
         let items = []
 
         if (isGrocery) {
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from('grocery_products')
             .select('*, grocery_product_options(*)')
             .eq('vendor_id', restaurant.id)
             .eq('available', true)
             .order('sort_order')
 
+          if (error) {
+            console.error('Error loading grocery products:', error)
+          }
+
           items = (data || []).map(product => ({
             ...product,
             item_options: product.grocery_product_options
           }))
         } else {
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from('menu_items')
             .select('*, item_options(*)')
             .eq('vendor_id', restaurant.id)
             .eq('available', true)
             .order('sort_order')
 
+          if (error) {
+            console.error('Error loading menu items:', error)
+          }
+
           items = data || []
         }
 
-        // Only show categories that contain items
+        // Only show categories that actually contain items
         const nonEmptyCats = (cats || []).filter(category =>
           items.some(item => item.category_id === category.id)
         )
@@ -116,16 +128,16 @@ export default function MenuScreen() {
   // Category Name
   // ─────────────────────────────────────────────
 
-  function getCatName(cat) {
+  function getCatName(category) {
     if (lang === 'ar') {
-      return cat.name_ar || cat.name_en
+      return category.name_ar || category.name_en
     }
 
     if (lang === 'fr') {
-      return cat.name_fr || cat.name_en
+      return category.name_fr || category.name_en
     }
 
-    return cat.name_en
+    return category.name_en
   }
 
   // ─────────────────────────────────────────────
@@ -335,13 +347,10 @@ export default function MenuScreen() {
                 data-category-id={category.id}
                 style={{
                   width: '100%',
-
-                  // Let the whole section follow
-                  // the current language direction.
                   direction: rtl ? 'rtl' : 'ltr',
 
                   // Strong visual separation
-                  // between categories.
+                  // between menu categories.
                   paddingTop:
                     index === 0
                       ? 20
@@ -366,25 +375,51 @@ export default function MenuScreen() {
 
                     display: 'flex',
                     alignItems: 'center',
-
                     gap: 10,
 
-                    // Important:
-                    // Keep row in both directions.
-                    // The direction property handles
-                    // the visual RTL order.
-                    flexDirection: 'row',
+                    /*
+                     * English/French:
+                     * │  ☕  Category
+                     *
+                     * Arabic:
+                     * Category  ☕  │
+                     */
+                    flexDirection: rtl
+                      ? 'row-reverse'
+                      : 'row',
 
-                    direction:
-                      rtl ? 'rtl' : 'ltr',
+                    justifyContent: 'flex-start',
 
-                    justifyContent:
-                      'flex-start',
-
-                    textAlign:
-                      rtl ? 'right' : 'left',
+                    width: '100%',
+                    boxSizing: 'border-box',
                   }}
                 >
+
+                  {/* Vertical Accent */}
+
+                  <div
+                    style={{
+                      width: 4,
+                      height: 32,
+                      borderRadius: 4,
+                      background: primary,
+                      flexShrink: 0,
+                    }}
+                  />
+
+                  {/* Category Icon */}
+
+                  {category.emoji && (
+                    <span
+                      style={{
+                        fontSize: 24,
+                        lineHeight: 1,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {category.emoji}
+                    </span>
+                  )}
 
                   {/* Category Name */}
 
@@ -414,37 +449,13 @@ export default function MenuScreen() {
                       margin: 0,
 
                       textAlign:
-                        rtl ? 'right' : 'left',
+                        rtl
+                          ? 'right'
+                          : 'left',
                     }}
                   >
                     {getCatName(category)}
                   </h2>
-
-                  {/* Category Icon */}
-
-                  {category.emoji && (
-                    <span
-                      style={{
-                        fontSize: 24,
-                        lineHeight: 1,
-                        flexShrink: 0,
-                      }}
-                    >
-                      {category.emoji}
-                    </span>
-                  )}
-
-                  {/* Vertical Accent */}
-
-                  <div
-                    style={{
-                      width: 4,
-                      height: 32,
-                      borderRadius: 4,
-                      background: primary,
-                      flexShrink: 0,
-                    }}
-                  />
 
                 </div>
 
