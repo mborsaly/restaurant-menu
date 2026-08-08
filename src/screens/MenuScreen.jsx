@@ -235,9 +235,17 @@ export default function MenuScreen() {
     }
   }, [])
 
+  // ─────────────────────────────────────────────
+  // Session Loading
+  // ─────────────────────────────────────────────
+
   if (sessionLoading) {
     return null
   }
+
+  // ─────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────
 
   return (
     <div
@@ -274,7 +282,8 @@ export default function MenuScreen() {
             position: 'relative',
             zIndex: 20,
             background: '#FFF8F0',
-            borderBottom: '1px solid rgba(26, 77, 62, 0.08)',
+            borderBottom:
+              '1px solid rgba(26, 77, 62, 0.08)',
           }}
         >
           <CategoryTabs
@@ -315,7 +324,9 @@ export default function MenuScreen() {
             )
 
             const CardComponent =
-              isGrocery ? ProductCard : MenuItemCard
+              isGrocery
+                ? ProductCard
+                : MenuItemCard
 
             return (
               <section
@@ -324,12 +335,18 @@ export default function MenuScreen() {
                 data-category-id={category.id}
                 style={{
                   width: '100%',
+
+                  // Let the whole section follow
+                  // the current language direction.
                   direction: rtl ? 'rtl' : 'ltr',
 
-                  // Large separation between categories
-                  paddingTop: index === 0 ? 20 : 38,
+                  // Strong visual separation
+                  // between categories.
+                  paddingTop:
+                    index === 0
+                      ? 20
+                      : 38,
 
-                  // Subtle section separation
                   borderTop:
                     index === 0
                       ? 'none'
@@ -341,96 +358,33 @@ export default function MenuScreen() {
                 {/* CATEGORY HEADER */}
                 {/* ═══════════════════════════════ */}
 
+                <div
+                  style={{
+                    padding: rtl
+                      ? '8px 20px 16px 16px'
+                      : '8px 16px 16px 20px',
 
-<div
-  style={{
-    padding: rtl
-      ? '8px 20px 16px 16px'
-      : '8px 16px 16px 20px',
+                    display: 'flex',
+                    alignItems: 'center',
 
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
+                    gap: 10,
 
-    justifyContent: rtl
-      ? 'flex-start'
-      : 'flex-start',
+                    // Important:
+                    // Keep row in both directions.
+                    // The direction property handles
+                    // the visual RTL order.
+                    flexDirection: 'row',
 
-    flexDirection: 'row',
+                    direction:
+                      rtl ? 'rtl' : 'ltr',
 
-    direction: rtl ? 'rtl' : 'ltr',
+                    justifyContent:
+                      'flex-start',
 
-    textAlign: rtl ? 'right' : 'left',
-  }}
->
-  {/* Category Name */}
-  <h2
-    style={{
-      fontFamily:
-        lang === 'ar'
-          ? "'Noto Naskh Arabic', serif"
-          : "'Fraunces', serif",
-
-      fontSize: lang === 'ar' ? 25 : 23,
-      fontWeight: 700,
-      letterSpacing: lang === 'ar' ? 0 : '-0.3px',
-      lineHeight: 1.1,
-      color: '#1A4D3E',
-      margin: 0,
-      textAlign: rtl ? 'right' : 'left',
-    }}
-  >
-    {getCatName(category)}
-  </h2>
-
-  {/* Category Icon */}
-  {category.emoji && (
-    <span
-      style={{
-        fontSize: 24,
-        lineHeight: 1,
-      }}
-    >
-      {category.emoji}
-    </span>
-  )}
-
-  {/* Vertical Accent */}
-  <div
-    style={{
-      width: 4,
-      height: 32,
-      borderRadius: 4,
-      background: primary,
-      flexShrink: 0,
-    }}
-  />
-</div>
-
-                  {/* Category Accent */}
-
-                  <div
-                    style={{
-                      width: 4,
-                      height: 32,
-                      borderRadius: 4,
-                      background: primary,
-                      flexShrink: 0,
-                    }}
-                  />
-
-                  {/* Emoji */}
-
-                  {category.emoji && (
-                    <span
-                      style={{
-                        fontSize: 24,
-                        lineHeight: 1,
-                      }}
-                    >
-                      {category.emoji}
-                    </span>
-                  )}
+                    textAlign:
+                      rtl ? 'right' : 'left',
+                  }}
+                >
 
                   {/* Category Name */}
 
@@ -459,13 +413,38 @@ export default function MenuScreen() {
 
                       margin: 0,
 
-                      textAlign: rtl
-                        ? 'right'
-                        : 'left',
+                      textAlign:
+                        rtl ? 'right' : 'left',
                     }}
                   >
                     {getCatName(category)}
                   </h2>
+
+                  {/* Category Icon */}
+
+                  {category.emoji && (
+                    <span
+                      style={{
+                        fontSize: 24,
+                        lineHeight: 1,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {category.emoji}
+                    </span>
+                  )}
+
+                  {/* Vertical Accent */}
+
+                  <div
+                    style={{
+                      width: 4,
+                      height: 32,
+                      borderRadius: 4,
+                      background: primary,
+                      flexShrink: 0,
+                    }}
+                  />
 
                 </div>
 
@@ -476,15 +455,14 @@ export default function MenuScreen() {
                 <div
                   style={{
                     display: 'grid',
+
                     gridTemplateColumns:
                       'repeat(2, minmax(0, 1fr))',
 
                     gap: 12,
 
                     padding:
-                      rtl
-                        ? '0 16px 20px 16px'
-                        : '0 16px 20px 16px',
+                      '0 16px 20px',
 
                     direction:
                       rtl ? 'rtl' : 'ltr',
@@ -524,7 +502,9 @@ export default function MenuScreen() {
                 marginBottom: 16,
               }}
             >
-              {isGrocery ? '🛒' : '🍽️'}
+              {isGrocery
+                ? '🛒'
+                : '🍽️'}
             </div>
 
             <p
@@ -551,7 +531,9 @@ export default function MenuScreen() {
         subtotal={subtotal}
         restaurant={restaurant}
         lang={lang}
-        onOpen={() => setSheetView('cart')}
+        onOpen={() =>
+          setSheetView('cart')
+        }
       />
 
       {/* ═══════════════════════════════════════ */}
@@ -560,7 +542,9 @@ export default function MenuScreen() {
 
       <Modal
         open={!!activeItem}
-        onClose={() => setActiveItem(null)}
+        onClose={() =>
+          setActiveItem(null)
+        }
       >
         {activeItem && (
           <ItemSheet
@@ -568,7 +552,9 @@ export default function MenuScreen() {
             lang={lang}
             restaurant={restaurant}
             isGrocery={isGrocery}
-            onClose={() => setActiveItem(null)}
+            onClose={() =>
+              setActiveItem(null)
+            }
           />
         )}
       </Modal>
@@ -579,13 +565,19 @@ export default function MenuScreen() {
 
       <Modal
         open={sheetView === 'cart'}
-        onClose={() => setSheetView(null)}
+        onClose={() =>
+          setSheetView(null)
+        }
       >
         <CartSheet
           lang={lang}
           restaurant={restaurant}
-          onClose={() => setSheetView(null)}
-          onCheckout={() => setSheetView('checkout')}
+          onClose={() =>
+            setSheetView(null)
+          }
+          onCheckout={() =>
+            setSheetView('checkout')
+          }
         />
       </Modal>
 
@@ -595,12 +587,16 @@ export default function MenuScreen() {
 
       <Modal
         open={sheetView === 'checkout'}
-        onClose={() => setSheetView(null)}
+        onClose={() =>
+          setSheetView(null)
+        }
       >
         <CheckoutSheet
           lang={lang}
           restaurant={restaurant}
-          onClose={() => setSheetView(null)}
+          onClose={() =>
+            setSheetView(null)
+          }
           onSuccess={() => {}}
         />
       </Modal>
