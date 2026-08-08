@@ -56,12 +56,13 @@ export default function MenuScreen() {
       setLoading(true)
 
       try {
-        const { data: cats, error: categoriesError } = await supabase
-          .from('categories')
-          .select('*')
-          .eq('vendor_id', restaurant.id)
-          .eq('active', true)
-          .order('sort_order')
+        const { data: cats, error: categoriesError } =
+          await supabase
+            .from('categories')
+            .select('*')
+            .eq('vendor_id', restaurant.id)
+            .eq('active', true)
+            .order('sort_order')
 
         if (categoriesError) {
           console.error(
@@ -89,7 +90,8 @@ export default function MenuScreen() {
 
           items = (data || []).map(product => ({
             ...product,
-            item_options: product.grocery_product_options
+            item_options:
+              product.grocery_product_options
           }))
         } else {
           const { data, error } = await supabase
@@ -109,15 +111,22 @@ export default function MenuScreen() {
           items = data || []
         }
 
-        const nonEmptyCats = (cats || []).filter(category =>
-          items.some(item => item.category_id === category.id)
-        )
+        // Only show categories that contain items
+        const nonEmptyCats =
+          (cats || []).filter(category =>
+            items.some(
+              item =>
+                item.category_id === category.id
+            )
+          )
 
         setCategories(nonEmptyCats)
         setMenuItems(items)
 
         if (nonEmptyCats.length > 0) {
-          setActiveCategory(nonEmptyCats[0].id)
+          setActiveCategory(
+            nonEmptyCats[0].id
+          )
         } else {
           setActiveCategory(null)
         }
@@ -141,11 +150,17 @@ export default function MenuScreen() {
 
   function getCatName(category) {
     if (lang === 'ar') {
-      return category.name_ar || category.name_en
+      return (
+        category.name_ar ||
+        category.name_en
+      )
     }
 
     if (lang === 'fr') {
-      return category.name_fr || category.name_en
+      return (
+        category.name_fr ||
+        category.name_en
+      )
     }
 
     return category.name_en
@@ -155,51 +170,72 @@ export default function MenuScreen() {
   // Register Category Section
   // ─────────────────────────────────────────────
 
-  const setSectionRef = useCallback((categoryId) => (node) => {
-    if (node) {
-      sectionRefs.current[categoryId] = node
-    } else {
-      delete sectionRefs.current[categoryId]
-    }
-  }, [])
+  const setSectionRef =
+    useCallback((categoryId) => (node) => {
+      if (node) {
+        sectionRefs.current[categoryId] =
+          node
+      } else {
+        delete sectionRefs.current[
+          categoryId
+        ]
+      }
+    }, [])
 
   // ─────────────────────────────────────────────
   // Scroll Spy
   // ─────────────────────────────────────────────
 
   useEffect(() => {
-    if (loading || categories.length === 0) return
+    if (
+      loading ||
+      categories.length === 0
+    ) {
+      return
+    }
 
-    const container = scrollContainerRef.current
+    const container =
+      scrollContainerRef.current
 
     if (!container) return
 
     const handleScroll = () => {
-      if (isProgrammaticScroll.current) return
+      if (
+        isProgrammaticScroll.current
+      ) {
+        return
+      }
 
       const containerTop =
-        container.getBoundingClientRect().top
+        container.getBoundingClientRect()
+          .top
 
-      let currentCategory = categories[0]?.id
+      let currentCategory =
+        categories[0]?.id
 
       for (const category of categories) {
         const section =
-          sectionRefs.current[category.id]
+          sectionRefs.current[
+            category.id
+          ]
 
         if (!section) continue
 
         const sectionTop =
-          section.getBoundingClientRect().top -
-          containerTop
+          section.getBoundingClientRect()
+            .top - containerTop
 
         if (sectionTop <= 100) {
-          currentCategory = category.id
+          currentCategory =
+            category.id
         } else {
           break
         }
       }
 
-      setActiveCategory(currentCategory)
+      setActiveCategory(
+        currentCategory
+      )
     }
 
     container.addEventListener(
@@ -222,22 +258,31 @@ export default function MenuScreen() {
   // Category Tab Click
   // ─────────────────────────────────────────────
 
-  function handleCategorySelect(categoryId) {
+  function handleCategorySelect(
+    categoryId
+  ) {
     const container =
       scrollContainerRef.current
 
     const target =
-      sectionRefs.current[categoryId]
+      sectionRefs.current[
+        categoryId
+      ]
 
-    if (!container || !target) return
+    if (!container || !target) {
+      return
+    }
 
     setActiveCategory(categoryId)
 
-    isProgrammaticScroll.current = true
+    isProgrammaticScroll.current =
+      true
 
     const targetTop =
-      target.getBoundingClientRect().top -
-      container.getBoundingClientRect().top +
+      target.getBoundingClientRect()
+        .top -
+      container.getBoundingClientRect()
+        .top +
       container.scrollTop
 
     container.scrollTo({
@@ -251,7 +296,8 @@ export default function MenuScreen() {
 
     programmaticTimeout.current =
       setTimeout(() => {
-        isProgrammaticScroll.current = false
+        isProgrammaticScroll.current =
+          false
       }, 700)
   }
 
@@ -266,6 +312,10 @@ export default function MenuScreen() {
       )
     }
   }, [])
+
+  // ─────────────────────────────────────────────
+  // Session Loading
+  // ─────────────────────────────────────────────
 
   if (sessionLoading) {
     return null
@@ -287,7 +337,8 @@ export default function MenuScreen() {
         margin: '0 auto',
 
         // Overall page direction
-        direction: rtl ? 'rtl' : 'ltr',
+        direction:
+          rtl ? 'rtl' : 'ltr',
       }}
     >
 
@@ -318,8 +369,12 @@ export default function MenuScreen() {
         >
           <CategoryTabs
             categories={categories}
-            activeCategory={activeCategory}
-            onSelect={handleCategorySelect}
+            activeCategory={
+              activeCategory
+            }
+            onSelect={
+              handleCategorySelect
+            }
             lang={lang}
             primary={primary}
             getName={getCatName}
@@ -338,9 +393,11 @@ export default function MenuScreen() {
           overflowY: 'auto',
           overflowX: 'hidden',
           paddingBottom: 100,
-          WebkitOverflowScrolling: 'touch',
+          WebkitOverflowScrolling:
+            'touch',
 
-          direction: rtl ? 'rtl' : 'ltr',
+          direction:
+            rtl ? 'rtl' : 'ltr',
         }}
       >
 
@@ -350,213 +407,250 @@ export default function MenuScreen() {
 
         ) : categories.length > 0 ? (
 
-          categories.map((category, index) => {
+          categories.map(
+            (category, index) => {
 
-            const categoryItems =
-              menuItems.filter(
-                item =>
-                  item.category_id === category.id
-              )
+              const categoryItems =
+                menuItems.filter(
+                  item =>
+                    item.category_id ===
+                    category.id
+                )
 
-            const CardComponent =
-              isGrocery
-                ? ProductCard
-                : MenuItemCard
+              const CardComponent =
+                isGrocery
+                  ? ProductCard
+                  : MenuItemCard
 
-            return (
-              <section
-                key={category.id}
-                ref={setSectionRef(category.id)}
-                data-category-id={category.id}
-                style={{
-                  width: '100%',
-
-                  direction:
-                    rtl ? 'rtl' : 'ltr',
-
-                  paddingTop:
-                    index === 0
-                      ? 20
-                      : 38,
-
-                  borderTop:
-                    index === 0
-                      ? 'none'
-                      : '1px solid rgba(26, 77, 62, 0.10)',
-                }}
-              >
-
-                {/* ═══════════════════════════════ */}
-                {/* CATEGORY HEADER */}
-                {/* ═══════════════════════════════ */}
-
-                <div
+              return (
+                <section
+                  key={category.id}
+                  ref={setSectionRef(
+                    category.id
+                  )}
+                  data-category-id={
+                    category.id
+                  }
                   style={{
                     width: '100%',
-                    boxSizing: 'border-box',
 
-                    padding:
+                    direction:
                       rtl
-                        ? '8px 20px 16px 16px'
-                        : '8px 16px 16px 20px',
+                        ? 'rtl'
+                        : 'ltr',
 
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
+                    paddingTop:
+                      index === 0
+                        ? 20
+                        : 38,
 
-                    /*
-                     * IMPORTANT:
-                     *
-                     * English / French:
-                     *
-                     * │  ☕  Category
-                     *
-                     * Arabic:
-                     *
-                     * Category  ☕  │
-                     */
-
-                    flexDirection:
-                      rtl
-                        ? 'row-reverse'
-                        : 'row',
-
-                    /*
-                     * Anchor the complete group:
-                     *
-                     * English/French → LEFT
-                     * Arabic         → RIGHT
-                     */
-
-                    justifyContent:
-                      rtl
-                        ? 'flex-end'
-                        : 'flex-start',
-
-                    /*
-                     * Explicitly override the parent's
-                     * RTL direction so flex positioning
-                     * behaves predictably.
-                     */
-
-                    direction: 'ltr',
+                    borderTop:
+                      index === 0
+                        ? 'none'
+                        : '1px solid rgba(26, 77, 62, 0.10)',
                   }}
                 >
 
-                  {/* Vertical Accent */}
+                  {/* ═══════════════════════════════ */}
+                  {/* CATEGORY HEADER */}
+                  {/* ═══════════════════════════════ */}
 
                   <div
                     style={{
-                      width: 4,
-                      height: 32,
-                      borderRadius: 4,
-                      background: primary,
-                      flexShrink: 0,
-                    }}
-                  />
+                      width: '100%',
+                      boxSizing:
+                        'border-box',
 
-                  {/* Category Icon */}
+                      padding:
+                        rtl
+                          ? '8px 20px 16px 16px'
+                          : '8px 16px 16px 20px',
 
-                  {category.emoji && (
-                    <span
-                      style={{
-                        fontSize: 24,
-                        lineHeight: 1,
-                        flexShrink: 0,
-                      }}
-                    >
-                      {category.emoji}
-                    </span>
-                  )}
+                      display: 'flex',
+                      alignItems:
+                        'center',
 
-                  {/* Category Name */}
-
-                  <h2
-                    style={{
-                      fontFamily:
-                        lang === 'ar'
-                          ? "'Noto Naskh Arabic', serif"
-                          : "'Fraunces', serif",
-
-                      fontSize:
-                        lang === 'ar'
-                          ? 25
-                          : 23,
-
-                      fontWeight: 700,
-
-                      letterSpacing:
-                        lang === 'ar'
-                          ? 0
-                          : '-0.3px',
-
-                      lineHeight: 1.1,
-
-                      color: '#1A4D3E',
-
-                      margin: 0,
+                      gap: 10,
 
                       /*
-                       * Text itself follows its language.
+                       * English / French:
+                       *
+                       * │  ☕  Coffee
+                       *
+                       * Arabic:
+                       *
+                       * قهوة  ☕  │
                        */
+                      flexDirection:
+                        rtl
+                          ? 'row-reverse'
+                          : 'row',
 
-                      direction:
-                        rtl ? 'rtl' : 'ltr',
+                      /*
+                       * IMPORTANT:
+                       *
+                       * The header itself is LTR.
+                       * This prevents the parent RTL
+                       * direction from changing flex
+                       * positioning.
+                       *
+                       * flex-start means:
+                       *
+                       * English/French → LEFT
+                       * Arabic reversed → RIGHT
+                       */
+                      direction: 'ltr',
 
-                      textAlign:
-                        rtl ? 'right' : 'left',
+                      justifyContent:
+                        'flex-start',
                     }}
                   >
-                    {getCatName(category)}
-                  </h2>
 
-                </div>
+                    {/* ───────────────────────── */}
+                    {/* VERTICAL ACCENT */}
+                    {/* ───────────────────────── */}
 
-                {/* ═══════════════════════════════ */}
-                {/* CATEGORY ITEMS */}
-                {/* ═══════════════════════════════ */}
-
-                <div
-                  style={{
-                    display: 'grid',
-
-                    gridTemplateColumns:
-                      'repeat(2, minmax(0, 1fr))',
-
-                    gap: 12,
-
-                    padding:
-                      '0 16px 20px',
-
-                    direction:
-                      rtl ? 'rtl' : 'ltr',
-                  }}
-                >
-
-                  {categoryItems.map(item => (
-                    <CardComponent
-                      key={item.id}
-                      item={item}
-                      lang={lang}
-                      restaurant={restaurant}
-                      onQuickView={() =>
-                        setActiveItem(item)
-                      }
+                    <div
+                      style={{
+                        width: 4,
+                        height: 32,
+                        borderRadius: 4,
+                        background:
+                          primary,
+                        flexShrink: 0,
+                      }}
                     />
-                  ))}
 
-                </div>
+                    {/* ───────────────────────── */}
+                    {/* CATEGORY ICON */}
+                    {/* ───────────────────────── */}
 
-              </section>
-            )
-          })
+                    {category.emoji && (
+                      <span
+                        style={{
+                          fontSize: 24,
+                          lineHeight: 1,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {
+                          category.emoji
+                        }
+                      </span>
+                    )}
+
+                    {/* ───────────────────────── */}
+                    {/* CATEGORY NAME */}
+                    {/* ───────────────────────── */}
+
+                    <h2
+                      style={{
+                        fontFamily:
+                          lang === 'ar'
+                            ? "'Noto Naskh Arabic', serif"
+                            : "'Fraunces', serif",
+
+                        fontSize:
+                          lang === 'ar'
+                            ? 25
+                            : 23,
+
+                        fontWeight: 700,
+
+                        letterSpacing:
+                          lang === 'ar'
+                            ? 0
+                            : '-0.3px',
+
+                        lineHeight: 1.1,
+
+                        color:
+                          '#1A4D3E',
+
+                        margin: 0,
+
+                        /*
+                         * Arabic text itself
+                         * remains RTL.
+                         */
+                        direction:
+                          rtl
+                            ? 'rtl'
+                            : 'ltr',
+
+                        textAlign:
+                          rtl
+                            ? 'right'
+                            : 'left',
+                      }}
+                    >
+                      {getCatName(
+                        category
+                      )}
+                    </h2>
+
+                  </div>
+
+                  {/* ═══════════════════════════════ */}
+                  {/* CATEGORY ITEMS */}
+                  {/* ═══════════════════════════════ */}
+
+                  <div
+                    style={{
+                      display: 'grid',
+
+                      gridTemplateColumns:
+                        'repeat(2, minmax(0, 1fr))',
+
+                      gap: 12,
+
+                      padding:
+                        '0 16px 20px',
+
+                      direction:
+                        rtl
+                          ? 'rtl'
+                          : 'ltr',
+                    }}
+                  >
+
+                    {categoryItems.map(
+                      item => (
+                        <CardComponent
+                          key={item.id}
+                          item={item}
+                          lang={lang}
+                          restaurant={
+                            restaurant
+                          }
+                          onQuickView={() =>
+                            setActiveItem(
+                              item
+                            )
+                          }
+                        />
+                      )
+                    )}
+
+                  </div>
+
+                </section>
+              )
+            }
+          )
 
         ) : (
 
+          /* ═══════════════════════════════ */
+          /* EMPTY MENU */
+          /* ═══════════════════════════════ */
+
           <div
             style={{
-              textAlign: 'center',
-              padding: '80px 24px',
+              textAlign:
+                'center',
+              padding:
+                '80px 24px',
               opacity: 0.5,
             }}
           >
@@ -578,10 +672,12 @@ export default function MenuScreen() {
                   "'Plus Jakarta Sans', sans-serif",
               }}
             >
-              {t('no_items', lang)}
+              {t(
+                'no_items',
+                lang
+              )}
             </p>
           </div>
-
         )}
 
       </div>
@@ -614,10 +710,16 @@ export default function MenuScreen() {
           <ItemSheet
             item={activeItem}
             lang={lang}
-            restaurant={restaurant}
-            isGrocery={isGrocery}
+            restaurant={
+              restaurant
+            }
+            isGrocery={
+              isGrocery
+            }
             onClose={() =>
-              setActiveItem(null)
+              setActiveItem(
+                null
+              )
             }
           />
         )}
@@ -628,19 +730,25 @@ export default function MenuScreen() {
       {/* ═══════════════════════════════════════ */}
 
       <Modal
-        open={sheetView === 'cart'}
+        open={
+          sheetView === 'cart'
+        }
         onClose={() =>
           setSheetView(null)
         }
       >
         <CartSheet
           lang={lang}
-          restaurant={restaurant}
+          restaurant={
+            restaurant
+          }
           onClose={() =>
             setSheetView(null)
           }
           onCheckout={() =>
-            setSheetView('checkout')
+            setSheetView(
+              'checkout'
+            )
           }
         />
       </Modal>
@@ -650,14 +758,19 @@ export default function MenuScreen() {
       {/* ═══════════════════════════════════════ */}
 
       <Modal
-        open={sheetView === 'checkout'}
+        open={
+          sheetView ===
+          'checkout'
+        }
         onClose={() =>
           setSheetView(null)
         }
       >
         <CheckoutSheet
           lang={lang}
-          restaurant={restaurant}
+          restaurant={
+            restaurant
+          }
           onClose={() =>
             setSheetView(null)
           }
