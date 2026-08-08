@@ -343,29 +343,68 @@ export default function MenuScreen() {
 
                 <div
                   style={{
-                    padding:
-                      rtl
-                        ? '8px 20px 16px 16px'
-                        : '8px 16px 16px 20px',
+                    padding: rtl
+                      ? '8px 20px 16px 16px'
+                      : '8px 16px 16px 20px',
 
                     display: 'flex',
                     alignItems: 'center',
+                    gap: 10,
 
                     justifyContent: rtl
-                      ? 'flex-end'
+                      ? 'flex-start'
                       : 'flex-start',
 
-                    textAlign: rtl
-                      ? 'right'
-                      : 'left',
+                    flexDirection: 'row',
 
-                    flexDirection: rtl
-                      ? 'row-reverse'
-                      : 'row',
+                    direction: rtl ? 'rtl' : 'ltr',
 
-                    gap: 10,
+                    textAlign: rtl ? 'right' : 'left',
                   }}
                 >
+                  {/* Category Name */}
+                  <h2
+                    style={{
+                      fontFamily:
+                        lang === 'ar'
+                          ? "'Noto Naskh Arabic', serif"
+                          : "'Fraunces', serif",
+
+                      fontSize: lang === 'ar' ? 25 : 23,
+                      fontWeight: 700,
+                      letterSpacing: lang === 'ar' ? 0 : '-0.3px',
+                      lineHeight: 1.1,
+                      color: '#1A4D3E',
+                      margin: 0,
+                      textAlign: rtl ? 'right' : 'left',
+                    }}
+                  >
+                    {getCatName(category)}
+                  </h2>
+
+                  {/* Category Icon */}
+                  {category.emoji && (
+                    <span
+                      style={{
+                        fontSize: 24,
+                        lineHeight: 1,
+                      }}
+                    >
+                      {category.emoji}
+                    </span>
+                  )}
+
+                  {/* Vertical Accent */}
+                  <div
+                    style={{
+                      width: 4,
+                      height: 32,
+                      borderRadius: 4,
+                      background: primary,
+                      flexShrink: 0,
+                    }}
+                  />
+                </div>
 
                   {/* Category Accent */}
 
