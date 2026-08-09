@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { MapPin, User, Phone, CheckCircle } from 'lucide-react'
+import { CheckCircle } from 'lucide-react'
 import { useCart }              from '../context/CartContext'
 import { supabase }             from '../lib/supabase'
 import { t, isRTL }             from '../lib/translations'
+import SheetCloseButton         from './SheetCloseButton'
 
 const COUNTRY_CODES = [
   { code: '+20', flag: '🇪🇬', placeholder: '10 0000 0000', validate: d => /^(10|11|12|15)\d{8}$/.test(d) },
@@ -38,7 +39,6 @@ export default function CheckoutSheet({
   const [name, setName] = useState(saved?.name || '')
   const [countryCode, setCountryCode] = useState(saved?.countryCode || (isVenueMode ? '+20' : '+1'))
   const [localPhone, setLocalPhone] = useState(saved?.localPhone || '')
-  const [phoneTouched, setPhoneTouched] = useState(false)
   const [address, setAddress] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState({})
@@ -75,7 +75,6 @@ export default function CheckoutSheet({
 
   function validate() {
     const e = {}
-    setPhoneTouched(true)
     if (!name.trim()) e.name = t('name_required', lang)
     if (!localPhone.trim()) e.phone = t('phone_required', lang)
     else if (!phoneIsValid) e.phone = lang === 'ar' ? 'رقم غير صحيح' : 'Invalid number'
@@ -96,7 +95,7 @@ export default function CheckoutSheet({
       const fullPhone = `${countryCode}${localPhone.replace(/^0+/, '')}`
       const orderPayload = {
         token: 'demo',
-        vendor_id: restaurant?.id,
+        restaurant_id: restaurant?.id,
         customer_phone: fullPhone,
         customer_name: name,
         is_venue_order: isVenueMode,
@@ -118,7 +117,7 @@ export default function CheckoutSheet({
       if (!response.ok || !result.success) throw new Error(result.error || 'Order failed')
 
       saveInfo({ name, countryCode, localPhone })
-      setSuccess({ orderNumber: result.orderNumber || '0001', spotName: isVenueMode ? getSpotName(selectedSpot) : null })
+      setSuccess({ orderNumber: result.orderNumber, spotName: isVenueMode ? getSpotName(selectedSpot) : null })
       clearCart()
       onSuccess?.()
     } catch (err) {
@@ -135,10 +134,19 @@ export default function CheckoutSheet({
     outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', textAlign: rtl ? 'right' : 'left',
   })
   const labelStyle = { fontSize: 11, fontWeight: 700, color: '#2D2A26', opacity: 0.5, display: 'block', marginBottom: 5, fontFamily: "'JetBrains Mono', monospace" }
+  const titleSidePad = { [rtl ? 'paddingLeft' : 'paddingRight']: 40 }
 
+  // ── SUCCESS / CONFIRMATION STATE ──
+  // Close button is present here too — this is the
+  // "confirmation popup" content, rendered inline
+  // inside the same CheckoutSheet/Modal rather than
+  // a separate component. If you weren't seeing a
+  // close button before, this exact block is what
+  // was missing/outdated in your deployed copy.
   if (success) {
     return (
-      <div dir={rtl ? 'rtl' : 'ltr'} style={{ padding: '50px 24px', textAlign: 'center' }}>
+      <div dir={rtl ? 'rtl' : 'ltr'} style={{ position: 'relative', padding: '50px 24px', textAlign: 'center' }}>
+        <SheetCloseButton lang={lang} onClose={onClose} />
         <CheckCircle size={56} style={{ color: '#2D6E5A', margin: '0 auto 16px' }} />
         <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 20, color: '#1A4D3E', marginBottom: 8 }}>
           {t('order_confirmed', lang)}
@@ -161,11 +169,15 @@ export default function CheckoutSheet({
     )
   }
 
+  // ── CHECKOUT FORM STATE ──
   return (
-    <div dir={rtl ? 'rtl' : 'ltr'} style={{ padding: '4px 16px 20px' }}>
+    <div dir={rtl ? 'rtl' : 'ltr'} style={{ position: 'relative', padding: '4px 16px 20px' }}>
+      <SheetCloseButton lang={lang} onClose={onClose} />
+
       <h2 style={{
         fontFamily: arabicFont === 'inherit' ? "'Fraunces', serif" : arabicFont,
-        fontSize: 18, fontWeight: 700, color: '#1A4D3E', margin: '10px 0 14px', textAlign: rtl ? 'right' : 'left',
+        fontSize: 18, fontWeight: 700, color: '#1A4D3E', margin: '10px 0 14px',
+        textAlign: rtl ? 'right' : 'left', ...titleSidePad,
       }}>
         {t('delivery_details', lang)}
       </h2>
@@ -183,7 +195,6 @@ export default function CheckoutSheet({
             style={{ ...inputStyle(!!errors.phone), flex: 1, direction: 'ltr' }}
             value={localPhone}
             onChange={e => setLocalPhone(normalizeDigits(e.target.value))}
-            onBlur={() => setPhoneTouched(true)}
             placeholder={currentCountry.placeholder}
             lang="ar"
           />
@@ -218,7 +229,6 @@ export default function CheckoutSheet({
           )}
           {errors.spot && <p style={{ color: '#ef4444', fontSize: 11, marginTop: 6 }}>{errors.spot}</p>}
 
-          {/* Dynamic extra field per spot */}
           {selectedSpot && getExtraLabel(selectedSpot) && (
             <div style={{ marginTop: 10 }}>
               <label style={labelStyle}>{getExtraLabel(selectedSpot)}</label>
