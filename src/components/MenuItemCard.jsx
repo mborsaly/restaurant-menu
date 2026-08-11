@@ -7,7 +7,6 @@ export default function MenuItemCard({
   item, lang, restaurant, onQuickView
 }) {
   const primary = restaurant?.primary_color || '#1A4D3E'
-  const coral   = '#FF7A47'
   const rtl     = isRTL(lang)
   const { addItem } = useCart()
   const [justAdded, setJustAdded] = useState(false)
@@ -63,7 +62,7 @@ export default function MenuItemCard({
         {item.is_popular && (
           <div style={{
             position: 'absolute', top: 8, [rtl ? 'right' : 'left']: 8,
-            background: 'rgba(255,255,255,0.94)', color: coral,
+            background: 'rgba(255,255,255,0.94)', color: primary,
             fontSize: 9.5, fontWeight: 800, padding: '4px 9px', borderRadius: 100,
             letterSpacing: '0.03em', textTransform: 'uppercase',
             fontFamily: "'Plus Jakarta Sans', sans-serif",
@@ -92,7 +91,8 @@ export default function MenuItemCard({
         )}
 
         <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, fontSize: 14.5, color: coral }}>
+          {/* Price now uses restaurant primary color, not hardcoded coral */}
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, fontSize: 14.5, color: primary }}>
             {lang === 'ar' ? `${Number(item.base_price).toFixed(2)} ج.م` : `$${Number(item.base_price).toFixed(2)}`}
           </span>
 

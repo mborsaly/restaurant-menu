@@ -7,7 +7,6 @@ export default function CartSheet({
   lang, restaurant, onClose, onCheckout
 }) {
   const primary = restaurant?.primary_color || '#1A4D3E'
-  const coral   = '#FF7A47'
   const rtl     = isRTL(lang)
   const arabicFont = lang === 'ar' ? "'Noto Naskh Arabic', serif" : 'inherit'
   const { cart, subtotal, itemCount, removeItem, updateQuantity } = useCart()
@@ -102,9 +101,10 @@ export default function CartSheet({
         </div>
       </div>
 
+      {/* Checkout button now uses restaurant primary color, not hardcoded coral */}
       <button onClick={onCheckout} style={{
-        width: '100%', borderRadius: 18, padding: '15px 22px', background: coral, border: 'none',
-        color: 'white', fontWeight: 700, fontSize: 15, cursor: 'pointer', boxShadow: `0 8px 24px ${coral}44`,
+        width: '100%', borderRadius: 18, padding: '15px 22px', background: primary, border: 'none',
+        color: 'white', fontWeight: 700, fontSize: 15, cursor: 'pointer', boxShadow: `0 8px 24px ${primary}44`,
         fontFamily: arabicFont,
       }}>
         {t('checkout', lang)}

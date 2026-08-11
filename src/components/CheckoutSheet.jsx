@@ -21,7 +21,6 @@ export default function CheckoutSheet({
   lang, restaurant, onClose, onSuccess
 }) {
   const primary = restaurant?.primary_color || '#1A4D3E'
-  const coral   = '#FF7A47'
   const rtl     = isRTL(lang)
   const arabicFont = lang === 'ar' ? "'Noto Naskh Arabic', serif" : 'inherit'
   const { cart, subtotal, itemCount, clearCart } = useCart()
@@ -95,7 +94,7 @@ export default function CheckoutSheet({
       const fullPhone = `${countryCode}${localPhone.replace(/^0+/, '')}`
       const orderPayload = {
         token: 'demo',
-        vendor_id: restaurant?.id,
+        restaurant_id: restaurant?.id,
         customer_phone: fullPhone,
         customer_name: name,
         is_venue_order: isVenueMode,
@@ -137,12 +136,6 @@ export default function CheckoutSheet({
   const titleSidePad = { [rtl ? 'paddingLeft' : 'paddingRight']: 40 }
 
   // ── SUCCESS / CONFIRMATION STATE ──
-  // Close button is present here too — this is the
-  // "confirmation popup" content, rendered inline
-  // inside the same CheckoutSheet/Modal rather than
-  // a separate component. If you weren't seeing a
-  // close button before, this exact block is what
-  // was missing/outdated in your deployed copy.
   if (success) {
     return (
       <div dir={rtl ? 'rtl' : 'ltr'} style={{ position: 'relative', padding: '50px 24px', textAlign: 'center' }}>
@@ -151,7 +144,8 @@ export default function CheckoutSheet({
         <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 20, color: '#1A4D3E', marginBottom: 8 }}>
           {t('order_confirmed', lang)}
         </h2>
-        <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, fontWeight: 700, color: coral, marginBottom: 16 }}>
+        {/* Confirmation # now uses restaurant primary color, not hardcoded coral */}
+        <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, fontWeight: 700, color: primary, marginBottom: 16 }}>
           #{success.orderNumber}
         </p>
         {success.spotName && (
@@ -159,8 +153,9 @@ export default function CheckoutSheet({
             📍 {success.spotName}
           </p>
         )}
+        {/* Order Again button now uses restaurant primary color, not hardcoded coral */}
         <button onClick={onClose} style={{
-          padding: '12px 28px', borderRadius: 100, background: coral, color: 'white',
+          padding: '12px 28px', borderRadius: 100, background: primary, color: 'white',
           border: 'none', fontWeight: 700, cursor: 'pointer', fontFamily: arabicFont,
         }}>
           {t('order_again', lang)}
@@ -258,9 +253,10 @@ export default function CheckoutSheet({
 
       {errors.submit && <p style={{ color: '#ef4444', fontSize: 12, textAlign: 'center', marginBottom: 10 }}>{errors.submit}</p>}
 
+      {/* Place Order button now uses restaurant primary color, not hardcoded coral */}
       <button onClick={handlePlaceOrder} disabled={submitting} style={{
         width: '100%', borderRadius: 18, padding: '15px 22px', border: 'none',
-        background: submitting ? 'rgba(45,42,38,0.15)' : coral, color: submitting ? 'rgba(45,42,38,0.4)' : 'white',
+        background: submitting ? 'rgba(45,42,38,0.15)' : primary, color: submitting ? 'rgba(45,42,38,0.4)' : 'white',
         fontWeight: 700, fontSize: 15, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: arabicFont,
       }}>
         {submitting ? t('placing_order', lang) : `${t('place_order', lang)} · $${total.toFixed(2)}`}
