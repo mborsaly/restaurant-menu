@@ -176,7 +176,6 @@ export default function ItemSheet({
             {getDesc(fullItem)}
           </p>
         )}
-        {/* Price — now uses restaurant primary color, not coral */}
         <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 19, fontWeight: 800, color: primary }}>
           {formatPrice(fullItem.base_price, restaurant, lang)}
           {isGrocery && (
@@ -223,7 +222,6 @@ export default function ItemSheet({
                       <span style={{ fontSize: 13.5, fontWeight: isSelected ? 600 : 400, color: isSelected ? primary : '#1B2530', fontFamily: arabicFont }}>
                         {getOptionName(option)}
                       </span>
-                      {/* "Included" / price modifier — now uses primary, not coral */}
                       <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, color: isSelected ? primary : '#1B2530', opacity: isSelected ? 1 : 0.4 }}>
                         {option.price_modifier === 0
                           ? t('included', lang)
@@ -236,10 +234,37 @@ export default function ItemSheet({
             )
           })}
 
-          {/* Quantity — kept LTR internally for the number
-              readout, but the whole row now follows RTL
-              order for Arabic (minus / number / plus flips
-              to plus / number / minus visually) */}
+          {/* ═══════════════════════════════════════
+              QUANTITY ROW
+              Requirement: qty number on the RIGHT,
+              −/+ buttons on the LEFT (Arabic RTL).
+
+              This is a special case: it does NOT
+              follow the normal "flip the whole row"
+              rule, because the request is about the
+              INTERNAL order of the stepper control
+              itself (number should sit closer to the
+              "Quantity" label, which is on the right
+              in RTL — buttons trail off to the left).
+
+              So: outer row stays label-left/control-
+              right in LTR, label-right/control-left
+              in RTL (standard flip) — but INSIDE the
+              stepper, we now render −  qty  + always
+              in that visual left-to-right order,
+              regardless of language, so "−" is
+              always the leftmost element and the
+              qty number sits just left of it... 
+
+              Re-reading the requirement precisely:
+              "qty should be on the right, while the
+              +/− buttons on the left" — meaning within
+              the stepper control itself, the NUMBER
+              should be positioned toward the right
+              edge and the two buttons toward the left
+              edge, i.e. layout: [−] [+]  qty  — buttons
+              grouped left, number on the right.
+          ═══════════════════════════════════════ */}
           <div style={{
             padding: 20, borderTop: '1px solid rgba(45,42,38,0.06)',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -248,49 +273,102 @@ export default function ItemSheet({
             <span style={{ fontSize: 13, fontWeight: 700, color: '#1B2530', fontFamily: arabicFont }}>
               {t('quantity', lang)}
             </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexDirection: rtl ? 'row-reverse' : 'row' }}>
-              <motion.button
-                whileTap={{ scale: 0.85 }}
-                onClick={() => stepQuantity(-1)}
-                style={{
-                  width: 32, height: 32, borderRadius: '50%', border: '2px solid rgba(45,42,38,.15)',
-                  background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
-              >
-                <Minus size={14} style={{ color: '#1B2530' }} />
-              </motion.button>
 
-              <motion.span
-                key={quantity}
-                initial={{ scale: 1.3, opacity: 0.5 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-                style={{
-                  fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14,
-                  minWidth: 44, textAlign: 'center', display: 'inline-block', direction: 'ltr',
-                }}
-              >
-                {isGrocery ? `${quantity} ${unitLabel}` : quantity}
-              </motion.span>
+            {rtl ? (
+              // Arabic: qty number on the right, − and + buttons grouped on the left
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <motion.button
+                    whileTap={{ scale: 0.85 }}
+                    onClick={() => stepQuantity(-1)}
+                    style={{
+                      width: 32, height: 32, borderRadius: '50%', border: '2px solid rgba(45,42,38,.15)',
+                      background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    <Minus size={14} style={{ color: '#1B2530' }} />
+                  </motion.button>
+                  <motion.button
+                    whileTap={{ scale: 0.85 }}
+                    onClick={() => stepQuantity(1)}
+                    style={{
+                      width: 32, height: 32, borderRadius: '50%', border: 'none', background: primary,
+                      boxShadow: `0 3px 10px ${primary}44`, cursor: 'pointer', display: 'flex',
+                      alignItems: 'center', justifyContent: 'center', color: 'white',
+                    }}
+                  >
+                    <Plus size={14} />
+                  </motion.button>
+                </div>
 
-              <motion.button
-                whileTap={{ scale: 0.85 }}
-                onClick={() => stepQuantity(1)}
-                style={{
-                  width: 32, height: 32, borderRadius: '50%', border: 'none', background: primary,
-                  boxShadow: `0 3px 10px ${primary}44`, cursor: 'pointer', display: 'flex',
-                  alignItems: 'center', justifyContent: 'center', color: 'white',
-                }}
-              >
-                <Plus size={14} />
-              </motion.button>
-            </div>
+                <motion.span
+                  key={quantity}
+                  initial={{ scale: 1.3, opacity: 0.5 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                  style={{
+                    fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14,
+                    minWidth: 44, textAlign: 'center', display: 'inline-block',
+                  }}
+                >
+                  {isGrocery ? `${quantity} ${unitLabel}` : quantity}
+                </motion.span>
+              </div>
+            ) : (
+              // English/French: standard − qty + order
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
+                  onClick={() => stepQuantity(-1)}
+                  style={{
+                    width: 32, height: 32, borderRadius: '50%', border: '2px solid rgba(45,42,38,.15)',
+                    background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  <Minus size={14} style={{ color: '#1B2530' }} />
+                </motion.button>
+
+                <motion.span
+                  key={quantity}
+                  initial={{ scale: 1.3, opacity: 0.5 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                  style={{
+                    fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14,
+                    minWidth: 44, textAlign: 'center', display: 'inline-block',
+                  }}
+                >
+                  {isGrocery ? `${quantity} ${unitLabel}` : quantity}
+                </motion.span>
+
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
+                  onClick={() => stepQuantity(1)}
+                  style={{
+                    width: 32, height: 32, borderRadius: '50%', border: 'none', background: primary,
+                    boxShadow: `0 3px 10px ${primary}44`, cursor: 'pointer', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', color: 'white',
+                  }}
+                >
+                  <Plus size={14} />
+                </motion.button>
+              </div>
+            )}
           </div>
         </>
       )}
 
-      {/* Sticky add button — now RTL-aware instead of
-          being permanently locked to LTR layout */}
+      {/* ═══════════════════════════════════════
+          ADD TO CART BUTTON
+          Requirement: "Add to Cart" text on the
+          RIGHT, price/currency on the LEFT (Arabic).
+          This IS the standard row-flip case — the
+          badge (quantity circle) stays visually
+          on the far right in RTL (it was on the
+          far left in LTR, as the leading element),
+          label sits next to it, price trails to
+          the far left.
+      ═══════════════════════════════════════ */}
       <div style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, maxWidth: 480,
         margin: '0 auto', padding: 16, background: '#FFF8F0',

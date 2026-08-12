@@ -53,24 +53,55 @@ export default function CartSheet({
         {cart.map(item => (
           <div key={item.id} style={{ background: 'white', borderRadius: 16, padding: 12, border: '1px solid rgba(45,42,38,0.06)' }}>
             <div style={{ display: 'flex', gap: 10, flexDirection: rtl ? 'row-reverse' : 'row' }}>
+
+              {/* Name + qty stepper column */}
               <div style={{ flex: 1, minWidth: 0, textAlign: rtl ? 'right' : 'left' }}>
                 <p style={{ fontWeight: 700, fontSize: 13, color: '#2D2A26', marginBottom: 6, fontFamily: arabicFont }}>
                   {getItemName(item)}
                 </p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexDirection: rtl ? 'row-reverse' : 'row' }}>
-                  <button onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                    style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(45,42,38,0.06)', border: 'none', cursor: 'pointer' }}>
-                    <Minus size={12} style={{ margin: 'auto' }} />
-                  </button>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, width: 16, textAlign: 'center', direction: 'ltr' }}>
-                    {item.quantity}
-                  </span>
-                  <button onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                    style={{ width: 24, height: 24, borderRadius: '50%', background: primary, color: 'white', border: 'none', cursor: 'pointer' }}>
-                    <Plus size={12} style={{ margin: 'auto' }} />
-                  </button>
-                </div>
+
+                {/* Same right/left rule as ItemSheet's
+                    quantity control: in RTL, the qty
+                    number sits on the right and the
+                    −/+ buttons are grouped together on
+                    the left */}
+                {rtl ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <button onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(45,42,38,0.06)', border: 'none', cursor: 'pointer' }}>
+                        <Minus size={12} style={{ margin: 'auto' }} />
+                      </button>
+                      <button onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        style={{ width: 24, height: 24, borderRadius: '50%', background: primary, color: 'white', border: 'none', cursor: 'pointer' }}>
+                        <Plus size={12} style={{ margin: 'auto' }} />
+                      </button>
+                    </div>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, width: 16, textAlign: 'center' }}>
+                      {item.quantity}
+                    </span>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <button onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                      style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(45,42,38,0.06)', border: 'none', cursor: 'pointer' }}>
+                      <Minus size={12} style={{ margin: 'auto' }} />
+                    </button>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, width: 16, textAlign: 'center' }}>
+                      {item.quantity}
+                    </span>
+                    <button onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      style={{ width: 24, height: 24, borderRadius: '50%', background: primary, color: 'white', border: 'none', cursor: 'pointer' }}>
+                      <Plus size={12} style={{ margin: 'auto' }} />
+                    </button>
+                  </div>
+                )}
               </div>
+
+              {/* Price + delete column — this is the
+                  price/currency element that goes to
+                  the LEFT in RTL, matching your
+                  "Add to Cart" request principle */}
               <div style={{ textAlign: rtl ? 'left' : 'right' }}>
                 <p style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: primary }}>
                   {formatPrice(item.total, restaurant, lang)}
@@ -84,6 +115,8 @@ export default function CartSheet({
         ))}
       </div>
 
+      {/* Subtotal / delivery / total — standard label/value
+          RTL flip (label right, value left) */}
       <div style={{ background: 'white', borderRadius: 16, padding: 14, border: '1px solid rgba(45,42,38,0.06)', marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6, flexDirection: rtl ? 'row-reverse' : 'row' }}>
           <span style={{ opacity: 0.55, fontFamily: arabicFont }}>{t('subtotal', lang)}</span>
