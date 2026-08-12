@@ -392,6 +392,17 @@ export const t = (key, lang = 'fr') => {
       ar: 'هيتم توصيل طلبك لمكانك المختار',
     },
 
+    search_placeholder: {
+      en: 'Search menu...',
+      fr: 'Rechercher dans le menu...',
+      ar: 'دوّر في المنيو...',
+    },
+    no_search_results: {
+      en: 'No items match your search',
+      fr: 'Aucun article ne correspond',
+      ar: 'مفيش نتائج مطابقة',
+    },
+
   }
 
   return translations[key]?.[lang]

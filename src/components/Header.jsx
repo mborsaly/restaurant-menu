@@ -60,7 +60,12 @@ export default function Header({
           {logoBlock}
           {textBlock}
         </div>
-        <LangSwitcher lang={lang} onSelect={onLangSelect} primary={primary} />
+        <LangSwitcher
+          lang={lang}
+          onSelect={onLangSelect}
+          primary={primary}
+          allowedLanguages={restaurant?.supported_languages}
+        />
       </div>
     </div>
   )

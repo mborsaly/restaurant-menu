@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { motion }              from 'framer-motion'
-import { X, Minus, Plus }      from 'lucide-react'
+import { Minus, Plus }         from 'lucide-react'
 import { supabase }            from '../lib/supabase'
 import { useCart }             from '../context/CartContext'
 import { t, isRTL }            from '../lib/translations'
+import { formatPrice }         from '../lib/currency'
+import SheetCloseButton        from './SheetCloseButton'
 
 const UNIT_LABELS = {
   piece: { en: 'pc',   ar: 'قطعة', fr: 'pc'  },
@@ -18,7 +20,6 @@ export default function ItemSheet({
   item, lang, restaurant, isGrocery, onClose, onAdded
 }) {
   const primary = restaurant?.primary_color || (isGrocery ? '#2E7D4F' : '#1A4D3E')
-  const coral   = isGrocery ? '#FF9142' : '#FF7A47'
   const rtl     = isRTL(lang)
   const arabicFont = lang === 'ar' ? "'Noto Naskh Arabic', serif" : "'Plus Jakarta Sans', sans-serif"
   const { addItem } = useCart()
@@ -107,9 +108,6 @@ export default function ItemSheet({
     if (lang === 'fr') return o.option_name_fr || o.option_name_en
     return o.option_name_en
   }
-  function formatPrice(p) {
-    return lang === 'ar' ? `${Number(p).toFixed(2)} ج.م` : `$${Number(p).toFixed(2)}`
-  }
 
   function stepQuantity(dir) {
     setQuantity(q => {
@@ -137,15 +135,7 @@ export default function ItemSheet({
   return (
     <div dir={rtl ? 'rtl' : 'ltr'} style={{ paddingBottom: 100, position: 'relative' }}>
 
-      {/* Close button */}
-      <button onClick={onClose} style={{
-        position: 'absolute', top: 14, [rtl ? 'left' : 'right']: 14,
-        width: 32, height: 32, borderRadius: '50%', background: 'white',
-        border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', zIndex: 2,
-      }}>
-        <X size={16} style={{ color: '#1B2530' }} />
-      </button>
+      <SheetCloseButton lang={lang} onClose={onClose} />
 
       {/* Image */}
       <div style={{
@@ -186,8 +176,9 @@ export default function ItemSheet({
             {getDesc(fullItem)}
           </p>
         )}
-        <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 19, fontWeight: 800, color: coral }}>
-          {formatPrice(fullItem.base_price)}
+        {/* Price — now uses restaurant primary color, not coral */}
+        <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 19, fontWeight: 800, color: primary }}>
+          {formatPrice(fullItem.base_price, restaurant, lang)}
           {isGrocery && (
             <span style={{ fontSize: 12, opacity: 0.5, fontWeight: 600 }}> / {unitLabel}</span>
           )}
@@ -232,8 +223,11 @@ export default function ItemSheet({
                       <span style={{ fontSize: 13.5, fontWeight: isSelected ? 600 : 400, color: isSelected ? primary : '#1B2530', fontFamily: arabicFont }}>
                         {getOptionName(option)}
                       </span>
-                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, color: isSelected ? coral : '#1B2530', opacity: isSelected ? 1 : 0.4 }}>
-                        {option.price_modifier === 0 ? t('included', lang) : `+${formatPrice(option.price_modifier)}`}
+                      {/* "Included" / price modifier — now uses primary, not coral */}
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, color: isSelected ? primary : '#1B2530', opacity: isSelected ? 1 : 0.4 }}>
+                        {option.price_modifier === 0
+                          ? t('included', lang)
+                          : `+${formatPrice(option.price_modifier, restaurant, lang)}`}
                       </span>
                     </motion.button>
                   )
@@ -242,15 +236,19 @@ export default function ItemSheet({
             )
           })}
 
-          {/* Quantity */}
+          {/* Quantity — kept LTR internally for the number
+              readout, but the whole row now follows RTL
+              order for Arabic (minus / number / plus flips
+              to plus / number / minus visually) */}
           <div style={{
             padding: 20, borderTop: '1px solid rgba(45,42,38,0.06)',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            flexDirection: rtl ? 'row-reverse' : 'row',
           }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: '#1B2530', fontFamily: arabicFont }}>
               {t('quantity', lang)}
             </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, direction: 'ltr' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexDirection: rtl ? 'row-reverse' : 'row' }}>
               <motion.button
                 whileTap={{ scale: 0.85 }}
                 onClick={() => stepQuantity(-1)}
@@ -269,7 +267,7 @@ export default function ItemSheet({
                 transition={{ type: 'spring', stiffness: 500, damping: 20 }}
                 style={{
                   fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14,
-                  minWidth: 44, textAlign: 'center', display: 'inline-block',
+                  minWidth: 44, textAlign: 'center', display: 'inline-block', direction: 'ltr',
                 }}
               >
                 {isGrocery ? `${quantity} ${unitLabel}` : quantity}
@@ -291,7 +289,8 @@ export default function ItemSheet({
         </>
       )}
 
-      {/* Sticky add button */}
+      {/* Sticky add button — now RTL-aware instead of
+          being permanently locked to LTR layout */}
       <div style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, maxWidth: 480,
         margin: '0 auto', padding: 16, background: '#FFF8F0',
@@ -304,11 +303,12 @@ export default function ItemSheet({
           transition={{ duration: 0.3 }}
           style={{
             width: '100%', borderRadius: 18, padding: '15px 22px',
-            background: outOfStock ? 'rgba(45,42,38,0.15)' : (justAdded ? '#2D6E5A' : coral),
+            background: outOfStock ? 'rgba(45,42,38,0.15)' : (justAdded ? '#2D6E5A' : primary),
             border: 'none', color: outOfStock ? 'rgba(45,42,38,0.4)' : 'white',
             fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center',
             justifyContent: 'space-between', cursor: outOfStock ? 'not-allowed' : 'pointer',
-            boxShadow: outOfStock ? 'none' : `0 8px 24px ${coral}44`,
+            boxShadow: outOfStock ? 'none' : `0 8px 24px ${primary}44`,
+            flexDirection: rtl ? 'row-reverse' : 'row',
           }}
         >
           <span style={{ fontFamily: arabicFont }}>
@@ -318,7 +318,9 @@ export default function ItemSheet({
                 ? (lang === 'ar' ? '✓ تمت الإضافة' : lang === 'fr' ? '✓ Ajouté' : '✓ Added')
                 : t('add_to_cart', lang)}
           </span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatPrice(totalPrice)}</span>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            {formatPrice(totalPrice, restaurant, lang)}
+          </span>
         </motion.button>
       </div>
     </div>

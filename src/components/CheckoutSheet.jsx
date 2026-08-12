@@ -3,6 +3,7 @@ import { CheckCircle } from 'lucide-react'
 import { useCart }              from '../context/CartContext'
 import { supabase }             from '../lib/supabase'
 import { t, isRTL }             from '../lib/translations'
+import { formatPrice }          from '../lib/currency'
 import SheetCloseButton         from './SheetCloseButton'
 
 const COUNTRY_CODES = [
@@ -13,9 +14,18 @@ const ARABIC_DIGITS = { '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','�
 function normalizeDigits(v) {
   return v.split('').map(ch => ARABIC_DIGITS[ch] ?? ch).join('').replace(/[^\d]/g, '')
 }
+
 const STORAGE_KEY = 'bv_customer_info'
 function loadSaved() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) } catch { return null } }
-function saveInfo(v) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(v)) } catch {} }
+function saveInfo(v) {
+  try {
+    // Merge instead of overwrite, so saving name/phone
+    // from a venue order doesn't wipe a previously
+    // remembered address, and vice versa
+    const existing = loadSaved() || {}
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...existing, ...v }))
+  } catch {}
+}
 
 export default function CheckoutSheet({
   lang, restaurant, onClose, onSuccess
@@ -38,7 +48,10 @@ export default function CheckoutSheet({
   const [name, setName] = useState(saved?.name || '')
   const [countryCode, setCountryCode] = useState(saved?.countryCode || (isVenueMode ? '+20' : '+1'))
   const [localPhone, setLocalPhone] = useState(saved?.localPhone || '')
-  const [address, setAddress] = useState('')
+  // Street address now seeded from localStorage too —
+  // remembers the last address used at any non-venue
+  // vendor, autofilled on the next checkout
+  const [address, setAddress] = useState(saved?.address || '')
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState({})
   const [success, setSuccess] = useState(null)
@@ -115,7 +128,14 @@ export default function CheckoutSheet({
       const result = await response.json()
       if (!response.ok || !result.success) throw new Error(result.error || 'Order failed')
 
-      saveInfo({ name, countryCode, localPhone })
+      // Remember name/phone always; remember street
+      // address only for non-venue orders (venue orders
+      // use a spot picker, not a typed address)
+      saveInfo({
+        name, countryCode, localPhone,
+        ...(isVenueMode ? {} : { address }),
+      })
+
       setSuccess({ orderNumber: result.orderNumber, spotName: isVenueMode ? getSpotName(selectedSpot) : null })
       clearCart()
       onSuccess?.()
@@ -144,7 +164,6 @@ export default function CheckoutSheet({
         <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 20, color: '#1A4D3E', marginBottom: 8 }}>
           {t('order_confirmed', lang)}
         </h2>
-        {/* Confirmation # now uses restaurant primary color, not hardcoded coral */}
         <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, fontWeight: 700, color: primary, marginBottom: 16 }}>
           #{success.orderNumber}
         </p>
@@ -153,7 +172,6 @@ export default function CheckoutSheet({
             📍 {success.spotName}
           </p>
         )}
-        {/* Order Again button now uses restaurant primary color, not hardcoded coral */}
         <button onClick={onClose} style={{
           padding: '12px 28px', borderRadius: 100, background: primary, color: 'white',
           border: 'none', fontWeight: 700, cursor: 'pointer', fontFamily: arabicFont,
@@ -240,26 +258,32 @@ export default function CheckoutSheet({
       ) : (
         <div style={{ background: 'white', borderRadius: 16, padding: 14, border: errors.address ? '1.5px solid #ef4444' : '1px solid rgba(45,42,38,0.06)', marginBottom: 10 }}>
           <label style={labelStyle}>{t('street_address', lang)}</label>
-          <input style={inputStyle(!!errors.address)} value={address} onChange={e => setAddress(e.target.value)} />
+          <input
+            style={inputStyle(!!errors.address)}
+            value={address}
+            onChange={e => setAddress(e.target.value)}
+            placeholder={t('street_placeholder', lang)}
+          />
         </div>
       )}
 
       <div style={{ background: 'white', borderRadius: 16, padding: 14, border: '1px solid rgba(45,42,38,0.06)', marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, flexDirection: rtl ? 'row-reverse' : 'row' }}>
           <span style={{ fontFamily: arabicFont }}>{t('total', lang)}</span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", color: primary, fontSize: 16 }}>${total.toFixed(2)}</span>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", color: primary, fontSize: 16 }}>
+            {formatPrice(total, restaurant, lang)}
+          </span>
         </div>
       </div>
 
       {errors.submit && <p style={{ color: '#ef4444', fontSize: 12, textAlign: 'center', marginBottom: 10 }}>{errors.submit}</p>}
 
-      {/* Place Order button now uses restaurant primary color, not hardcoded coral */}
       <button onClick={handlePlaceOrder} disabled={submitting} style={{
         width: '100%', borderRadius: 18, padding: '15px 22px', border: 'none',
         background: submitting ? 'rgba(45,42,38,0.15)' : primary, color: submitting ? 'rgba(45,42,38,0.4)' : 'white',
         fontWeight: 700, fontSize: 15, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: arabicFont,
       }}>
-        {submitting ? t('placing_order', lang) : `${t('place_order', lang)} · $${total.toFixed(2)}`}
+        {submitting ? t('placing_order', lang) : `${t('place_order', lang)} · ${formatPrice(total, restaurant, lang)}`}
       </button>
     </div>
   )

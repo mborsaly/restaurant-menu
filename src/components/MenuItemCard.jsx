@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { isRTL } from '../lib/translations'
 import { useCart } from '../context/CartContext'
+import { formatPrice } from '../lib/currency'
 
 export default function MenuItemCard({
   item, lang, restaurant, onQuickView
@@ -91,9 +92,8 @@ export default function MenuItemCard({
         )}
 
         <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          {/* Price now uses restaurant primary color, not hardcoded coral */}
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, fontSize: 14.5, color: primary }}>
-            {lang === 'ar' ? `${Number(item.base_price).toFixed(2)} ج.م` : `$${Number(item.base_price).toFixed(2)}`}
+            {formatPrice(item.base_price, restaurant, lang)}
           </span>
 
           <motion.button

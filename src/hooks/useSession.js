@@ -4,6 +4,14 @@ import { supabase }            from '../lib/supabase'
 const RESERVED   = ['welcome','menu','item','cart','checkout','confirmation']
 const SUB_ROUTES = ['cart','checkout','confirmation','item']
 
+function resolveLang(vendorData, requestedLang) {
+  const allowed = vendorData?.supported_languages?.length
+    ? vendorData.supported_languages
+    : ['en', 'fr', 'ar']
+  if (allowed.includes(requestedLang)) return requestedLang
+  return allowed[0]
+}
+
 export function useSession() {
   const [session, setSession]       = useState(null)
   const [restaurant, setRestaurant] = useState(null)
@@ -62,7 +70,9 @@ export function useSession() {
               setRestaurantSlug(slug2)
 
               const savedLang = sessionStorage.getItem('lang') || 'ar'
-              setLangState(savedLang)
+              const finalLang = resolveLang(vendorData, savedLang)
+              setLangState(finalLang)
+              sessionStorage.setItem('lang', finalLang)
               setLoading(false)
               return
             }
@@ -94,7 +104,9 @@ export function useSession() {
             }
 
             const savedLang = sessionStorage.getItem('lang') || 'ar'
-            setLangState(savedLang)
+            const finalLang = resolveLang(vendorData, savedLang)
+            setLangState(finalLang)
+            sessionStorage.setItem('lang', finalLang)
             setLoading(false)
             return
           }
@@ -108,7 +120,10 @@ export function useSession() {
             .eq('slug', 'dokan-el-kahwa')
             .single()
           setRestaurant(vendor)
-          setLangState(sessionStorage.getItem('lang') || 'ar')
+          const savedLang = sessionStorage.getItem('lang') || 'ar'
+          const finalLang = resolveLang(vendor, savedLang)
+          setLangState(finalLang)
+          sessionStorage.setItem('lang', finalLang)
           setLoading(false)
           return
         }
@@ -129,13 +144,15 @@ export function useSession() {
           // throw new Error('Session expired')
         }
 
-        const sessionLang = sessionData.language
+        const vendorData   = sessionData.vendors
+        const requestedLang = sessionData.language
           || sessionStorage.getItem('lang') || 'fr'
-        setLangState(sessionLang)
-        sessionStorage.setItem('lang', sessionLang)
+        const finalLang = resolveLang(vendorData, requestedLang)
+        setLangState(finalLang)
+        sessionStorage.setItem('lang', finalLang)
 
         setSession(sessionData)
-        setRestaurant(sessionData.vendors)
+        setRestaurant(vendorData)
 
         if (sessionData.customer_phone) {
           const { data: customerData } = await supabase
@@ -157,13 +174,20 @@ export function useSession() {
   }, [])
 
   function toggleLang() {
-    const cycle = { ar: 'en', en: 'fr', fr: 'ar' }
-    const newLang = cycle[lang] || 'ar'
-    setLangState(newLang)
-    sessionStorage.setItem('lang', newLang)
+    const allowed = restaurant?.supported_languages?.length
+      ? restaurant.supported_languages
+      : ['ar', 'en', 'fr']
+    const currentIndex = allowed.indexOf(lang)
+    const nextLang = allowed[(currentIndex + 1) % allowed.length]
+    setLangState(nextLang)
+    sessionStorage.setItem('lang', nextLang)
   }
 
   function setLang(newLang) {
+    const allowed = restaurant?.supported_languages?.length
+      ? restaurant.supported_languages
+      : ['ar', 'en', 'fr']
+    if (!allowed.includes(newLang)) return
     setLangState(newLang)
     sessionStorage.setItem('lang', newLang)
   }

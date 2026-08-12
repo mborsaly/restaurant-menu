@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { isRTL } from '../lib/translations'
 import { useCart } from '../context/CartContext'
+import { formatPrice } from '../lib/currency'
 
 const UNIT_LABELS = {
   piece: { en: 'pc',   ar: 'قطعة', fr: 'pc'  },
@@ -106,9 +107,8 @@ export default function ProductCard({
         </h3>
 
         <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6 }}>
-          {/* Price now uses restaurant primary color, not hardcoded coral */}
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, fontSize: 14, color: primary }}>
-            {lang === 'ar' ? `${Number(item.base_price).toFixed(2)} ج.م` : `$${Number(item.base_price).toFixed(2)}`}
+            {formatPrice(item.base_price, restaurant, lang)}
             <span style={{ fontSize: 10, opacity: 0.5, fontWeight: 600 }}> / {unitLabel}</span>
           </span>
 

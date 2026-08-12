@@ -3,6 +3,7 @@ import { useSession }          from '../hooks/useSession'
 import { useCart }             from '../context/CartContext'
 import { supabase }            from '../lib/supabase'
 import { t, isRTL }            from '../lib/translations'
+import { Search, X }           from 'lucide-react'
 import Header                  from '../components/Header'
 import CategoryTabs            from '../components/CategoryTabs'
 import MenuItemCard            from '../components/MenuItemCard'
@@ -29,12 +30,14 @@ export default function MenuScreen() {
   const [menuItems, setMenuItems] = useState([])
   const [activeCategory, setActiveCategory] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const [activeItem, setActiveItem] = useState(null)
   const [sheetView, setSheetView] = useState(null)
 
   const primary = restaurant?.primary_color || '#1A4D3E'
   const rtl = isRTL(lang)
+  const arabicFont = lang === 'ar' ? "'Noto Naskh Arabic', serif" : "'Plus Jakarta Sans', sans-serif"
 
   // ─────────────────────────────────────────────
   // Scroll / Section Refs
@@ -167,6 +170,35 @@ export default function MenuScreen() {
   }
 
   // ─────────────────────────────────────────────
+  // Search
+  // ─────────────────────────────────────────────
+
+  function getItemSearchNames(item) {
+    return [item.name_en, item.name_fr, item.name_ar, item.brand_name]
+      .filter(Boolean)
+      .map(s => s.toLowerCase())
+  }
+
+  const searchActive = searchQuery.trim().length > 0
+  const normalizedQuery = searchQuery.trim().toLowerCase()
+
+  const searchFilteredItems = searchActive
+    ? menuItems.filter(item =>
+        getItemSearchNames(item).some(n => n.includes(normalizedQuery))
+      )
+    : menuItems
+
+  // Only categories that still have a match remain
+  // visible while a search is active
+  const visibleCategories = searchActive
+    ? categories.filter(category =>
+        searchFilteredItems.some(
+          item => item.category_id === category.id
+        )
+      )
+    : categories
+
+  // ─────────────────────────────────────────────
   // Register Category Section
   // ─────────────────────────────────────────────
 
@@ -189,7 +221,7 @@ export default function MenuScreen() {
   useEffect(() => {
     if (
       loading ||
-      categories.length === 0
+      visibleCategories.length === 0
     ) {
       return
     }
@@ -211,9 +243,9 @@ export default function MenuScreen() {
           .top
 
       let currentCategory =
-        categories[0]?.id
+        visibleCategories[0]?.id
 
-      for (const category of categories) {
+      for (const category of visibleCategories) {
         const section =
           sectionRefs.current[
             category.id
@@ -252,7 +284,7 @@ export default function MenuScreen() {
         handleScroll
       )
     }
-  }, [loading, categories])
+  }, [loading, visibleCategories])
 
   // ─────────────────────────────────────────────
   // Category Tab Click
@@ -353,10 +385,81 @@ export default function MenuScreen() {
       />
 
       {/* ═══════════════════════════════════════ */}
+      {/* SEARCH BAR */}
+      {/* ═══════════════════════════════════════ */}
+
+      <div
+        style={{
+          flexShrink: 0,
+          background: '#FFF8F0',
+          padding: '10px 16px 8px',
+        }}
+      >
+        <div style={{ position: 'relative' }}>
+          <Search
+            size={16}
+            style={{
+              position: 'absolute',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              [rtl ? 'right' : 'left']: 12,
+              color: '#1B2530',
+              opacity: 0.35,
+              pointerEvents: 'none',
+            }}
+          />
+          <input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder={t('search_placeholder', lang)}
+            dir={rtl ? 'rtl' : 'ltr'}
+            style={{
+              width: '100%',
+              padding: rtl
+                ? '10px 38px 10px 34px'
+                : '10px 34px 10px 38px',
+              borderRadius: 100,
+              border: '1.5px solid rgba(26, 77, 62, 0.12)',
+              background: 'white',
+              fontSize: 13.5,
+              color: '#1B2530',
+              outline: 'none',
+              boxSizing: 'border-box',
+              fontFamily: arabicFont,
+              textAlign: rtl ? 'right' : 'left',
+            }}
+          />
+          {searchActive && (
+            <button
+              onClick={() => setSearchQuery('')}
+              aria-label="Clear search"
+              style={{
+                position: 'absolute',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                [rtl ? 'left' : 'right']: 10,
+                width: 20,
+                height: 20,
+                borderRadius: '50%',
+                background: 'rgba(26, 77, 62, 0.08)',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <X size={12} style={{ color: '#1B2530' }} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════ */}
       {/* CATEGORY NAVIGATION */}
       {/* ═══════════════════════════════════════ */}
 
-      {categories.length > 0 && (
+      {!searchActive && categories.length > 0 && (
         <div
           style={{
             flexShrink: 0,
@@ -405,17 +508,19 @@ export default function MenuScreen() {
 
           <SkeletonGrid count={6} />
 
-        ) : categories.length > 0 ? (
+        ) : visibleCategories.length > 0 ? (
 
-          categories.map(
+          visibleCategories.map(
             (category, index) => {
 
               const categoryItems =
-                menuItems.filter(
+                searchFilteredItems.filter(
                   item =>
                     item.category_id ===
                     category.id
                 )
+
+              if (categoryItems.length === 0) return null
 
               const CardComponent =
                 isGrocery
@@ -638,6 +743,37 @@ export default function MenuScreen() {
               )
             }
           )
+
+        ) : searchActive ? (
+
+          /* ═══════════════════════════════ */
+          /* NO SEARCH RESULTS */
+          /* ═══════════════════════════════ */
+
+          <div
+            style={{
+              textAlign: 'center',
+              padding: '80px 24px',
+              opacity: 0.5,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 40,
+                marginBottom: 14,
+              }}
+            >
+              🔍
+            </div>
+            <p
+              style={{
+                fontSize: 14,
+                fontFamily: arabicFont,
+              }}
+            >
+              {t('no_search_results', lang)}
+            </p>
+          </div>
 
         ) : (
 

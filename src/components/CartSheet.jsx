@@ -1,6 +1,7 @@
 import { Trash2, Plus, Minus } from 'lucide-react'
 import { useCart }             from '../context/CartContext'
 import { t, isRTL }            from '../lib/translations'
+import { formatPrice }         from '../lib/currency'
 import SheetCloseButton        from './SheetCloseButton'
 
 export default function CartSheet({
@@ -56,12 +57,12 @@ export default function CartSheet({
                 <p style={{ fontWeight: 700, fontSize: 13, color: '#2D2A26', marginBottom: 6, fontFamily: arabicFont }}>
                   {getItemName(item)}
                 </p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, direction: 'ltr' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexDirection: rtl ? 'row-reverse' : 'row' }}>
                   <button onClick={() => updateQuantity(item.id, item.quantity - 1)}
                     style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(45,42,38,0.06)', border: 'none', cursor: 'pointer' }}>
                     <Minus size={12} style={{ margin: 'auto' }} />
                   </button>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, width: 16, textAlign: 'center' }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, width: 16, textAlign: 'center', direction: 'ltr' }}>
                     {item.quantity}
                   </span>
                   <button onClick={() => updateQuantity(item.id, item.quantity + 1)}
@@ -72,7 +73,7 @@ export default function CartSheet({
               </div>
               <div style={{ textAlign: rtl ? 'left' : 'right' }}>
                 <p style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: primary }}>
-                  ${Number(item.total).toFixed(2)}
+                  {formatPrice(item.total, restaurant, lang)}
                 </p>
                 <button onClick={() => removeItem(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', opacity: 0.6, marginTop: 6 }}>
                   <Trash2 size={14} />
@@ -86,22 +87,23 @@ export default function CartSheet({
       <div style={{ background: 'white', borderRadius: 16, padding: 14, border: '1px solid rgba(45,42,38,0.06)', marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6, flexDirection: rtl ? 'row-reverse' : 'row' }}>
           <span style={{ opacity: 0.55, fontFamily: arabicFont }}>{t('subtotal', lang)}</span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>${subtotal.toFixed(2)}</span>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatPrice(subtotal, restaurant, lang)}</span>
         </div>
         {!isVenueMode && (
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6, flexDirection: rtl ? 'row-reverse' : 'row' }}>
             <span style={{ opacity: 0.55, fontFamily: arabicFont }}>{t('delivery', lang)}</span>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>${deliveryFee.toFixed(2)}</span>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatPrice(deliveryFee, restaurant, lang)}</span>
           </div>
         )}
         <div style={{ height: 1, background: 'rgba(45,42,38,0.06)', margin: '8px 0' }} />
         <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, flexDirection: rtl ? 'row-reverse' : 'row' }}>
           <span style={{ fontFamily: arabicFont }}>{t('total', lang)}</span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", color: primary, fontSize: 16 }}>${total.toFixed(2)}</span>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", color: primary, fontSize: 16 }}>
+            {formatPrice(total, restaurant, lang)}
+          </span>
         </div>
       </div>
 
-      {/* Checkout button now uses restaurant primary color, not hardcoded coral */}
       <button onClick={onCheckout} style={{
         width: '100%', borderRadius: 18, padding: '15px 22px', background: primary, border: 'none',
         color: 'white', fontWeight: 700, fontSize: 15, cursor: 'pointer', boxShadow: `0 8px 24px ${primary}44`,

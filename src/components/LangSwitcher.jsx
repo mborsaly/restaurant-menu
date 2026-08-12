@@ -1,22 +1,25 @@
 import { useState, useRef, useEffect } from 'react'
 import { isRTL } from '../lib/translations'
 
-const LANGUAGES = [
+const ALL_LANGUAGES = [
   { code: 'ar', label: 'العربية', short: 'ع' },
   { code: 'en', label: 'English', short: 'EN' },
   { code: 'fr', label: 'Français', short: 'FR' },
 ]
 
 export default function LangSwitcher({
-  lang, onSelect, primary = '#1A4D3E'
+  lang, onSelect, primary = '#1A4D3E', allowedLanguages
 }) {
   const rtl    = isRTL(lang)
   const isDark = primary === '#FFFFFF' || primary === 'white'
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
-  const current = LANGUAGES.find(l => l.code === lang)
-    || LANGUAGES[0]
+  const languages = allowedLanguages?.length
+    ? ALL_LANGUAGES.filter(l => allowedLanguages.includes(l.code))
+    : ALL_LANGUAGES
+
+  const current = languages.find(l => l.code === lang) || languages[0]
 
   useEffect(() => {
     function handleClick(e) {
@@ -27,6 +30,10 @@ export default function LangSwitcher({
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
+
+  // Nothing to switch between — don't render a
+  // dropdown for a single-language restaurant
+  if (languages.length <= 1) return null
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
@@ -51,7 +58,7 @@ export default function LangSwitcher({
           gap:          6,
         }}
       >
-        <span>{current.short}</span>
+        <span>{current?.short}</span>
         <span style={{
           fontSize:   9,
           transform:  open ? 'rotate(180deg)' : 'rotate(0deg)',
@@ -75,7 +82,7 @@ export default function LangSwitcher({
           minWidth:     140,
           zIndex:       50,
         }}>
-          {LANGUAGES.map(l => {
+          {languages.map(l => {
             const active  = l.code === lang
             const itemRtl = isRTL(l.code)
             return (
