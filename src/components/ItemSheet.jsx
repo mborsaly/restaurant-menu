@@ -424,7 +424,7 @@ export default function ItemSheet({
               // IMPORTANT:
               // Always keep − → quantity → +
               // regardless of RTL.
-              direction: 'ltr',
+              direction: rtl ? 'rtl' : 'ltr',
             }}>
 
               {/* Minus */}
