@@ -19,9 +19,6 @@ const STORAGE_KEY = 'bv_customer_info'
 function loadSaved() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) } catch { return null } }
 function saveInfo(v) {
   try {
-    // Merge instead of overwrite, so saving name/phone
-    // from a venue order doesn't wipe a previously
-    // remembered address, and vice versa
     const existing = loadSaved() || {}
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...existing, ...v }))
   } catch {}
@@ -32,7 +29,10 @@ export default function CheckoutSheet({
 }) {
   const primary = restaurant?.primary_color || '#1A4D3E'
   const rtl     = isRTL(lang)
-  const arabicFont = lang === 'ar' ? "'Noto Naskh Arabic', serif" : 'inherit'
+  const arabicFont = lang === 'ar'
+    ? "'Noto Naskh Arabic', serif"
+    : "'Plus Jakarta Sans', sans-serif"
+
   const { cart, subtotal, itemCount, clearCart } = useCart()
 
   const isVenueMode = !!restaurant?.is_venue_vendor
@@ -48,9 +48,6 @@ export default function CheckoutSheet({
   const [name, setName] = useState(saved?.name || '')
   const [countryCode, setCountryCode] = useState(saved?.countryCode || (isVenueMode ? '+20' : '+1'))
   const [localPhone, setLocalPhone] = useState(saved?.localPhone || '')
-  // Street address now seeded from localStorage too —
-  // remembers the last address used at any non-venue
-  // vendor, autofilled on the next checkout
   const [address, setAddress] = useState(saved?.address || '')
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState({})
@@ -107,7 +104,7 @@ export default function CheckoutSheet({
       const fullPhone = `${countryCode}${localPhone.replace(/^0+/, '')}`
       const orderPayload = {
         token: 'demo',
-        vendor_id: restaurant?.id,
+        restaurant_id: restaurant?.id,
         customer_phone: fullPhone,
         customer_name: name,
         is_venue_order: isVenueMode,
@@ -128,9 +125,6 @@ export default function CheckoutSheet({
       const result = await response.json()
       if (!response.ok || !result.success) throw new Error(result.error || 'Order failed')
 
-      // Remember name/phone always; remember street
-      // address only for non-venue orders (venue orders
-      // use a spot picker, not a typed address)
       saveInfo({
         name, countryCode, localPhone,
         ...(isVenueMode ? {} : { address }),
@@ -188,9 +182,8 @@ export default function CheckoutSheet({
       <SheetCloseButton lang={lang} onClose={onClose} />
 
       <h2 style={{
-        fontFamily: arabicFont === 'inherit' ? "'Fraunces', serif" : arabicFont,
-        fontSize: 18, fontWeight: 700, color: '#1A4D3E', margin: '10px 0 14px',
-        textAlign: rtl ? 'right' : 'left', ...titleSidePad,
+        fontFamily: arabicFont, fontSize: 18, fontWeight: 700, color: '#1A4D3E',
+        margin: '10px 0 14px', textAlign: rtl ? 'right' : 'left', ...titleSidePad,
       }}>
         {t('delivery_details', lang)}
       </h2>
@@ -200,6 +193,9 @@ export default function CheckoutSheet({
         <input style={{ ...inputStyle(!!errors.name), marginBottom: 10 }} value={name} onChange={e => setName(e.target.value)} />
 
         <label style={labelStyle}>{t('phone_number', lang)}</label>
+        {/* Phone row: intentionally always LTR — dial
+            codes and digit sequences read left-to-right
+            regardless of interface language */}
         <div style={{ display: 'flex', gap: 8, direction: 'ltr' }}>
           <select value={countryCode} onChange={e => setCountryCode(e.target.value)} style={{ ...inputStyle(false), width: 90 }}>
             {COUNTRY_CODES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
@@ -229,12 +225,11 @@ export default function CheckoutSheet({
                       border: isSelected ? `2px solid ${primary}` : '1.5px solid rgba(45,42,38,.1)',
                       background: isSelected ? `${primary}10` : '#FFF8F0', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5,
-                      flexDirection: rtl ? 'row-reverse' : 'row', fontFamily: arabicFont,
-                      textAlign: rtl ? 'right' : 'left',
+                      fontFamily: arabicFont, textAlign: rtl ? 'right' : 'left', direction: 'ltr',
                     }}>
-                    <span>{getZoneEmoji(spot.zone)}</span>
-                    <span style={{ flex: 1 }}>{getSpotName(spot)}</span>
-                    {isSelected && <span style={{ color: primary }}>✓</span>}
+                    <span style={{ order: rtl ? 3 : 1, direction: rtl ? 'rtl' : 'ltr' }}>{getZoneEmoji(spot.zone)}</span>
+                    <span style={{ flex: 1, order: 2, direction: rtl ? 'rtl' : 'ltr' }}>{getSpotName(spot)}</span>
+                    {isSelected && <span style={{ color: primary, order: rtl ? 1 : 3 }}>✓</span>}
                   </button>
                 )
               })}
@@ -264,13 +259,18 @@ export default function CheckoutSheet({
             onChange={e => setAddress(e.target.value)}
             placeholder={t('street_placeholder', lang)}
           />
+          {errors.address && <p style={{ color: '#ef4444', fontSize: 11, marginTop: 4 }}>{errors.address}</p>}
         </div>
       )}
 
+      {/* Total row — label to trailing side (right in
+          RTL), value to leading side (left in RTL) */}
       <div style={{ background: 'white', borderRadius: 16, padding: 14, border: '1px solid rgba(45,42,38,0.06)', marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, flexDirection: rtl ? 'row-reverse' : 'row' }}>
-          <span style={{ fontFamily: arabicFont }}>{t('total', lang)}</span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", color: primary, fontSize: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, direction: 'ltr' }}>
+          <span style={{ fontFamily: arabicFont, order: rtl ? 2 : 1, direction: rtl ? 'rtl' : 'ltr' }}>
+            {t('total', lang)}
+          </span>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", color: primary, fontSize: 16, order: rtl ? 1 : 2 }}>
             {formatPrice(total, restaurant, lang)}
           </span>
         </div>
@@ -282,8 +282,14 @@ export default function CheckoutSheet({
         width: '100%', borderRadius: 18, padding: '15px 22px', border: 'none',
         background: submitting ? 'rgba(45,42,38,0.15)' : primary, color: submitting ? 'rgba(45,42,38,0.4)' : 'white',
         fontWeight: 700, fontSize: 15, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: arabicFont,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, direction: 'ltr',
       }}>
-        {submitting ? t('placing_order', lang) : `${t('place_order', lang)} · ${formatPrice(total, restaurant, lang)}`}
+        <span style={{ order: rtl ? 2 : 1, direction: rtl ? 'rtl' : 'ltr' }}>
+          {submitting ? t('placing_order', lang) : t('place_order', lang)}
+        </span>
+        <span style={{ order: rtl ? 1 : 2, fontFamily: "'JetBrains Mono', monospace" }}>
+          {!submitting && `· ${formatPrice(total, restaurant, lang)}`}
+        </span>
       </button>
     </div>
   )

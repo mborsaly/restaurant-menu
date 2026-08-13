@@ -16,33 +16,63 @@ export default function Header({
   const rtl     = isRTL(lang)
   const displayName = getLocalizedVendorName(restaurant, lang)
 
+  // Logo enlarged: 40px → 56px, with a subtle ring
+  // border + soft shadow for a premium, finished feel
   const logoBlock = (
     <div style={{
-      width: 40, height: 40, borderRadius: 12,
-      background: `${primary}18`, display: 'flex',
-      alignItems: 'center', justifyContent: 'center',
-      fontSize: 20, flexShrink: 0,
+      width: 56, height: 56, borderRadius: 16,
+      background: `${primary}16`,
+      border: `1.5px solid ${primary}22`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: 28, flexShrink: 0,
+      boxShadow: `0 2px 8px ${primary}18`,
     }}>
       {restaurant?.logo_url ? (
         <img src={restaurant.logo_url} alt={displayName}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 12 }} />
+          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 15 }} />
       ) : emoji}
     </div>
   )
 
+  // Restaurant name enlarged to match the weight of
+  // category section headers (21-25px range), with a
+  // status-dot "open now" line beneath it
   const textBlock = (
-    <div style={{ textAlign: rtl ? 'right' : 'left' }}>
+    <div style={{ textAlign: rtl ? 'right' : 'left', minWidth: 0 }}>
       <h1 style={{
         fontFamily: lang === 'ar' ? "'Noto Naskh Arabic', serif" : "'Fraunces', serif",
-        fontWeight: 600, fontSize: 14, color: '#1A4D3E', margin: 0, lineHeight: 1.2,
+        fontWeight: 700,
+        fontSize: lang === 'ar' ? 24 : 21,
+        color: '#1A2530',
+        margin: 0,
+        lineHeight: 1.15,
+        letterSpacing: lang === 'ar' ? 0 : '-0.01em',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
       }}>
         {displayName || 'BistroVite'}
       </h1>
       <p style={{
-        fontSize: 12, fontWeight: 600, color: primary, margin: '2px 0 0',
-        fontFamily: lang === 'ar' ? "'Noto Naskh Arabic', serif" : 'inherit',
+        fontSize: 12.5,
+        fontWeight: 700,
+        color: primary,
+        margin: '4px 0 0',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 5,
+        justifyContent: rtl ? 'flex-end' : 'flex-start',
+        fontFamily: lang === 'ar' ? "'Noto Naskh Arabic', serif" : "'Plus Jakarta Sans', sans-serif",
+        direction: 'ltr',
       }}>
-        {t('open_now', lang)}
+        <span style={{
+          width: 6, height: 6, borderRadius: '50%',
+          background: primary, flexShrink: 0,
+          order: rtl ? 2 : 1,
+        }} />
+        <span style={{ order: rtl ? 1 : 2, direction: rtl ? 'rtl' : 'ltr' }}>
+          {t('open_now', lang)}
+        </span>
       </p>
     </div>
   )
@@ -54,12 +84,15 @@ export default function Header({
     }}>
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 16px', maxWidth: 448, margin: '0 auto', flexDirection: 'row',
+        padding: '16px 16px', maxWidth: 448, margin: '0 auto', gap: 12,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexDirection: 'row' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: 1,
+        }}>
           {logoBlock}
           {textBlock}
         </div>
+
         <LangSwitcher
           lang={lang}
           onSelect={onLangSelect}
