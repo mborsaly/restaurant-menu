@@ -104,7 +104,7 @@ export default function CheckoutSheet({
       const fullPhone = `${countryCode}${localPhone.replace(/^0+/, '')}`
       const orderPayload = {
         token: 'demo',
-        restaurant_id: restaurant?.id,
+        vendor_id: restaurant?.id,
         customer_phone: fullPhone,
         customer_name: name,
         is_venue_order: isVenueMode,
