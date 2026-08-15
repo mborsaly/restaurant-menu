@@ -25,11 +25,18 @@ export function useSession() {
   const [venueSlug, setVenueSlug]     = useState(null)
   const [restaurantSlug, setRestaurantSlug] = useState(null)
 
+  // ── Dine-in (QR per table) state ──
+  const [dineInTable, setDineInTable] = useState(null)
+  const [isDineIn, setIsDineIn]       = useState(false)
+
   useEffect(() => {
     async function loadSession() {
       try {
         const params = new URLSearchParams(window.location.search)
         const token  = params.get('t')
+        const tableSlug = params.get('table')
+          || sessionStorage.getItem('bv_dine_in_table_slug')
+
         const pathParts = window.location.pathname
           .split('/').filter(Boolean)
 
@@ -103,6 +110,25 @@ export function useSession() {
               if (venueData) setVenueSlug(venueData.slug)
             }
 
+            // ── Resolve dine-in table if a table
+            //    slug is present in the URL or was
+            //    already stored this session ──
+            if (tableSlug && vendorData.supports_dine_in) {
+              const { data: tableData } = await supabase
+                .from('restaurant_tables')
+                .select('*')
+                .eq('qr_code_slug', tableSlug)
+                .eq('vendor_id', vendorData.id)
+                .eq('active', true)
+                .single()
+
+              if (tableData) {
+                setDineInTable(tableData)
+                setIsDineIn(true)
+                sessionStorage.setItem('bv_dine_in_table_slug', tableSlug)
+              }
+            }
+
             const savedLang = sessionStorage.getItem('lang') || 'ar'
             const finalLang = resolveLang(vendorData, savedLang)
             setLangState(finalLang)
@@ -144,7 +170,7 @@ export function useSession() {
           // throw new Error('Session expired')
         }
 
-        const vendorData   = sessionData.vendors
+        const vendorData    = sessionData.vendors
         const requestedLang = sessionData.language
           || sessionStorage.getItem('lang') || 'fr'
         const finalLang = resolveLang(vendorData, requestedLang)
@@ -240,6 +266,8 @@ export function useSession() {
     restaurantSlug,
     vendorType,
     isGrocery,
+    isDineIn,
+    dineInTable,
     paths,
   }
 }

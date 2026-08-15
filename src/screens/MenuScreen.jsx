@@ -16,13 +16,7 @@ import CartSheet               from '../components/CartSheet'
 import CheckoutSheet           from '../components/CheckoutSheet'
 
 export default function MenuScreen() {
-  const {
-    restaurant,
-    loading: sessionLoading,
-    lang,
-    setLang,
-    isGrocery
-  } = useSession()
+  const { restaurant, loading: sessionLoading, lang, setLang, isGrocery, isDineIn, dineInTable } = useSession()
 
   const { itemCount, subtotal } = useCart()
 
@@ -382,6 +376,8 @@ export default function MenuScreen() {
         restaurant={restaurant}
         lang={lang}
         onLangSelect={setLang}
+        isDineIn={isDineIn}
+        dineInTable={dineInTable}
       />
 
       {/* ═══════════════════════════════════════ */}

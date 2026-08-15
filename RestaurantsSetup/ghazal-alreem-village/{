@@ -1,0 +1,15 @@
+{
+  "vendor_id":        "{{ $('Validate and Format').first().json.vendor_id }}",
+  "customer_phone":   "{{ $('Validate and Format').first().json.customer_phone }}",
+  "customer_name":    "{{ $('Validate and Format').first().json.customer_name }}",
+  "items":            {{ JSON.stringify($('Validate and Format').first().json.items) }},
+  "subtotal":         {{ $('Validate and Format').first().json.subtotal }},
+  "delivery_fee":     {{ $('Validate and Format').first().json.delivery_fee }},
+  "total":            {{ $('Validate and Format').first().json.total }},
+  "delivery_address": "{{ $('Validate and Format').first().json.delivery_address }}",
+  "order_type":       "{{ $('Validate and Format').first().json.order_type }}",
+  "table_id":         "{{ $('Validate and Format').first().json.table_id }}",
+  "language":         "{{ $('Validate and Format').first().json.language }}",
+  "notes":            "{{ $('Validate and Format').first().json.notes }}",
+  "status":           "pending"
+}

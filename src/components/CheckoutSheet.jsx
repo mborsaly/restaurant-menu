@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { CheckCircle } from 'lucide-react'
 import { useCart }              from '../context/CartContext'
+import { useSession }           from '../hooks/useSession'
 import { supabase }             from '../lib/supabase'
 import { t, isRTL }             from '../lib/translations'
 import { formatPrice }          from '../lib/currency'
@@ -33,10 +34,29 @@ export default function CheckoutSheet({
     ? "'Noto Naskh Arabic', serif"
     : "'Plus Jakarta Sans', sans-serif"
 
+  const { isDineIn, dineInTable } = useSession()
   const { cart, subtotal, itemCount, clearCart } = useCart()
 
   const isVenueMode = !!restaurant?.is_venue_vendor
-  const deliveryFee = isVenueMode ? 0 : (restaurant?.delivery_fee || 3.99)
+
+  // ── Fulfillment type selection ──
+  // Priority: dine-in (via table QR) overrides
+  // everything else automatically. Otherwise, if
+  // the vendor supports both delivery and pickup,
+  // let the customer choose.
+  const supportsDelivery = restaurant?.supports_delivery !== false
+  const supportsPickup   = !!restaurant?.supports_pickup
+  const canChooseFulfillment = !isDineIn && !isVenueMode
+    && supportsDelivery && supportsPickup
+
+  const [fulfillmentType, setFulfillmentType] = useState(
+    isDineIn ? 'dine_in'
+      : (supportsDelivery ? 'delivery' : 'pickup')
+  )
+
+  const isPickup = fulfillmentType === 'pickup'
+  const deliveryFee = (isVenueMode || isDineIn || isPickup)
+    ? 0 : (restaurant?.delivery_fee || 3.99)
   const total = subtotal + deliveryFee
 
   const [spots, setSpots] = useState([])
@@ -81,18 +101,30 @@ export default function CheckoutSheet({
   function getZoneEmoji(zone) {
     return { pool: '🏊', garden: '🌿', clubhouse: '🏛️', tennis: '🎾', kids: '🎠', entrance: '🚪' }[zone] || '📍'
   }
+  function getTableName(table) {
+    if (!table) return ''
+    if (lang === 'ar') return table.name_ar || `${t('dine_in_table', lang)} ${table.table_number}`
+    if (lang === 'fr') return table.name_fr || `${t('dine_in_table', lang)} ${table.table_number}`
+    return table.name_en || `${t('dine_in_table', lang)} ${table.table_number}`
+  }
 
   function validate() {
     const e = {}
     if (!name.trim()) e.name = t('name_required', lang)
     if (!localPhone.trim()) e.phone = t('phone_required', lang)
     else if (!phoneIsValid) e.phone = lang === 'ar' ? 'رقم غير صحيح' : 'Invalid number'
-    if (isVenueMode) {
+
+    if (isDineIn) {
+      // Table already known from QR — nothing extra
+      // required beyond name/phone
+    } else if (isVenueMode) {
       if (!selectedSpot) e.spot = t('spot_required', lang)
       else if (selectedSpot.extra_field_required && !extraFieldValue.trim()) {
         e.extraField = lang === 'ar' ? 'هذا الحقل مطلوب' : 'This field is required'
       }
-    } else if (!address.trim()) e.address = t('address_required', lang)
+    } else if (fulfillmentType === 'delivery' && !address.trim()) {
+      e.address = t('address_required', lang)
+    }
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -102,14 +134,25 @@ export default function CheckoutSheet({
     setSubmitting(true)
     try {
       const fullPhone = `${countryCode}${localPhone.replace(/^0+/, '')}`
+
+      const resolvedOrderType = isDineIn
+        ? 'dine_in'
+        : (isVenueMode ? 'delivery' : fulfillmentType)
+
       const orderPayload = {
         token: 'demo',
         vendor_id: restaurant?.id,
         customer_phone: fullPhone,
         customer_name: name,
+        order_type: resolvedOrderType,
         is_venue_order: isVenueMode,
         venue_spot_id: isVenueMode ? selectedSpot?.id : null,
-        delivery_address: isVenueMode ? getSpotName(selectedSpot) : address,
+        table_id: isDineIn ? dineInTable?.id : null,
+        delivery_address: isVenueMode
+          ? getSpotName(selectedSpot)
+          : isDineIn
+            ? getTableName(dineInTable)
+            : (fulfillmentType === 'pickup' ? null : address),
         spot_note: isVenueMode ? extraFieldValue : null,
         notes: '',
         items: cart.map(item => ({
@@ -127,10 +170,15 @@ export default function CheckoutSheet({
 
       saveInfo({
         name, countryCode, localPhone,
-        ...(isVenueMode ? {} : { address }),
+        ...((!isVenueMode && !isDineIn && fulfillmentType === 'delivery') ? { address } : {}),
       })
 
-      setSuccess({ orderNumber: result.orderNumber, spotName: isVenueMode ? getSpotName(selectedSpot) : null })
+      setSuccess({
+        orderNumber: result.orderNumber,
+        spotName: isVenueMode ? getSpotName(selectedSpot) : null,
+        tableName: isDineIn ? getTableName(dineInTable) : null,
+        orderType: resolvedOrderType,
+      })
       clearCart()
       onSuccess?.()
     } catch (err) {
@@ -161,9 +209,24 @@ export default function CheckoutSheet({
         <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, fontWeight: 700, color: primary, marginBottom: 16 }}>
           #{success.orderNumber}
         </p>
+        {success.tableName && (
+          <p style={{ fontSize: 13, color: '#2D2A26', opacity: 0.7, marginBottom: 8, fontFamily: arabicFont, fontWeight: 600 }}>
+            🪑 {success.tableName}
+          </p>
+        )}
         {success.spotName && (
-          <p style={{ fontSize: 13, color: '#2D2A26', opacity: 0.6, marginBottom: 20, fontFamily: arabicFont }}>
+          <p style={{ fontSize: 13, color: '#2D2A26', opacity: 0.6, marginBottom: 8, fontFamily: arabicFont }}>
             📍 {success.spotName}
+          </p>
+        )}
+        {success.orderType === 'pickup' && (
+          <p style={{ fontSize: 12.5, color: '#2D2A26', opacity: 0.55, marginBottom: 20, fontFamily: arabicFont }}>
+            {t('pickup_note', lang)}
+          </p>
+        )}
+        {success.orderType === 'dine_in' && (
+          <p style={{ fontSize: 12.5, color: '#2D2A26', opacity: 0.55, marginBottom: 20, fontFamily: arabicFont }}>
+            {t('dine_in_note', lang)}
           </p>
         )}
         <button onClick={onClose} style={{
@@ -185,17 +248,70 @@ export default function CheckoutSheet({
         fontFamily: arabicFont, fontSize: 18, fontWeight: 700, color: '#1A4D3E',
         margin: '10px 0 14px', textAlign: rtl ? 'right' : 'left', ...titleSidePad,
       }}>
-        {t('delivery_details', lang)}
+        {isDineIn ? t('your_order', lang) : t('delivery_details', lang)}
       </h2>
+
+      {/* Dine-in banner — table already known,
+          no fulfillment choice needed */}
+      {isDineIn && dineInTable && (
+        <div style={{
+          background: `${primary}10`, border: `1.5px solid ${primary}30`,
+          borderRadius: 14, padding: '12px 14px', marginBottom: 10,
+          display: 'flex', alignItems: 'center', gap: 10,
+          flexDirection: rtl ? 'row-reverse' : 'row',
+        }}>
+          <span style={{ fontSize: 22 }}>🪑</span>
+          <div style={{ textAlign: rtl ? 'right' : 'left' }}>
+            <p style={{ fontSize: 11, color: primary, opacity: 0.8, margin: 0, fontFamily: arabicFont, fontWeight: 700 }}>
+              {t('dine_in_banner', lang)}
+            </p>
+            <p style={{ fontSize: 14, color: '#1A2530', margin: '2px 0 0', fontWeight: 700, fontFamily: arabicFont }}>
+              {getTableName(dineInTable)}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Fulfillment type toggle — only shown when
+          the vendor supports both delivery AND
+          pickup, and this isn't a venue/dine-in
+          order (which already have a fixed mode) */}
+      {canChooseFulfillment && (
+        <div style={{
+          display: 'flex', gap: 8, marginBottom: 10,
+          background: 'white', borderRadius: 14, padding: 4,
+          border: '1px solid rgba(45,42,38,0.06)',
+        }}>
+          {[
+            { key: 'delivery', label: t('fulfillment_delivery', lang), icon: '🛵' },
+            { key: 'pickup',   label: t('fulfillment_pickup', lang),   icon: '🥡' },
+          ].map(opt => {
+            const active = fulfillmentType === opt.key
+            return (
+              <button
+                key={opt.key}
+                onClick={() => setFulfillmentType(opt.key)}
+                style={{
+                  flex: 1, padding: '10px 12px', borderRadius: 11, border: 'none',
+                  cursor: 'pointer', fontSize: 13, fontWeight: 700,
+                  background: active ? primary : 'transparent',
+                  color: active ? 'white' : '#1A2530',
+                  opacity: active ? 1 : 0.55,
+                  fontFamily: arabicFont,
+                }}
+              >
+                {opt.icon} {opt.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       <div style={{ background: 'white', borderRadius: 16, padding: 14, border: '1px solid rgba(45,42,38,0.06)', marginBottom: 10 }}>
         <label style={labelStyle}>{t('full_name', lang)}</label>
         <input style={{ ...inputStyle(!!errors.name), marginBottom: 10 }} value={name} onChange={e => setName(e.target.value)} />
 
         <label style={labelStyle}>{t('phone_number', lang)}</label>
-        {/* Phone row: intentionally always LTR — dial
-            codes and digit sequences read left-to-right
-            regardless of interface language */}
         <div style={{ display: 'flex', gap: 8, direction: 'ltr' }}>
           <select value={countryCode} onChange={e => setCountryCode(e.target.value)} style={{ ...inputStyle(false), width: 90 }}>
             {COUNTRY_CODES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
@@ -211,7 +327,35 @@ export default function CheckoutSheet({
         {errors.phone && <p style={{ color: '#ef4444', fontSize: 11, marginTop: 4 }}>{errors.phone}</p>}
       </div>
 
-      {isVenueMode ? (
+      {/* Address — only for delivery (not dine-in,
+          not venue, not pickup) */}
+      {!isDineIn && !isVenueMode && fulfillmentType === 'delivery' && (
+        <div style={{ background: 'white', borderRadius: 16, padding: 14, border: errors.address ? '1.5px solid #ef4444' : '1px solid rgba(45,42,38,0.06)', marginBottom: 10 }}>
+          <label style={labelStyle}>{t('street_address', lang)}</label>
+          <input
+            style={inputStyle(!!errors.address)}
+            value={address}
+            onChange={e => setAddress(e.target.value)}
+            placeholder={t('street_placeholder', lang)}
+          />
+          {errors.address && <p style={{ color: '#ef4444', fontSize: 11, marginTop: 4 }}>{errors.address}</p>}
+        </div>
+      )}
+
+      {/* Pickup note */}
+      {!isDineIn && !isVenueMode && fulfillmentType === 'pickup' && (
+        <div style={{
+          background: `${primary}08`, borderRadius: 12, padding: '10px 14px', marginBottom: 10,
+          fontSize: 12.5, color: primary, fontFamily: arabicFont, textAlign: rtl ? 'right' : 'left',
+        }}>
+          🥡 {t('pickup_note', lang)}
+        </div>
+      )}
+
+      {/* Venue spot picker — unchanged, only for
+          actual multi-vendor venues, never for
+          this restaurant's own dine-in tables */}
+      {isVenueMode && (
         <div style={{ background: 'white', borderRadius: 16, padding: 14, border: errors.spot ? '1.5px solid #ef4444' : '1px solid rgba(45,42,38,0.06)', marginBottom: 10 }}>
           <label style={labelStyle}>{t('your_location', lang)}</label>
           {spotsLoading ? <p style={{ fontSize: 12, opacity: 0.5 }}>...</p> : (
@@ -250,22 +394,30 @@ export default function CheckoutSheet({
             </div>
           )}
         </div>
-      ) : (
-        <div style={{ background: 'white', borderRadius: 16, padding: 14, border: errors.address ? '1.5px solid #ef4444' : '1px solid rgba(45,42,38,0.06)', marginBottom: 10 }}>
-          <label style={labelStyle}>{t('street_address', lang)}</label>
-          <input
-            style={inputStyle(!!errors.address)}
-            value={address}
-            onChange={e => setAddress(e.target.value)}
-            placeholder={t('street_placeholder', lang)}
-          />
-          {errors.address && <p style={{ color: '#ef4444', fontSize: 11, marginTop: 4 }}>{errors.address}</p>}
+      )}
+
+      {/* Dine-in / delivery-note strip */}
+      {isDineIn && (
+        <div style={{
+          background: `${primary}08`, borderRadius: 12, padding: '10px 14px', marginBottom: 10,
+          fontSize: 12.5, color: primary, fontFamily: arabicFont, textAlign: rtl ? 'right' : 'left',
+        }}>
+          🪑 {t('dine_in_note', lang)}
         </div>
       )}
 
-      {/* Total row — label to trailing side (right in
-          RTL), value to leading side (left in RTL) */}
+      {/* Total */}
       <div style={{ background: 'white', borderRadius: 16, padding: 14, border: '1px solid rgba(45,42,38,0.06)', marginBottom: 16 }}>
+        {!isVenueMode && !isDineIn && fulfillmentType === 'delivery' && deliveryFee > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8, direction: 'ltr' }}>
+            <span style={{ opacity: 0.55, fontFamily: arabicFont, order: rtl ? 2 : 1, direction: rtl ? 'rtl' : 'ltr' }}>
+              {t('delivery', lang)}
+            </span>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", order: rtl ? 1 : 2 }}>
+              {formatPrice(deliveryFee, restaurant, lang)}
+            </span>
+          </div>
+        )}
         <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, direction: 'ltr' }}>
           <span style={{ fontFamily: arabicFont, order: rtl ? 2 : 1, direction: rtl ? 'rtl' : 'ltr' }}>
             {t('total', lang)}
