@@ -403,6 +403,40 @@ export const t = (key, lang = 'fr') => {
       ar: 'مفيش نتائج مطابقة',
     },
 
+    fulfillment_type: {
+      en: 'How would you like your order?',
+      fr: 'Comment souhaitez-vous votre commande?',
+      ar: 'إزاي عايز تستلم طلبك؟',
+    },
+    fulfillment_delivery: {
+      en: 'Delivery', fr: 'Livraison', ar: 'توصيل',
+    },
+    fulfillment_pickup: {
+      en: 'Pickup', fr: 'À emporter', ar: 'استلام من المطعم',
+    },
+    pickup_note: {
+      en: 'Ready for pickup in about 20-25 min. Pay when you collect it.',
+      fr: 'Prêt dans 20-25 min. Payez à la collecte.',
+      ar: 'هيبقى جاهز خلال ٢٠-٢٥ دقيقة. ادفع وقت الاستلام.',
+    },
+    dine_in_table: {
+      en: 'Table', fr: 'Table', ar: 'طاولة',
+    },
+    dine_in_banner: {
+      en: 'Ordering for',
+      fr: 'Commande pour',
+      ar: 'الطلب لـ',
+    },
+    dine_in_note: {
+      en: 'Your order will be brought to your table. Pay when your order arrives.',
+      fr: 'Votre commande sera apportée à votre table. Payez à la livraison.',
+      ar: 'الطلب هيتوصلك على الطاولة. ادفع وقت وصول الطلب.',
+    },
+    cash_at_table: {
+      en: 'Pay at your table',
+      fr: 'Payez à votre table',
+      ar: 'ادفع على الطاولة',
+    },
   }
 
   return translations[key]?.[lang]
