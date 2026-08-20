@@ -34,7 +34,7 @@ export default function CheckoutSheet({
     ? "'Noto Naskh Arabic', serif"
     : "'Plus Jakarta Sans', sans-serif"
 
-  const { isDineIn, dineInTable } = useSession()
+  const { isDineIn, dineInTable, dineInSessionId } = useSession()
   const { cart, subtotal, itemCount, clearCart } = useCart()
 
   const isVenueMode = !!restaurant?.is_venue_vendor
@@ -148,6 +148,7 @@ export default function CheckoutSheet({
         is_venue_order: isVenueMode,
         venue_spot_id: isVenueMode ? selectedSpot?.id : null,
         table_id: isDineIn ? dineInTable?.id : null,
+        dine_in_session_id: isDineIn ? dineInSessionId : null,
         delivery_address: isVenueMode
           ? getSpotName(selectedSpot)
           : isDineIn
@@ -312,6 +313,9 @@ export default function CheckoutSheet({
         <input style={{ ...inputStyle(!!errors.name), marginBottom: 10 }} value={name} onChange={e => setName(e.target.value)} />
 
         <label style={labelStyle}>{t('phone_number', lang)}</label>
+        {/* Phone row: intentionally always LTR — dial
+            codes and digit sequences read left-to-right
+            regardless of interface language */}
         <div style={{ display: 'flex', gap: 8, direction: 'ltr' }}>
           <select value={countryCode} onChange={e => setCountryCode(e.target.value)} style={{ ...inputStyle(false), width: 90 }}>
             {COUNTRY_CODES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
@@ -352,9 +356,9 @@ export default function CheckoutSheet({
         </div>
       )}
 
-      {/* Venue spot picker — unchanged, only for
-          actual multi-vendor venues, never for
-          this restaurant's own dine-in tables */}
+      {/* Venue spot picker — only for actual
+          multi-vendor venues, never for a
+          restaurant's own dine-in tables */}
       {isVenueMode && (
         <div style={{ background: 'white', borderRadius: 16, padding: 14, border: errors.spot ? '1.5px solid #ef4444' : '1px solid rgba(45,42,38,0.06)', marginBottom: 10 }}>
           <label style={labelStyle}>{t('your_location', lang)}</label>
@@ -396,7 +400,7 @@ export default function CheckoutSheet({
         </div>
       )}
 
-      {/* Dine-in / delivery-note strip */}
+      {/* Dine-in delivery-to-table note */}
       {isDineIn && (
         <div style={{
           background: `${primary}08`, borderRadius: 12, padding: '10px 14px', marginBottom: 10,

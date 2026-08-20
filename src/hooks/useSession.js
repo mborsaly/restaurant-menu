@@ -26,8 +26,9 @@ export function useSession() {
   const [restaurantSlug, setRestaurantSlug] = useState(null)
 
   // ── Dine-in (QR per table) state ──
-  const [dineInTable, setDineInTable] = useState(null)
-  const [isDineIn, setIsDineIn]       = useState(false)
+  const [dineInTable, setDineInTable]         = useState(null)
+  const [isDineIn, setIsDineIn]               = useState(false)
+  const [dineInSessionId, setDineInSessionId] = useState(null)
 
   useEffect(() => {
     async function loadSession() {
@@ -126,6 +127,17 @@ export function useSession() {
                 setDineInTable(tableData)
                 setIsDineIn(true)
                 sessionStorage.setItem('bv_dine_in_table_slug', tableSlug)
+
+                // Generate (or reuse) a dining session ID —
+                // one per physical visit to the table, so
+                // multiple rounds group together but don't
+                // leak into whoever sits there next
+                let sid = sessionStorage.getItem('bv_dine_in_session_id')
+                if (!sid) {
+                  sid = `dine-${tableData.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+                  sessionStorage.setItem('bv_dine_in_session_id', sid)
+                }
+                setDineInSessionId(sid)
               }
             }
 
@@ -268,6 +280,7 @@ export function useSession() {
     isGrocery,
     isDineIn,
     dineInTable,
+    dineInSessionId,
     paths,
   }
 }

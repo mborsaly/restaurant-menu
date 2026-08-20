@@ -437,6 +437,9 @@ export const t = (key, lang = 'fr') => {
       fr: 'Payez à votre table',
       ar: 'ادفع على الطاولة',
     },
+    order_history: {
+      en: 'My Orders', fr: 'Mes Commandes', ar: 'طلباتي',
+    },
   }
 
   return translations[key]?.[lang]
