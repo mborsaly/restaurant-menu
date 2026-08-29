@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSession }          from '../hooks/useSession'
 import { useCart }             from '../context/CartContext'
 import { supabase }            from '../lib/supabase'
-import { t, isRTL }            from '../lib/translations'
+import { pickTranslation, groupTranslationsByEntity } from '../lib/i18n'
+import { t }                   from '../lib/translations'
 import { Search, X }           from 'lucide-react'
 import Header                  from '../components/Header'
 import CategoryTabs            from '../components/CategoryTabs'
@@ -11,21 +12,15 @@ import ProductCard             from '../components/ProductCard'
 import Cart                    from '../components/Cart'
 import { SkeletonGrid }        from '../components/SkeletonCard'
 import Modal                   from '../components/Modal'
-import ItemSheet               from '../components/ItemSheet'
-import CartSheet               from '../components/CartSheet'
-import CheckoutSheet           from '../components/CheckoutSheet'
-import OrderHistorySheet       from '../components/OrderHistorySheet'
+import ItemSheet                from '../components/ItemSheet'
+import CartSheet                from '../components/CartSheet'
+import CheckoutSheet            from '../components/CheckoutSheet'
+import OrderHistorySheet        from '../components/OrderHistorySheet'
 
 export default function MenuScreen() {
   const {
-    restaurant,
-    loading: sessionLoading,
-    lang,
-    setLang,
-    isGrocery,
-    isDineIn,
-    dineInTable,
-    dineInSessionId,
+    restaurant, loading: sessionLoading, lang, isRTL, setLang,
+    isGrocery, isDineIn, dineInTable, dineInSessionId, vendorLanguages,
   } = useSession()
 
   const { itemCount, subtotal } = useCart()
@@ -37,15 +32,11 @@ export default function MenuScreen() {
   const [searchQuery, setSearchQuery] = useState('')
 
   const [activeItem, setActiveItem] = useState(null)
-  const [sheetView, setSheetView] = useState(null) // 'cart' | 'checkout' | 'history' | null
+  const [sheetView, setSheetView] = useState(null)
 
   const primary = restaurant?.primary_color || '#1A4D3E'
-  const rtl = isRTL(lang)
-  const arabicFont = lang === 'ar' ? "'Noto Naskh Arabic', serif" : "'Plus Jakarta Sans', sans-serif"
-
-  // ─────────────────────────────────────────────
-  // Scroll / Section Refs
-  // ─────────────────────────────────────────────
+  const rtl = isRTL
+  const arabicFont = rtl ? "'Noto Naskh Arabic', serif" : "'Plus Jakarta Sans', sans-serif"
 
   const scrollContainerRef = useRef(null)
   const sectionRefs = useRef({})
@@ -53,7 +44,12 @@ export default function MenuScreen() {
   const programmaticTimeout = useRef(null)
 
   // ─────────────────────────────────────────────
-  // Load Menu
+  // Load Menu — now pulls category_translations
+  // and menu_item_translations / grocery_product_
+  // translations alongside the base rows, and
+  // merges the current-language text onto each
+  // row as .name / .description for the rest of
+  // the component tree to consume unchanged
   // ─────────────────────────────────────────────
 
   useEffect(() => {
@@ -63,60 +59,62 @@ export default function MenuScreen() {
       setLoading(true)
 
       try {
-        const { data: cats, error: categoriesError } =
-          await supabase
-            .from('categories')
-            .select('*')
-            .eq('vendor_id', restaurant.id)
-            .eq('active', true)
-            .order('sort_order')
-
-        if (categoriesError) {
-          console.error('Error loading categories:', categoriesError)
-        }
+        const { data: cats } = await supabase
+          .from('categories')
+          .select('*, category_translations(*)')
+          .eq('vendor_id', restaurant.id)
+          .eq('active', true)
+          .order('sort_order')
 
         let items = []
 
         if (isGrocery) {
-          const { data, error } = await supabase
+          const { data } = await supabase
             .from('grocery_products')
-            .select('*, grocery_product_options(*)')
+            .select('*, grocery_product_options(*, grocery_product_option_translations(*)), grocery_product_translations(*)')
             .eq('vendor_id', restaurant.id)
             .eq('available', true)
             .order('sort_order')
-
-          if (error) console.error('Error loading grocery products:', error)
 
           items = (data || []).map(product => ({
             ...product,
-            item_options: product.grocery_product_options
+            item_options: (product.grocery_product_options || []).map(opt => ({
+              ...opt,
+              translations: opt.grocery_product_option_translations,
+            })),
+            translations: product.grocery_product_translations,
           }))
         } else {
-          const { data, error } = await supabase
+          const { data } = await supabase
             .from('menu_items')
-            .select('*, item_options(*)')
+            .select('*, item_options(*, item_option_translations(*)), menu_item_translations(*)')
             .eq('vendor_id', restaurant.id)
             .eq('available', true)
             .order('sort_order')
 
-          if (error) console.error('Error loading menu items:', error)
-
-          items = data || []
+          items = (data || []).map(item => ({
+            ...item,
+            item_options: (item.item_options || []).map(opt => ({
+              ...opt,
+              translations: opt.item_option_translations,
+            })),
+            translations: item.menu_item_translations,
+          }))
         }
 
-        // Only show categories that contain items
-        const nonEmptyCats = (cats || []).filter(category =>
+        const catsWithTranslations = (cats || []).map(cat => ({
+          ...cat,
+          translations: cat.category_translations,
+        }))
+
+        const nonEmptyCats = catsWithTranslations.filter(category =>
           items.some(item => item.category_id === category.id)
         )
 
         setCategories(nonEmptyCats)
         setMenuItems(items)
 
-        if (nonEmptyCats.length > 0) {
-          setActiveCategory(nonEmptyCats[0].id)
-        } else {
-          setActiveCategory(null)
-        }
+        setActiveCategory(nonEmptyCats.length > 0 ? nonEmptyCats[0].id : null)
 
       } catch (error) {
         console.error('Error loading menu:', error)
@@ -129,23 +127,37 @@ export default function MenuScreen() {
   }, [restaurant?.id, isGrocery])
 
   // ─────────────────────────────────────────────
-  // Category Name
+  // Translation helpers — pull from the joined
+  // .translations array using pickTranslation
   // ─────────────────────────────────────────────
 
+  const fallbackLang = vendorLanguages.find(l => l.is_default)?.code || 'en'
+
   function getCatName(category) {
-    if (lang === 'ar') return category.name_ar || category.name_en
-    if (lang === 'fr') return category.name_fr || category.name_en
-    return category.name_en
+    return pickTranslation(category.translations, 'name', lang, fallbackLang)
+      || category.name_en  // legacy fallback while old columns still exist
+  }
+
+  function getItemName(item) {
+    return pickTranslation(item.translations, 'name', lang, fallbackLang)
+      || item.name_en
+  }
+
+  function getItemDesc(item) {
+    return pickTranslation(item.translations, 'description', lang, fallbackLang)
+      || item.description_en
   }
 
   // ─────────────────────────────────────────────
-  // Search
+  // Search — now searches across ALL translations
+  // for an item, not just three hardcoded fields
   // ─────────────────────────────────────────────
 
   function getItemSearchNames(item) {
-    return [item.name_en, item.name_fr, item.name_ar, item.brand_name]
-      .filter(Boolean)
-      .map(s => s.toLowerCase())
+    const names = (item.translations || []).map(t => t.name).filter(Boolean)
+    const legacyNames = [item.name_en, item.name_fr, item.name_ar].filter(Boolean)
+    const brand = item.brand_name ? [item.brand_name] : []
+    return [...names, ...legacyNames, ...brand].map(s => s.toLowerCase())
   }
 
   const searchActive = searchQuery.trim().length > 0
@@ -163,67 +175,39 @@ export default function MenuScreen() {
       )
     : categories
 
-  // ─────────────────────────────────────────────
-  // Register Category Section
-  // ─────────────────────────────────────────────
-
   const setSectionRef = useCallback((categoryId) => (node) => {
-    if (node) {
-      sectionRefs.current[categoryId] = node
-    } else {
-      delete sectionRefs.current[categoryId]
-    }
+    if (node) sectionRefs.current[categoryId] = node
+    else delete sectionRefs.current[categoryId]
   }, [])
-
-  // ─────────────────────────────────────────────
-  // Scroll Spy
-  // ─────────────────────────────────────────────
 
   useEffect(() => {
     if (loading || visibleCategories.length === 0) return
-
     const container = scrollContainerRef.current
     if (!container) return
 
     const handleScroll = () => {
       if (isProgrammaticScroll.current) return
-
       const containerTop = container.getBoundingClientRect().top
-
       let currentCategory = visibleCategories[0]?.id
 
       for (const category of visibleCategories) {
         const section = sectionRefs.current[category.id]
         if (!section) continue
-
         const sectionTop = section.getBoundingClientRect().top - containerTop
-
-        if (sectionTop <= 100) {
-          currentCategory = category.id
-        } else {
-          break
-        }
+        if (sectionTop <= 100) currentCategory = category.id
+        else break
       }
-
       setActiveCategory(currentCategory)
     }
 
     container.addEventListener('scroll', handleScroll, { passive: true })
     handleScroll()
-
-    return () => {
-      container.removeEventListener('scroll', handleScroll)
-    }
+    return () => container.removeEventListener('scroll', handleScroll)
   }, [loading, visibleCategories])
-
-  // ─────────────────────────────────────────────
-  // Category Tab Click
-  // ─────────────────────────────────────────────
 
   function handleCategorySelect(categoryId) {
     const container = scrollContainerRef.current
     const target = sectionRefs.current[categoryId]
-
     if (!container || !target) return
 
     setActiveCategory(categoryId)
@@ -242,42 +226,20 @@ export default function MenuScreen() {
     }, 700)
   }
 
-  // ─────────────────────────────────────────────
-  // Cleanup
-  // ─────────────────────────────────────────────
-
   useEffect(() => {
     return () => clearTimeout(programmaticTimeout.current)
   }, [])
 
-  // ─────────────────────────────────────────────
-  // Session Loading
-  // ─────────────────────────────────────────────
-
   if (sessionLoading) return null
-
-  // ─────────────────────────────────────────────
-  // Render
-  // ─────────────────────────────────────────────
 
   return (
     <div
       style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100dvh',
-        background: '#FFF8F0',
-        overflow: 'hidden',
-        maxWidth: 448,
-        margin: '0 auto',
+        display: 'flex', flexDirection: 'column', height: '100dvh',
+        background: '#FFF8F0', overflow: 'hidden', maxWidth: 448, margin: '0 auto',
         direction: rtl ? 'rtl' : 'ltr',
       }}
     >
-
-      {/* ═══════════════════════════════════════ */}
-      {/* RESTAURANT HEADER */}
-      {/* ═══════════════════════════════════════ */}
-
       <Header
         restaurant={restaurant}
         lang={lang}
@@ -286,10 +248,6 @@ export default function MenuScreen() {
         dineInTable={dineInTable}
         onHistoryOpen={() => setSheetView('history')}
       />
-
-      {/* ═══════════════════════════════════════ */}
-      {/* SEARCH BAR */}
-      {/* ═══════════════════════════════════════ */}
 
       <div style={{ flexShrink: 0, background: '#FFF8F0', padding: '10px 16px 8px' }}>
         <div style={{ position: 'relative' }}>
@@ -336,10 +294,6 @@ export default function MenuScreen() {
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════ */}
-      {/* CATEGORY NAVIGATION */}
-      {/* ═══════════════════════════════════════ */}
-
       {!searchActive && categories.length > 0 && (
         <div style={{
           flexShrink: 0, position: 'relative', zIndex: 20,
@@ -356,10 +310,6 @@ export default function MenuScreen() {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════ */}
-      {/* SCROLLABLE MENU */}
-      {/* ═══════════════════════════════════════ */}
-
       <div
         ref={scrollContainerRef}
         style={{
@@ -368,19 +318,13 @@ export default function MenuScreen() {
           direction: rtl ? 'rtl' : 'ltr',
         }}
       >
-
         {loading ? (
-
           <SkeletonGrid count={6} />
-
         ) : visibleCategories.length > 0 ? (
-
           visibleCategories.map((category, index) => {
-
             const categoryItems = searchFilteredItems.filter(
               item => item.category_id === category.id
             )
-
             if (categoryItems.length === 0) return null
 
             const CardComponent = isGrocery ? ProductCard : MenuItemCard
@@ -397,41 +341,25 @@ export default function MenuScreen() {
                   borderTop: index === 0 ? 'none' : '1px solid rgba(26, 77, 62, 0.10)',
                 }}
               >
-
-                {/* ═══════════════════════════════ */}
-                {/* CATEGORY HEADER */}
-                {/* ═══════════════════════════════ */}
-
                 <div
                   style={{
-                    width: '100%',
-                    boxSizing: 'border-box',
+                    width: '100%', boxSizing: 'border-box',
                     padding: rtl ? '8px 20px 16px 16px' : '8px 16px 16px 20px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
+                    display: 'flex', alignItems: 'center', gap: 10,
                     flexDirection: rtl ? 'row-reverse' : 'row',
-                    direction: 'ltr',
-                    justifyContent: 'flex-start',
+                    direction: 'ltr', justifyContent: 'flex-start',
                   }}
                 >
-                  <div style={{
-                    width: 4, height: 32, borderRadius: 4,
-                    background: primary, flexShrink: 0,
-                  }} />
-
+                  <div style={{ width: 4, height: 32, borderRadius: 4, background: primary, flexShrink: 0 }} />
                   {category.emoji && (
-                    <span style={{ fontSize: 24, lineHeight: 1, flexShrink: 0 }}>
-                      {category.emoji}
-                    </span>
+                    <span style={{ fontSize: 24, lineHeight: 1, flexShrink: 0 }}>{category.emoji}</span>
                   )}
-
                   <h2
                     style={{
-                      fontFamily: lang === 'ar' ? "'Noto Naskh Arabic', serif" : "'Fraunces', serif",
-                      fontSize: lang === 'ar' ? 25 : 23,
+                      fontFamily: rtl ? "'Noto Naskh Arabic', serif" : "'Fraunces', serif",
+                      fontSize: rtl ? 25 : 23,
                       fontWeight: 700,
-                      letterSpacing: lang === 'ar' ? 0 : '-0.3px',
+                      letterSpacing: rtl ? 0 : '-0.3px',
                       lineHeight: 1.1,
                       color: '#1A4D3E',
                       margin: 0,
@@ -443,17 +371,10 @@ export default function MenuScreen() {
                   </h2>
                 </div>
 
-                {/* ═══════════════════════════════ */}
-                {/* CATEGORY ITEMS */}
-                {/* ═══════════════════════════════ */}
-
                 <div
                   style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                    gap: 12,
-                    padding: '0 16px 20px',
-                    direction: rtl ? 'rtl' : 'ltr',
+                    display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                    gap: 12, padding: '0 16px 20px', direction: rtl ? 'rtl' : 'ltr',
                   }}
                 >
                   {categoryItems.map(item => (
@@ -461,60 +382,44 @@ export default function MenuScreen() {
                       key={item.id}
                       item={item}
                       lang={lang}
+                      isRTL={rtl}
                       restaurant={restaurant}
                       onQuickView={() => setActiveItem(item)}
                     />
                   ))}
                 </div>
-
               </section>
             )
           })
-
         ) : searchActive ? (
-
           <div style={{ textAlign: 'center', padding: '80px 24px', opacity: 0.5 }}>
             <div style={{ fontSize: 40, marginBottom: 14 }}>🔍</div>
-            <p style={{ fontSize: 14, fontFamily: arabicFont }}>
-              {t('no_search_results', lang)}
-            </p>
+            <p style={{ fontSize: 14, fontFamily: arabicFont }}>{t('no_search_results', lang)}</p>
           </div>
-
         ) : (
-
           <div style={{ textAlign: 'center', padding: '80px 24px', opacity: 0.5 }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>
-              {isGrocery ? '🛒' : '🍽️'}
-            </div>
-            <p style={{ fontSize: 15, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-              {t('no_items', lang)}
-            </p>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>{isGrocery ? '🛒' : '🍽️'}</div>
+            <p style={{ fontSize: 15, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{t('no_items', lang)}</p>
           </div>
         )}
-
       </div>
-
-      {/* ═══════════════════════════════════════ */}
-      {/* CART */}
-      {/* ═══════════════════════════════════════ */}
 
       <Cart
         itemCount={itemCount}
         subtotal={subtotal}
         restaurant={restaurant}
         lang={lang}
+        isRTL={rtl}
         onOpen={() => setSheetView('cart')}
       />
-
-      {/* ═══════════════════════════════════════ */}
-      {/* ITEM MODAL */}
-      {/* ═══════════════════════════════════════ */}
 
       <Modal open={!!activeItem} onClose={() => setActiveItem(null)}>
         {activeItem && (
           <ItemSheet
             item={activeItem}
             lang={lang}
+            isRTL={rtl}
+            fallbackLang={fallbackLang}
             restaurant={restaurant}
             isGrocery={isGrocery}
             onClose={() => setActiveItem(null)}
@@ -522,39 +427,30 @@ export default function MenuScreen() {
         )}
       </Modal>
 
-      {/* ═══════════════════════════════════════ */}
-      {/* CART MODAL */}
-      {/* ═══════════════════════════════════════ */}
-
       <Modal open={sheetView === 'cart'} onClose={() => setSheetView(null)}>
         <CartSheet
           lang={lang}
+          isRTL={rtl}
           restaurant={restaurant}
           onClose={() => setSheetView(null)}
           onCheckout={() => setSheetView('checkout')}
         />
       </Modal>
 
-      {/* ═══════════════════════════════════════ */}
-      {/* CHECKOUT MODAL */}
-      {/* ═══════════════════════════════════════ */}
-
       <Modal open={sheetView === 'checkout'} onClose={() => setSheetView(null)}>
         <CheckoutSheet
           lang={lang}
+          isRTL={rtl}
           restaurant={restaurant}
           onClose={() => setSheetView(null)}
           onSuccess={() => {}}
         />
       </Modal>
 
-      {/* ═══════════════════════════════════════ */}
-      {/* ORDER HISTORY MODAL */}
-      {/* ═══════════════════════════════════════ */}
-
       <Modal open={sheetView === 'history'} onClose={() => setSheetView(null)}>
         <OrderHistorySheet
           lang={lang}
+          isRTL={rtl}
           restaurant={restaurant}
           isDineIn={isDineIn}
           dineInSessionId={dineInSessionId}
@@ -562,7 +458,6 @@ export default function MenuScreen() {
           onClose={() => setSheetView(null)}
         />
       </Modal>
-
     </div>
   )
 }

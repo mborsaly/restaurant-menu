@@ -2,9 +2,6 @@ import { createContext, useContext, useState } from 'react'
 
 const CartContext = createContext(null)
 
-// Build a stable signature for an item + its selected
-// options, so identical selections merge into one line
-// instead of creating duplicate entries.
 function buildOptionsSignature(selectedOptions) {
   if (!selectedOptions || Object.keys(selectedOptions).length === 0) return ''
   return Object.keys(selectedOptions)
@@ -20,8 +17,6 @@ export function CartProvider({ children }) {
     const optionsSignature = buildOptionsSignature(selectedOptions)
 
     setCart(prev => {
-      // Look for an existing line with the SAME item
-      // AND the SAME selected options — merge into it
       const existingIndex = prev.findIndex(line =>
         line.itemId === item.id &&
         buildOptionsSignature(line.options) === optionsSignature
@@ -39,7 +34,6 @@ export function CartProvider({ children }) {
         return next
       }
 
-      // No matching line — create a new one
       const optionsPrice = Object.values(selectedOptions)
         .reduce((sum, opt) => sum + (opt.price_modifier || 0), 0)
 
@@ -48,9 +42,16 @@ export function CartProvider({ children }) {
       const cartItem = {
         id: `${item.id}-${optionsSignature || 'base'}-${Date.now()}`,
         itemId: item.id,
+        // Legacy flat fields kept for backward
+        // compatibility with anything still reading
+        // .name / .name_fr / .name_ar directly
         name: item.name_en,
         name_fr: item.name_fr,
         name_ar: item.name_ar,
+        // New: full translations array, carried
+        // through so the cart can display correctly
+        // in ANY vendor-supported language
+        translations: item.translations || [],
         basePrice: item.base_price,
         options: selectedOptions,
         optionsPrice,
@@ -89,13 +90,7 @@ export function CartProvider({ children }) {
 
   return (
     <CartContext.Provider value={{
-      cart,
-      addItem,
-      removeItem,
-      updateQuantity,
-      clearCart,
-      subtotal,
-      itemCount,
+      cart, addItem, removeItem, updateQuantity, clearCart, subtotal, itemCount,
     }}>
       {children}
     </CartContext.Provider>

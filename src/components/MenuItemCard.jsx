@@ -1,23 +1,21 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { isRTL } from '../lib/translations'
 import { useCart } from '../context/CartContext'
+import { pickTranslation } from '../lib/i18n'
 import { formatPrice } from '../lib/currency'
 
 export default function MenuItemCard({
-  item, lang, restaurant, onQuickView
+  item, lang, isRTL, restaurant, onQuickView, fallbackLang = 'en'
 }) {
   const primary = restaurant?.primary_color || '#1A4D3E'
-  const rtl     = isRTL(lang)
+  const rtl     = isRTL
   const { addItem } = useCart()
   const [justAdded, setJustAdded] = useState(false)
 
   const hasOptions = !!(item.item_options && item.item_options.length > 0)
 
-  const name = lang === 'ar' ? (item.name_ar || item.name_en)
-    : lang === 'fr' ? (item.name_fr || item.name_en) : item.name_en
-  const desc = lang === 'ar' ? (item.description_ar || item.description_en)
-    : lang === 'fr' ? (item.description_fr || item.description_en) : item.description_en
+  const name = pickTranslation(item.translations, 'name', lang, fallbackLang) || item.name_en
+  const desc = pickTranslation(item.translations, 'description', lang, fallbackLang) || item.description_en
 
   const imgSrc = item.image_url
     ? `${item.image_url}${item.image_url.includes('?') ? '&' : '?'}fm=webp&auto=format`
@@ -47,14 +45,8 @@ export default function MenuItemCard({
     >
       <div style={{ width: '100%', aspectRatio: '4/3', overflow: 'hidden', background: `${primary}12`, position: 'relative' }}>
         {imgSrc ? (
-          <img
-            src={imgSrc}
-            alt={name}
-            loading="lazy"
-            width={400}
-            height={300}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
+          <img src={imgSrc} alt={name} loading="lazy" width={400} height={300}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 46 }}>
             {item.emoji || '🍽️'}
@@ -76,7 +68,7 @@ export default function MenuItemCard({
       <div style={{ padding: '13px 14px 15px', display: 'flex', flexDirection: 'column', flex: 1 }}>
         <h3 style={{
           fontWeight: 700, fontSize: 14.5, color: '#1B2530', marginBottom: 3, lineHeight: 1.3,
-          fontFamily: lang === 'ar' ? "'Noto Naskh Arabic', serif" : "'Plus Jakarta Sans', sans-serif",
+          fontFamily: rtl ? "'Noto Naskh Arabic', serif" : "'Plus Jakarta Sans', sans-serif",
         }}>
           {name}
         </h3>
@@ -85,7 +77,7 @@ export default function MenuItemCard({
           <p style={{
             fontSize: 11.5, color: '#1B2530', opacity: 0.5, marginBottom: 10, lineHeight: 1.4,
             display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-            fontFamily: lang === 'ar' ? "'Noto Naskh Arabic', serif" : "'Plus Jakarta Sans', sans-serif",
+            fontFamily: rtl ? "'Noto Naskh Arabic', serif" : "'Plus Jakarta Sans', sans-serif",
           }}>
             {desc}
           </p>

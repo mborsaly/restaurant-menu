@@ -1,31 +1,30 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { isRTL } from '../lib/translations'
 import { useCart } from '../context/CartContext'
+import { pickTranslation } from '../lib/i18n'
 import { formatPrice } from '../lib/currency'
 
 const UNIT_LABELS = {
-  piece: { en: 'pc',   ar: 'قطعة', fr: 'pc'  },
-  kg:    { en: 'kg',   ar: 'كجم',  fr: 'kg'  },
-  gram:  { en: 'g',    ar: 'جم',   fr: 'g'   },
-  liter: { en: 'L',    ar: 'لتر',  fr: 'L'   },
+  piece: { en: 'pc', ar: 'قطعة', fr: 'pc' },
+  kg:    { en: 'kg', ar: 'كجم',  fr: 'kg' },
+  gram:  { en: 'g',  ar: 'جم',   fr: 'g'  },
+  liter: { en: 'L',  ar: 'لتر',  fr: 'L'  },
   pack:  { en: 'pack', ar: 'عبوة', fr: 'paq' },
-  dozen: { en: 'dz',   ar: 'دستة', fr: 'dz'  },
+  dozen: { en: 'dz', ar: 'دستة', fr: 'dz' },
 }
 
 export default function ProductCard({
-  item, lang, restaurant, onQuickView
+  item, lang, isRTL, restaurant, onQuickView, fallbackLang = 'en'
 }) {
   const primary = restaurant?.primary_color || '#2E7D4F'
-  const rtl     = isRTL(lang)
+  const rtl     = isRTL
   const outOfStock = item.in_stock === false
   const { addItem } = useCart()
   const [justAdded, setJustAdded] = useState(false)
 
   const hasOptions = !!(item.item_options && item.item_options.length > 0)
 
-  const name = lang === 'ar' ? (item.name_ar || item.name_en)
-    : lang === 'fr' ? (item.name_fr || item.name_en) : item.name_en
+  const name = pickTranslation(item.translations, 'name', lang, fallbackLang) || item.name_en
 
   const unit = UNIT_LABELS[item.unit_type] || UNIT_LABELS.piece
   const unitLabel = unit[lang] || unit.en
@@ -63,14 +62,8 @@ export default function ProductCard({
     >
       <div style={{ width: '100%', aspectRatio: '4/3', overflow: 'hidden', background: `${primary}12`, position: 'relative' }}>
         {imgSrc ? (
-          <img
-            src={imgSrc}
-            alt={name}
-            loading="lazy"
-            width={400}
-            height={300}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
+          <img src={imgSrc} alt={name} loading="lazy" width={400} height={300}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 46 }}>
             {item.emoji || '🛒'}
@@ -101,7 +94,7 @@ export default function ProductCard({
 
         <h3 style={{
           fontWeight: 700, fontSize: 14.5, color: '#1B2530', marginBottom: 3, lineHeight: 1.3,
-          fontFamily: lang === 'ar' ? "'Noto Naskh Arabic', serif" : "'Plus Jakarta Sans', sans-serif",
+          fontFamily: rtl ? "'Noto Naskh Arabic', serif" : "'Plus Jakarta Sans', sans-serif",
         }}>
           {name}
         </h3>

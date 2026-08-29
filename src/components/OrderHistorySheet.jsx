@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Clock } from 'lucide-react'
 import { supabase }        from '../lib/supabase'
-import { t, isRTL }        from '../lib/translations'
-import { formatPrice }     from '../lib/currency'
-import SheetCloseButton    from './SheetCloseButton'
+import { t }                from '../lib/translations'
+import { pickTranslation }  from '../lib/i18n'
+import { formatPrice }      from '../lib/currency'
+import SheetCloseButton     from './SheetCloseButton'
 
 const STATUS_LABELS = {
   pending:   { en: 'Received',  fr: 'Reçue',      ar: 'تم الاستلام' },
@@ -19,11 +20,11 @@ const STATUS_COLORS = {
 }
 
 export default function OrderHistorySheet({
-  lang, restaurant, isDineIn, dineInSessionId, dineInTable, onClose
+  lang, isRTL, restaurant, isDineIn, dineInSessionId, dineInTable, onClose, fallbackLang = 'en'
 }) {
   const primary = restaurant?.primary_color || '#1A4D3E'
-  const rtl     = isRTL(lang)
-  const arabicFont = lang === 'ar'
+  const rtl     = isRTL
+  const arabicFont = rtl
     ? "'Noto Naskh Arabic', serif" : "'Plus Jakarta Sans', sans-serif"
 
   const [orders, setOrders]   = useState([])
@@ -61,9 +62,7 @@ export default function OrderHistorySheet({
   }, [restaurant?.id, isDineIn, dineInSessionId])
 
   function getItemName(item) {
-    if (lang === 'ar') return item.name_ar || item.name
-    if (lang === 'fr') return item.name_fr || item.name
-    return item.name
+    return pickTranslation(item.translations, 'name', lang, fallbackLang) || item.name
   }
   function formatTime(dateStr) {
     const d = new Date(dateStr)
@@ -123,8 +122,7 @@ export default function OrderHistorySheet({
                   border: '1px solid rgba(45,42,38,0.06)',
                 }}>
                   <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    marginBottom: 8, direction: 'ltr',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8,
                   }}>
                     <span style={{
                       fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13,
@@ -148,11 +146,8 @@ export default function OrderHistorySheet({
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 8 }}>
                     {items.map((item, i) => (
-                      <div key={i} style={{
-                        display: 'flex', justifyContent: 'space-between', fontSize: 12.5,
-                        direction: 'ltr',
-                      }}>
-                        <span style={{ color: '#1A2530', opacity: 0.75, fontFamily: arabicFont, order: rtl ? 2 : 1, direction: rtl ? 'rtl' : 'ltr' }}>
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}>
+                        <span style={{ color: '#1A2530', opacity: 0.75, fontFamily: arabicFont, order: rtl ? 2 : 1, textAlign: rtl ? 'right' : 'left' }}>
                           {item.quantity}× {getItemName(item)}
                         </span>
                         <span style={{ fontFamily: "'JetBrains Mono', monospace", opacity: 0.6, order: rtl ? 1 : 2 }}>
@@ -164,9 +159,9 @@ export default function OrderHistorySheet({
 
                   <div style={{
                     display: 'flex', justifyContent: 'space-between', fontWeight: 700,
-                    fontSize: 13, borderTop: '1px solid rgba(45,42,38,0.06)', paddingTop: 8, direction: 'ltr',
+                    fontSize: 13, borderTop: '1px solid rgba(45,42,38,0.06)', paddingTop: 8,
                   }}>
-                    <span style={{ fontFamily: arabicFont, order: rtl ? 2 : 1, direction: rtl ? 'rtl' : 'ltr' }}>
+                    <span style={{ fontFamily: arabicFont, order: rtl ? 2 : 1 }}>
                       {t('total', lang)}
                     </span>
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", color: primary, order: rtl ? 1 : 2 }}>
@@ -181,9 +176,9 @@ export default function OrderHistorySheet({
           {isDineIn && (
             <div style={{
               background: primary, borderRadius: 16, padding: 16,
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center', direction: 'ltr',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
-              <span style={{ color: 'white', fontWeight: 700, fontSize: 14, fontFamily: arabicFont, order: rtl ? 2 : 1, direction: rtl ? 'rtl' : 'ltr' }}>
+              <span style={{ color: 'white', fontWeight: 700, fontSize: 14, fontFamily: arabicFont, order: rtl ? 2 : 1 }}>
                 {lang === 'ar' ? 'إجمالي الطاولة' : lang === 'fr' ? 'Total de la Table' : 'Table Total'}
               </span>
               <span style={{ color: 'white', fontWeight: 800, fontSize: 18, fontFamily: "'JetBrains Mono', monospace", order: rtl ? 1 : 2 }}>

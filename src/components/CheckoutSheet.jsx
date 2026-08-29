@@ -3,7 +3,7 @@ import { CheckCircle } from 'lucide-react'
 import { useCart }              from '../context/CartContext'
 import { useSession }           from '../hooks/useSession'
 import { supabase }             from '../lib/supabase'
-import { t, isRTL }             from '../lib/translations'
+import { t }                    from '../lib/translations'
 import { formatPrice }          from '../lib/currency'
 import SheetCloseButton         from './SheetCloseButton'
 
@@ -26,11 +26,11 @@ function saveInfo(v) {
 }
 
 export default function CheckoutSheet({
-  lang, restaurant, onClose, onSuccess
+  lang, isRTL, restaurant, onClose, onSuccess
 }) {
   const primary = restaurant?.primary_color || '#1A4D3E'
-  const rtl     = isRTL(lang)
-  const arabicFont = lang === 'ar'
+  const rtl     = isRTL
+  const arabicFont = rtl
     ? "'Noto Naskh Arabic', serif"
     : "'Plus Jakarta Sans', sans-serif"
 
@@ -158,6 +158,7 @@ export default function CheckoutSheet({
         notes: '',
         items: cart.map(item => ({
           itemId: item.itemId, name: item.name, name_fr: item.name_fr, name_ar: item.name_ar,
+          translations: item.translations,
           options: item.options, quantity: item.quantity, unitPrice: item.unitPrice, total: item.total,
         })),
         subtotal, delivery_fee: deliveryFee, total, language: lang,
@@ -356,9 +357,9 @@ export default function CheckoutSheet({
         </div>
       )}
 
-      {/* Venue spot picker — only for actual
-          multi-vendor venues, never for a
-          restaurant's own dine-in tables */}
+      {/* Venue spot picker — unchanged, only for
+          actual multi-vendor venues, never for
+          this restaurant's own dine-in tables */}
       {isVenueMode && (
         <div style={{ background: 'white', borderRadius: 16, padding: 14, border: errors.spot ? '1.5px solid #ef4444' : '1px solid rgba(45,42,38,0.06)', marginBottom: 10 }}>
           <label style={labelStyle}>{t('your_location', lang)}</label>
@@ -373,10 +374,10 @@ export default function CheckoutSheet({
                       border: isSelected ? `2px solid ${primary}` : '1.5px solid rgba(45,42,38,.1)',
                       background: isSelected ? `${primary}10` : '#FFF8F0', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5,
-                      fontFamily: arabicFont, textAlign: rtl ? 'right' : 'left', direction: 'ltr',
+                      fontFamily: arabicFont, textAlign: rtl ? 'right' : 'left',
                     }}>
-                    <span style={{ order: rtl ? 3 : 1, direction: rtl ? 'rtl' : 'ltr' }}>{getZoneEmoji(spot.zone)}</span>
-                    <span style={{ flex: 1, order: 2, direction: rtl ? 'rtl' : 'ltr' }}>{getSpotName(spot)}</span>
+                    <span style={{ order: rtl ? 3 : 1 }}>{getZoneEmoji(spot.zone)}</span>
+                    <span style={{ flex: 1, order: 2 }}>{getSpotName(spot)}</span>
                     {isSelected && <span style={{ color: primary, order: rtl ? 1 : 3 }}>✓</span>}
                   </button>
                 )
@@ -413,8 +414,8 @@ export default function CheckoutSheet({
       {/* Total */}
       <div style={{ background: 'white', borderRadius: 16, padding: 14, border: '1px solid rgba(45,42,38,0.06)', marginBottom: 16 }}>
         {!isVenueMode && !isDineIn && fulfillmentType === 'delivery' && deliveryFee > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8, direction: 'ltr' }}>
-            <span style={{ opacity: 0.55, fontFamily: arabicFont, order: rtl ? 2 : 1, direction: rtl ? 'rtl' : 'ltr' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8 }}>
+            <span style={{ opacity: 0.55, fontFamily: arabicFont, order: rtl ? 2 : 1 }}>
               {t('delivery', lang)}
             </span>
             <span style={{ fontFamily: "'JetBrains Mono', monospace", order: rtl ? 1 : 2 }}>
@@ -422,8 +423,8 @@ export default function CheckoutSheet({
             </span>
           </div>
         )}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, direction: 'ltr' }}>
-          <span style={{ fontFamily: arabicFont, order: rtl ? 2 : 1, direction: rtl ? 'rtl' : 'ltr' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
+          <span style={{ fontFamily: arabicFont, order: rtl ? 2 : 1 }}>
             {t('total', lang)}
           </span>
           <span style={{ fontFamily: "'JetBrains Mono', monospace", color: primary, fontSize: 16, order: rtl ? 1 : 2 }}>
@@ -438,9 +439,9 @@ export default function CheckoutSheet({
         width: '100%', borderRadius: 18, padding: '15px 22px', border: 'none',
         background: submitting ? 'rgba(45,42,38,0.15)' : primary, color: submitting ? 'rgba(45,42,38,0.4)' : 'white',
         fontWeight: 700, fontSize: 15, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: arabicFont,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, direction: 'ltr',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
       }}>
-        <span style={{ order: rtl ? 2 : 1, direction: rtl ? 'rtl' : 'ltr' }}>
+        <span style={{ order: rtl ? 2 : 1 }}>
           {submitting ? t('placing_order', lang) : t('place_order', lang)}
         </span>
         <span style={{ order: rtl ? 1 : 2, fontFamily: "'JetBrains Mono', monospace" }}>

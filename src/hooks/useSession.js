@@ -1,16 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase }            from '../lib/supabase'
+import { getVendorLanguages, getAllLanguages, pickTranslation } from '../lib/i18n'
 
 const RESERVED   = ['welcome','menu','item','cart','checkout','confirmation']
 const SUB_ROUTES = ['cart','checkout','confirmation','item']
-
-function resolveLang(vendorData, requestedLang) {
-  const allowed = vendorData?.supported_languages?.length
-    ? vendorData.supported_languages
-    : ['en', 'fr', 'ar']
-  if (allowed.includes(requestedLang)) return requestedLang
-  return allowed[0]
-}
 
 export function useSession() {
   const [session, setSession]       = useState(null)
@@ -30,9 +23,29 @@ export function useSession() {
   const [isDineIn, setIsDineIn]               = useState(false)
   const [dineInSessionId, setDineInSessionId] = useState(null)
 
+  // ── New: dynamic language support ──
+  const [vendorLanguages, setVendorLanguages] = useState([]) // full language objects for this vendor
+  const [allLanguages, setAllLanguages]       = useState([]) // full catalog, for reference
+
+  async function resolveLangForVendor(vendorId, requestedLang) {
+    const langs = await getVendorLanguages(vendorId)
+    setVendorLanguages(langs)
+
+    if (langs.length === 0) return requestedLang || 'en'
+
+    const codes = langs.map(l => l.code)
+    if (codes.includes(requestedLang)) return requestedLang
+
+    const defaultLang = langs.find(l => l.is_default)
+    return defaultLang?.code || codes[0]
+  }
+
   useEffect(() => {
     async function loadSession() {
       try {
+        const catalog = await getAllLanguages()
+        setAllLanguages(catalog)
+
         const params = new URLSearchParams(window.location.search)
         const token  = params.get('t')
         const tableSlug = params.get('table')
@@ -78,7 +91,7 @@ export function useSession() {
               setRestaurantSlug(slug2)
 
               const savedLang = sessionStorage.getItem('lang') || 'ar'
-              const finalLang = resolveLang(vendorData, savedLang)
+              const finalLang = await resolveLangForVendor(vendorData.id, savedLang)
               setLangState(finalLang)
               sessionStorage.setItem('lang', finalLang)
               setLoading(false)
@@ -111,9 +124,6 @@ export function useSession() {
               if (venueData) setVenueSlug(venueData.slug)
             }
 
-            // ── Resolve dine-in table if a table
-            //    slug is present in the URL or was
-            //    already stored this session ──
             if (tableSlug && vendorData.supports_dine_in) {
               const { data: tableData } = await supabase
                 .from('restaurant_tables')
@@ -128,10 +138,6 @@ export function useSession() {
                 setIsDineIn(true)
                 sessionStorage.setItem('bv_dine_in_table_slug', tableSlug)
 
-                // Generate (or reuse) a dining session ID —
-                // one per physical visit to the table, so
-                // multiple rounds group together but don't
-                // leak into whoever sits there next
                 let sid = sessionStorage.getItem('bv_dine_in_session_id')
                 if (!sid) {
                   sid = `dine-${tableData.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -142,7 +148,7 @@ export function useSession() {
             }
 
             const savedLang = sessionStorage.getItem('lang') || 'ar'
-            const finalLang = resolveLang(vendorData, savedLang)
+            const finalLang = await resolveLangForVendor(vendorData.id, savedLang)
             setLangState(finalLang)
             sessionStorage.setItem('lang', finalLang)
             setLoading(false)
@@ -158,10 +164,12 @@ export function useSession() {
             .eq('slug', 'dokan-el-kahwa')
             .single()
           setRestaurant(vendor)
-          const savedLang = sessionStorage.getItem('lang') || 'ar'
-          const finalLang = resolveLang(vendor, savedLang)
-          setLangState(finalLang)
-          sessionStorage.setItem('lang', finalLang)
+          if (vendor) {
+            const savedLang = sessionStorage.getItem('lang') || 'ar'
+            const finalLang = await resolveLangForVendor(vendor.id, savedLang)
+            setLangState(finalLang)
+            sessionStorage.setItem('lang', finalLang)
+          }
           setLoading(false)
           return
         }
@@ -185,7 +193,7 @@ export function useSession() {
         const vendorData    = sessionData.vendors
         const requestedLang = sessionData.language
           || sessionStorage.getItem('lang') || 'fr'
-        const finalLang = resolveLang(vendorData, requestedLang)
+        const finalLang = await resolveLangForVendor(vendorData.id, requestedLang)
         setLangState(finalLang)
         sessionStorage.setItem('lang', finalLang)
 
@@ -212,20 +220,17 @@ export function useSession() {
   }, [])
 
   function toggleLang() {
-    const allowed = restaurant?.supported_languages?.length
-      ? restaurant.supported_languages
-      : ['ar', 'en', 'fr']
-    const currentIndex = allowed.indexOf(lang)
-    const nextLang = allowed[(currentIndex + 1) % allowed.length]
+    const codes = vendorLanguages.map(l => l.code)
+    if (codes.length === 0) return
+    const currentIndex = codes.indexOf(lang)
+    const nextLang = codes[(currentIndex + 1) % codes.length]
     setLangState(nextLang)
     sessionStorage.setItem('lang', nextLang)
   }
 
   function setLang(newLang) {
-    const allowed = restaurant?.supported_languages?.length
-      ? restaurant.supported_languages
-      : ['ar', 'en', 'fr']
-    if (!allowed.includes(newLang)) return
+    const codes = vendorLanguages.map(l => l.code)
+    if (codes.length > 0 && !codes.includes(newLang)) return
     setLangState(newLang)
     sessionStorage.setItem('lang', newLang)
   }
@@ -261,6 +266,9 @@ export function useSession() {
   const vendorType = restaurant?.vendor_type || 'restaurant'
   const isGrocery   = vendorType === 'grocery' || vendorType === 'kiosk'
 
+  // Convenience: is the CURRENT active lang RTL?
+  const isRTL = !!vendorLanguages.find(l => l.code === lang)?.is_rtl
+
   return {
     session,
     restaurant,
@@ -270,8 +278,11 @@ export function useSession() {
     loading,
     error,
     lang,
+    isRTL,
     toggleLang,
     setLang,
+    vendorLanguages,
+    allLanguages,
     isVenueMode,
     isStandalone,
     venueSlug,
