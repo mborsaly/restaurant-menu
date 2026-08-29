@@ -8,9 +8,26 @@ import { formatPrice }          from '../lib/currency'
 import SheetCloseButton         from './SheetCloseButton'
 
 const COUNTRY_CODES = [
+  // Egypt
   { code: '+20', flag: '🇪🇬', placeholder: '10 0000 0000', validate: d => /^(10|11|12|15)\d{8}$/.test(d) },
-  { code: '+1',  flag: '🇨🇦', placeholder: '514 000-0000', validate: d => /^\d{10}$/.test(d) },
-]
+
+  // Canada
+  { code: '+1', flag: '🇨🇦', placeholder: '514 000-0000', validate: d => /^\d{10}$/.test(d) },
+
+  // South America
+  { code: '+54', flag: '🇦🇷', placeholder: '11 0000-0000', validate: d => /^\d{10,11}$/.test(d) }, // Argentina
+  { code: '+591', flag: '🇧🇴', placeholder: '7 0000000', validate: d => /^\d{8}$/.test(d) }, // Bolivia
+  { code: '+55', flag: '🇧🇷', placeholder: '11 90000-0000', validate: d => /^\d{10,11}$/.test(d) }, // Brazil
+  { code: '+56', flag: '🇨🇱', placeholder: '9 0000 0000', validate: d => /^9\d{8}$/.test(d) }, // Chile
+  { code: '+57', flag: '🇨🇴', placeholder: '300 0000000', validate: d => /^3\d{9}$/.test(d) }, // Colombia
+  { code: '+593', flag: '🇪🇨', placeholder: '99 000 0000', validate: d => /^9\d{8}$/.test(d) }, // Ecuador
+  { code: '+592', flag: '🇬🇾', placeholder: '600 0000', validate: d => /^\d{7}$/.test(d) }, // Guyana
+  { code: '+595', flag: '🇵🇾', placeholder: '981 000000', validate: d => /^9\d{8}$/.test(d) }, // Paraguay
+  { code: '+51', flag: '🇵🇪', placeholder: '900 000 000', validate: d => /^9\d{8}$/.test(d) }, // Peru
+  { code: '+597', flag: '🇸🇷', placeholder: '700 0000', validate: d => /^\d{7}$/.test(d) }, // Suriname
+  { code: '+598', flag: '🇺🇾', placeholder: '99 000 000', validate: d => /^9\d{7}$/.test(d) }, // Uruguay
+  { code: '+58', flag: '🇻🇪', placeholder: '412 0000000', validate: d => /^4\d{9}$/.test(d) }, // Venezuela
+];
 const ARABIC_DIGITS = { '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9' }
 function normalizeDigits(v) {
   return v.split('').map(ch => ARABIC_DIGITS[ch] ?? ch).join('').replace(/[^\d]/g, '')
