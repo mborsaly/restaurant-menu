@@ -300,7 +300,7 @@ export const t = (key, lang = 'fr') => {
       en: 'Order Confirmed!',
       fr: 'Commande confirmée!',
       ar: 'تم تأكيد طلبك!',
-      es: '¡Pedido Confirmado!',
+      es: 'Pedido Confirmado!',
     },
     thank_you: {
       en: 'Thank you',
