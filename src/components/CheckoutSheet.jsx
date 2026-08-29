@@ -12,6 +12,7 @@ const COUNTRY_CODES = [
   // Nort America
   { code: '+1', flag: '🇨🇦', placeholder: '514 000-0000', validate: d => /^\d{10}$/.test(d) },
   { code: '+1', flag: '🇺🇸', placeholder: '202 000-0000', validate: d => /^\d{10}$/.test(d) }, // United States
+  { code: '+57', flag: '🇨🇴', placeholder: '300 0000000', validate: d => /^3\d{9}$/.test(d) }, // Colombia
   { code: '+52',  flag: '🇲🇽', placeholder: '55 0000 0000', validate: d => /^\d{10}$/.test(d) }, // Mexico
   // Carabian
   { code: '+53',  flag: '🇨🇺', placeholder: '5 0000000', validate: d => /^\d{8}$/.test(d) }, // Cuba
@@ -23,7 +24,6 @@ const COUNTRY_CODES = [
   { code: '+591', flag: '🇧🇴', placeholder: '7 0000000', validate: d => /^\d{8}$/.test(d) }, // Bolivia
   { code: '+55', flag: '🇧🇷', placeholder: '11 90000-0000', validate: d => /^\d{10,11}$/.test(d) }, // Brazil
   { code: '+56', flag: '🇨🇱', placeholder: '9 0000 0000', validate: d => /^9\d{8}$/.test(d) }, // Chile
-  { code: '+57', flag: '🇨🇴', placeholder: '300 0000000', validate: d => /^3\d{9}$/.test(d) }, // Colombia
   { code: '+593', flag: '🇪🇨', placeholder: '99 000 0000', validate: d => /^9\d{8}$/.test(d) }, // Ecuador
   { code: '+592', flag: '🇬🇾', placeholder: '600 0000', validate: d => /^\d{7}$/.test(d) }, // Guyana
   { code: '+595', flag: '🇵🇾', placeholder: '981 000000', validate: d => /^9\d{8}$/.test(d) }, // Paraguay
