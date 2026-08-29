@@ -8,25 +8,125 @@ import { formatPrice }          from '../lib/currency'
 import SheetCloseButton         from './SheetCloseButton'
 
 const COUNTRY_CODES = [
-  // Egypt
-  { code: '+20', flag: '🇪🇬', placeholder: '10 0000 0000', validate: d => /^(10|11|12|15)\d{8}$/.test(d) },
+  // ============================================================
+  // NORTH AMERICA / CENTRAL AMERICA / CARIBBEAN
+  // ============================================================
 
-  // Canada
-  { code: '+1', flag: '🇨🇦', placeholder: '514 000-0000', validate: d => /^\d{10}$/.test(d) },
+  { code: '+1',     flag: '🇨🇦', placeholder: '514 000-0000', validate: d => /^\d{10}$/.test(d) }, // Canada
+  { code: '+1',     flag: '🇺🇸', placeholder: '202 000-0000', validate: d => /^\d{10}$/.test(d) }, // United States
 
-  // South America
-  { code: '+54', flag: '🇦🇷', placeholder: '11 0000-0000', validate: d => /^\d{10,11}$/.test(d) }, // Argentina
+  { code: '+1 242', flag: '🇧🇸', placeholder: '242 000-0000', validate: d => /^\d{10}$/.test(d) }, // Bahamas
+  { code: '+1 246', flag: '🇧🇧', placeholder: '246 000-0000', validate: d => /^\d{10}$/.test(d) }, // Barbados
+  { code: '+1 264', flag: '🇦🇮', placeholder: '264 000-0000', validate: d => /^\d{10}$/.test(d) }, // Anguilla
+  { code: '+1 268', flag: '🇦🇬', placeholder: '268 000-0000', validate: d => /^\d{10}$/.test(d) }, // Antigua and Barbuda
+  { code: '+1 284', flag: '🇻🇬', placeholder: '284 000-0000', validate: d => /^\d{10}$/.test(d) }, // British Virgin Islands
+  { code: '+1 340', flag: '🇻🇮', placeholder: '340 000-0000', validate: d => /^\d{10}$/.test(d) }, // US Virgin Islands
+  { code: '+1 441', flag: '🇧🇲', placeholder: '441 000-0000', validate: d => /^\d{10}$/.test(d) }, // Bermuda
+  { code: '+1 473', flag: '🇬🇩', placeholder: '473 000-0000', validate: d => /^\d{10}$/.test(d) }, // Grenada
+  { code: '+1 649', flag: '🇹🇨', placeholder: '649 000-0000', validate: d => /^\d{10}$/.test(d) }, // Turks and Caicos
+  { code: '+1 658', flag: '🇯🇲', placeholder: '658 000-0000', validate: d => /^\d{10}$/.test(d) }, // Jamaica
+  { code: '+1 664', flag: '🇲🇸', placeholder: '664 000-0000', validate: d => /^\d{10}$/.test(d) }, // Montserrat
+  { code: '+1 670', flag: '🇲🇵', placeholder: '670 000-0000', validate: d => /^\d{10}$/.test(d) }, // Northern Mariana Islands
+  { code: '+1 671', flag: '🇬🇺', placeholder: '671 000-0000', validate: d => /^\d{10}$/.test(d) }, // Guam
+  { code: '+1 684', flag: '🇦🇸', placeholder: '684 000-0000', validate: d => /^\d{10}$/.test(d) }, // American Samoa
+  { code: '+1 721', flag: '🇸🇽', placeholder: '721 000-0000', validate: d => /^\d{10}$/.test(d) }, // Sint Maarten
+  { code: '+1 758', flag: '🇱🇨', placeholder: '758 000-0000', validate: d => /^\d{10}$/.test(d) }, // Saint Lucia
+  { code: '+1 767', flag: '🇩🇲', placeholder: '767 000-0000', validate: d => /^\d{10}$/.test(d) }, // Dominica
+  { code: '+1 784', flag: '🇻🇨', placeholder: '784 000-0000', validate: d => /^\d{10}$/.test(d) }, // Saint Vincent and the Grenadines
+  { code: '+1 787', flag: '🇵🇷', placeholder: '787 000-0000', validate: d => /^\d{10}$/.test(d) }, // Puerto Rico
+  { code: '+1 809', flag: '🇩🇴', placeholder: '809 000-0000', validate: d => /^\d{10}$/.test(d) }, // Dominican Republic
+  { code: '+1 829', flag: '🇩🇴', placeholder: '829 000-0000', validate: d => /^\d{10}$/.test(d) }, // Dominican Republic
+  { code: '+1 849', flag: '🇩🇴', placeholder: '849 000-0000', validate: d => /^\d{10}$/.test(d) }, // Dominican Republic
+  { code: '+1 868', flag: '🇹🇹', placeholder: '868 000-0000', validate: d => /^\d{10}$/.test(d) }, // Trinidad and Tobago
+  { code: '+1 869', flag: '🇰🇳', placeholder: '869 000-0000', validate: d => /^\d{10}$/.test(d) }, // Saint Kitts and Nevis
+
+  { code: '+501', flag: '🇧🇿', placeholder: '600-0000', validate: d => /^\d{7}$/.test(d) }, // Belize
+  { code: '+502', flag: '🇬🇹', placeholder: '5000 0000', validate: d => /^\d{8}$/.test(d) }, // Guatemala
+  { code: '+503', flag: '🇸🇻', placeholder: '7000 0000', validate: d => /^\d{8}$/.test(d) }, // El Salvador
+  { code: '+504', flag: '🇭🇳', placeholder: '9000 0000', validate: d => /^\d{8}$/.test(d) }, // Honduras
+  { code: '+505', flag: '🇳🇮', placeholder: '8000 0000', validate: d => /^\d{8}$/.test(d) }, // Nicaragua
+  { code: '+506', flag: '🇨🇷', placeholder: '8000 0000', validate: d => /^\d{8}$/.test(d) }, // Costa Rica
+  { code: '+507', flag: '🇵🇦', placeholder: '6000-0000', validate: d => /^\d{8}$/.test(d) }, // Panama
+  { code: '+509', flag: '🇭🇹', placeholder: '3700 0000', validate: d => /^\d{8}$/.test(d) }, // Haiti
+  { code: '+52',  flag: '🇲🇽', placeholder: '55 0000 0000', validate: d => /^\d{10}$/.test(d) }, // Mexico
+  { code: '+53',  flag: '🇨🇺', placeholder: '5 0000000', validate: d => /^\d{8}$/.test(d) }, // Cuba
+
+  // ============================================================
+  // SOUTH AMERICA
+  // ============================================================
+
+  { code: '+54',  flag: '🇦🇷', placeholder: '11 0000-0000', validate: d => /^\d{10,11}$/.test(d) }, // Argentina
+  { code: '+55',  flag: '🇧🇷', placeholder: '11 90000-0000', validate: d => /^\d{10,11}$/.test(d) }, // Brazil
+  { code: '+56',  flag: '🇨🇱', placeholder: '9 0000 0000', validate: d => /^9\d{8}$/.test(d) }, // Chile
+  { code: '+57',  flag: '🇨🇴', placeholder: '300 0000000', validate: d => /^3\d{9}$/.test(d) }, // Colombia
+  { code: '+58',  flag: '🇻🇪', placeholder: '412 0000000', validate: d => /^4\d{9}$/.test(d) }, // Venezuela
   { code: '+591', flag: '🇧🇴', placeholder: '7 0000000', validate: d => /^\d{8}$/.test(d) }, // Bolivia
-  { code: '+55', flag: '🇧🇷', placeholder: '11 90000-0000', validate: d => /^\d{10,11}$/.test(d) }, // Brazil
-  { code: '+56', flag: '🇨🇱', placeholder: '9 0000 0000', validate: d => /^9\d{8}$/.test(d) }, // Chile
-  { code: '+57', flag: '🇨🇴', placeholder: '300 0000000', validate: d => /^3\d{9}$/.test(d) }, // Colombia
-  { code: '+593', flag: '🇪🇨', placeholder: '99 000 0000', validate: d => /^9\d{8}$/.test(d) }, // Ecuador
   { code: '+592', flag: '🇬🇾', placeholder: '600 0000', validate: d => /^\d{7}$/.test(d) }, // Guyana
+  { code: '+593', flag: '🇪🇨', placeholder: '99 000 0000', validate: d => /^9\d{8}$/.test(d) }, // Ecuador
   { code: '+595', flag: '🇵🇾', placeholder: '981 000000', validate: d => /^9\d{8}$/.test(d) }, // Paraguay
-  { code: '+51', flag: '🇵🇪', placeholder: '900 000 000', validate: d => /^9\d{8}$/.test(d) }, // Peru
   { code: '+597', flag: '🇸🇷', placeholder: '700 0000', validate: d => /^\d{7}$/.test(d) }, // Suriname
   { code: '+598', flag: '🇺🇾', placeholder: '99 000 000', validate: d => /^9\d{7}$/.test(d) }, // Uruguay
-  { code: '+58', flag: '🇻🇪', placeholder: '412 0000000', validate: d => /^4\d{9}$/.test(d) }, // Venezuela
+
+  // ============================================================
+  // AFRICA
+  // ============================================================
+
+  { code: '+20',  flag: '🇪🇬', placeholder: '10 0000 0000', validate: d => /^(10|11|12|15)\d{8}$/.test(d) }, // Egypt
+  { code: '+211', flag: '🇸🇸', placeholder: '977 000 000', validate: d => /^9\d{8}$/.test(d) }, // South Sudan
+  { code: '+212', flag: '🇲🇦', placeholder: '6 0000 0000', validate: d => /^6\d{8}$/.test(d) }, // Morocco
+  { code: '+213', flag: '🇩🇿', placeholder: '5 0000 0000', validate: d => /^[5-7]\d{8}$/.test(d) }, // Algeria
+  { code: '+216', flag: '🇹🇳', placeholder: '20 000 000', validate: d => /^\d{8}$/.test(d) }, // Tunisia
+  { code: '+218', flag: '🇱🇾', placeholder: '91 0000000', validate: d => /^\d{9}$/.test(d) }, // Libya
+  { code: '+220', flag: '🇬🇲', placeholder: '300 0000', validate: d => /^\d{7}$/.test(d) }, // Gambia
+  { code: '+221', flag: '🇸🇳', placeholder: '77 000 00 00', validate: d => /^\d{9}$/.test(d) }, // Senegal
+  { code: '+222', flag: '🇲🇷', placeholder: '22 00 00 00', validate: d => /^\d{8}$/.test(d) }, // Mauritania
+  { code: '+223', flag: '🇲🇱', placeholder: '70 00 00 00', validate: d => /^\d{8}$/.test(d) }, // Mali
+  { code: '+224', flag: '🇬🇳', placeholder: '620 00 00 00', validate: d => /^\d{9}$/.test(d) }, // Guinea
+  { code: '+225', flag: '🇨🇮', placeholder: '07 00 00 00 00', validate: d => /^\d{10}$/.test(d) }, // Côte d'Ivoire
+  { code: '+226', flag: '🇧🇫', placeholder: '70 00 00 00', validate: d => /^\d{8}$/.test(d) }, // Burkina Faso
+  { code: '+227', flag: '🇳🇪', placeholder: '90 00 00 00', validate: d => /^\d{8}$/.test(d) }, // Niger
+  { code: '+228', flag: '🇹🇬', placeholder: '90 00 00 00', validate: d => /^\d{8}$/.test(d) }, // Togo
+  { code: '+229', flag: '🇧🇯', placeholder: '97 00 00 00', validate: d => /^\d{8}$/.test(d) }, // Benin
+  { code: '+230', flag: '🇲🇺', placeholder: '5 000 0000', validate: d => /^\d{8}$/.test(d) }, // Mauritius
+  { code: '+231', flag: '🇱🇷', placeholder: '77 000 000', validate: d => /^\d{8}$/.test(d) }, // Liberia
+  { code: '+232', flag: '🇸🇱', placeholder: '76 000000', validate: d => /^\d{8}$/.test(d) }, // Sierra Leone
+  { code: '+233', flag: '🇬🇭', placeholder: '24 000 0000', validate: d => /^2\d{8}$/.test(d) }, // Ghana
+  { code: '+234', flag: '🇳🇬', placeholder: '803 000 0000', validate: d => /^8\d{9}$/.test(d) }, // Nigeria
+  { code: '+235', flag: '🇹🇩', placeholder: '63 00 00 00', validate: d => /^\d{8}$/.test(d) }, // Chad
+  { code: '+236', flag: '🇨🇫', placeholder: '70 00 00 00', validate: d => /^\d{8}$/.test(d) }, // Central African Republic
+  { code: '+237', flag: '🇨🇲', placeholder: '6 00 00 00 00', validate: d => /^6\d{8}$/.test(d) }, // Cameroon
+  { code: '+238', flag: '🇨🇻', placeholder: '9 00 00 00', validate: d => /^\d{7}$/.test(d) }, // Cape Verde
+  { code: '+239', flag: '🇸🇹', placeholder: '9 00 00 00', validate: d => /^\d{7}$/.test(d) }, // São Tomé and Príncipe
+  { code: '+240', flag: '🇬🇶', placeholder: '222 000 000', validate: d => /^\d{9}$/.test(d) }, // Equatorial Guinea
+  { code: '+241', flag: '🇬🇦', placeholder: '06 00 00 00', validate: d => /^\d{8}$/.test(d) }, // Gabon
+  { code: '+242', flag: '🇨🇬', placeholder: '06 000 0000', validate: d => /^\d{9}$/.test(d) }, // Republic of the Congo
+  { code: '+243', flag: '🇨🇩', placeholder: '81 000 0000', validate: d => /^\d{9}$/.test(d) }, // DR Congo
+  { code: '+244', flag: '🇦🇴', placeholder: '923 000 000', validate: d => /^9\d{8}$/.test(d) }, // Angola
+  { code: '+245', flag: '🇬🇼', placeholder: '955 0000', validate: d => /^\d{7}$/.test(d) }, // Guinea-Bissau
+  { code: '+248', flag: '🇸🇨', placeholder: '2 000 000', validate: d => /^\d{7}$/.test(d) }, // Seychelles
+  { code: '+249', flag: '🇸🇩', placeholder: '91 000 0000', validate: d => /^9\d{8}$/.test(d) }, // Sudan
+  { code: '+250', flag: '🇷🇼', placeholder: '78 000 0000', validate: d => /^7\d{8}$/.test(d) }, // Rwanda
+  { code: '+251', flag: '🇪🇹', placeholder: '91 000 0000', validate: d => /^9\d{8}$/.test(d) }, // Ethiopia
+  { code: '+252', flag: '🇸🇴', placeholder: '61 0000000', validate: d => /^\d{9}$/.test(d) }, // Somalia
+  { code: '+253', flag: '🇩🇯', placeholder: '77 00 00 00', validate: d => /^\d{8}$/.test(d) }, // Djibouti
+  { code: '+254', flag: '🇰🇪', placeholder: '700 000000', validate: d => /^7\d{8}$/.test(d) }, // Kenya
+  { code: '+255', flag: '🇹🇿', placeholder: '700 000000', validate: d => /^7\d{8}$/.test(d) }, // Tanzania
+  { code: '+256', flag: '🇺🇬', placeholder: '700 000000', validate: d => /^7\d{8}$/.test(d) }, // Uganda
+  { code: '+257', flag: '🇧🇮', placeholder: '79 00 00 00', validate: d => /^7\d{7}$/.test(d) }, // Burundi
+  { code: '+258', flag: '🇲🇿', placeholder: '82 000 0000', validate: d => /^8\d{8}$/.test(d) }, // Mozambique
+  { code: '+260', flag: '🇿🇲', placeholder: '95 000 0000', validate: d => /^9\d{8}$/.test(d) }, // Zambia
+  { code: '+261', flag: '🇲🇬', placeholder: '32 00 000 00', validate: d => /^3\d{8}$/.test(d) }, // Madagascar
+  { code: '+263', flag: '🇿🇼', placeholder: '77 000 0000', validate: d => /^7\d{8}$/.test(d) }, // Zimbabwe
+  { code: '+264', flag: '🇳🇦', placeholder: '81 000 0000', validate: d => /^8\d{8}$/.test(d) }, // Namibia
+  { code: '+265', flag: '🇲🇼', placeholder: '88 000 0000', validate: d => /^8\d{8}$/.test(d) }, // Malawi
+  { code: '+266', flag: '🇱🇸', placeholder: '5010 0000', validate: d => /^\d{8}$/.test(d) }, // Lesotho
+  { code: '+267', flag: '🇧🇼', placeholder: '71 000 000', validate: d => /^\d{8}$/.test(d) }, // Botswana
+  { code: '+268', flag: '🇸🇿', placeholder: '76 00 0000', validate: d => /^\d{8}$/.test(d) }, // Eswatini
+  { code: '+269', flag: '🇰🇲', placeholder: '3 00 0000', validate: d => /^\d{7}$/.test(d) }, // Comoros
+  { code: '+27',  flag: '🇿🇦', placeholder: '82 000 0000', validate: d => /^8\d{8}$/.test(d) }, // South Africa
+  { code: '+290', flag: '🇸🇭', placeholder: '5 0000', validate: d => /^\d{4,5}$/.test(d) }, // Saint Helena
+  { code: '+291', flag: '🇪🇷', placeholder: '7 000 000', validate: d => /^\d{7}$/.test(d) }, // Eritrea
+  { code: '+297', flag: '🇦🇼', placeholder: '560 0000', validate: d => /^\d{7}$/.test(d) }, // Aruba
 ];
 const ARABIC_DIGITS = { '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9' }
 function normalizeDigits(v) {
