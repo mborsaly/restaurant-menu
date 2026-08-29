@@ -363,16 +363,16 @@ export const t = (key, lang = 'fr') => {
       es: 'Volver a WhatsApp',
     },
     order_again: {
-      en: 'Order Again 🍕',
-      fr: 'Commander à nouveau 🍕',
-      ar: 'اطلب مرة أخرى 🍕',
-      es: 'Pedir de Nuevo 🍕',
+      en: 'Order Again',
+      fr: 'Commander à nouveau',
+      ar: 'اطلب مرة أخرى',
+      es: 'Pedir de Nuevo',
     },
     check_whatsapp_desktop: {
-      en: '📱 Check your WhatsApp for confirmation',
-      fr: '📱 Vérifiez votre WhatsApp pour la confirmation',
-      ar: '📱 تحقق من واتساب للتأكيد',
-      es: '📱 Revisa tu WhatsApp para la confirmación',
+      en: 'Check your WhatsApp for confirmation',
+      fr: 'Vérifiez votre WhatsApp pour la confirmation',
+      ar: 'تحقق من واتساب للتأكيد',
+      es: 'Revisa tu WhatsApp para la confirmación',
     },
 
     // ── WelcomeScreen / LoadingScreen ────────
