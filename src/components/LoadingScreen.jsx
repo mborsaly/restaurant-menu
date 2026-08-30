@@ -8,7 +8,8 @@ export default function LoadingScreen({
     >
 
       {/* Ringwave animation */}
-      <div className="relative flex items-center justify-center mb-8">
+      <div className="relative w-16 h-16 flex items-center justify-center mb-8">
+
         {/* Rings */}
         {[1, 2].map(i => (
           <div
@@ -49,14 +50,13 @@ export default function LoadingScreen({
 
       {/* Wordmark */}
       <div
+        className="text-center"
         style={{
           fontFamily: "'Fraunces', Georgia, serif",
           fontSize: 24,
           fontWeight: 600,
           color: '#1A4D3E',
           letterSpacing: '-0.01em',
-          textAlign: 'center',
-          width: '100%',
         }}
       >
         Bistro
@@ -71,13 +71,12 @@ export default function LoadingScreen({
         </span>
       </div>
 
+      {/* Loading message */}
       <p
-        className="text-sm mt-3"
+        className="text-sm mt-3 text-center"
         style={{
           color: '#2D2A26',
           opacity: 0.5,
-          textAlign: 'center',
-          width: '100%',
         }}
       >
         {message}
