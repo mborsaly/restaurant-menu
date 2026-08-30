@@ -91,7 +91,7 @@ export default function Header({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          {onHistoryOpen && (
+          {onHistoryOpen && restaurant?.show_order_history !== false && (
             <button
               onClick={onHistoryOpen}
               aria-label="Order history"
