@@ -5,7 +5,7 @@ export const t = (key, lang = 'fr') => {
 
     // ── Header ──────────────────────────────
     open_now: {
-      en: '● Open now',
+      en: 'Open now',
       fr: '● Ouvert maintenant',
       ar: '● مفتوح الآن',
       es: '● Abierto ahora',
