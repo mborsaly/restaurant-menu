@@ -5,7 +5,9 @@ import { useSession }           from '../hooks/useSession'
 import { supabase }             from '../lib/supabase'
 import { t }                    from '../lib/translations'
 import { formatPrice }          from '../lib/currency'
+import { calculateTax }         from '../lib/tax'
 import SheetCloseButton         from './SheetCloseButton'
+import StripePaymentSection     from './StripePaymentSection'
 
 const COUNTRY_CODES = [
   
@@ -31,10 +33,10 @@ const COUNTRY_CODES = [
   { code: '+597', flag: '🇸🇷', placeholder: '700 0000', validate: d => /^\d{7}$/.test(d) }, // Suriname
   { code: '+598', flag: '🇺🇾', placeholder: '99 000 000', validate: d => /^9\d{7}$/.test(d) }, // Uruguay
   { code: '+58', flag: '🇻🇪', placeholder: '412 0000000', validate: d => /^4\d{9}$/.test(d) }, // Venezuela
-
   // Egypt
   { code: '+20', flag: '🇪🇬', placeholder: '10 0000 0000', validate: d => /^(10|11|12|15)\d{8}$/.test(d) },
 ];
+
 const ARABIC_DIGITS = { '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9' }
 function normalizeDigits(v) {
   return v.split('').map(ch => ARABIC_DIGITS[ch] ?? ch).join('').replace(/[^\d]/g, '')
@@ -63,11 +65,6 @@ export default function CheckoutSheet({
 
   const isVenueMode = !!restaurant?.is_venue_vendor
 
-  // ── Fulfillment type selection ──
-  // Priority: dine-in (via table QR) overrides
-  // everything else automatically. Otherwise, if
-  // the vendor supports both delivery and pickup,
-  // let the customer choose.
   const supportsDelivery = restaurant?.supports_delivery !== false
   const supportsPickup   = !!restaurant?.supports_pickup
   const canChooseFulfillment = !isDineIn && !isVenueMode
@@ -78,10 +75,30 @@ export default function CheckoutSheet({
       : (supportsDelivery ? 'delivery' : 'pickup')
   )
 
-  const isPickup = fulfillmentType === 'pickup'
-  const deliveryFee = (isVenueMode || isDineIn || isPickup)
-    ? 0 : (restaurant?.delivery_fee || 3.99)
-  const total = subtotal + deliveryFee
+  // ── Delivery fee — explicit allowlist, only
+  //    charged for genuine standalone delivery
+  //    orders. Pickup, dine-in, and venue orders
+  //    never carry a delivery fee. ──
+  const isGenuineDelivery = !isDineIn && !isVenueMode && fulfillmentType === 'delivery'
+  const deliveryFee = isGenuineDelivery ? (restaurant?.delivery_fee || 3.99) : 0
+
+  // ── Tax — computed from the vendor's own
+  //    registered rate(s), never from customer
+  //    location. Recomputed whenever subtotal or
+  //    deliveryFee changes. ──
+  const { lines: taxLines, totalTax } = calculateTax(subtotal, deliveryFee, restaurant)
+
+  const total = subtotal + deliveryFee + totalTax
+
+  // ── Payment method: cash vs online ──
+  const supportsOnlinePayment = !!restaurant?.supports_online_payment
+  const [paymentMethod, setPaymentMethod] = useState('cash')
+
+  const [clientSecret, setClientSecret]           = useState(null)
+  const [creatingIntent, setCreatingIntent]       = useState(false)
+  const [paymentReady, setPaymentReady]           = useState(false)
+  const [stripeHandle, setStripeHandle]           = useState(null)
+  const [paymentError, setPaymentError]           = useState(null)
 
   const [spots, setSpots] = useState([])
   const [spotsLoading, setSpotsLoading] = useState(isVenueMode)
@@ -105,6 +122,43 @@ export default function CheckoutSheet({
     supabase.from('venue_spots').select('*').eq('venue_id', restaurant.venue_id).eq('active', true).order('sort_order')
       .then(({ data }) => { setSpots(data || []); setSpotsLoading(false) })
   }, [isVenueMode, restaurant?.venue_id])
+
+  // ── Create/refresh the PaymentIntent whenever
+  //    "Pay Now" is selected and the total is known.
+  //    Re-creates if the cart total changes so the
+  //    intent amount always matches what's charged. ──
+  useEffect(() => {
+    if (paymentMethod !== 'card' || !supportsOnlinePayment) return
+    let cancelled = false
+
+    async function createIntent() {
+      setCreatingIntent(true)
+      setPaymentError(null)
+      try {
+        const response = await fetch(import.meta.env.VITE_N8N_CREATE_PAYMENT_INTENT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            vendor_id: restaurant.id,
+            amount: total,
+            currency: restaurant.currency_code || 'CAD',
+          }),
+        })
+        const result = await response.json()
+        if (!response.ok || !result.client_secret) {
+          throw new Error(result.error || 'Could not start payment')
+        }
+        if (!cancelled) setClientSecret(result.client_secret)
+      } catch (err) {
+        if (!cancelled) setPaymentError(err.message)
+      } finally {
+        if (!cancelled) setCreatingIntent(false)
+      }
+    }
+
+    createIntent()
+    return () => { cancelled = true }
+  }, [paymentMethod, total, restaurant?.id, supportsOnlinePayment])
 
   function getSpotName(spot) {
     if (!spot) return ''
@@ -139,8 +193,7 @@ export default function CheckoutSheet({
     else if (!phoneIsValid) e.phone = lang === 'ar' ? 'رقم غير صحيح' : 'Invalid number'
 
     if (isDineIn) {
-      // Table already known from QR — nothing extra
-      // required beyond name/phone
+      // Table already known from QR
     } else if (isVenueMode) {
       if (!selectedSpot) e.spot = t('spot_required', lang)
       else if (selectedSpot.extra_field_required && !extraFieldValue.trim()) {
@@ -156,9 +209,41 @@ export default function CheckoutSheet({
   async function handlePlaceOrder() {
     if (!validate()) return
     setSubmitting(true)
-    try {
-      const fullPhone = `${countryCode}${localPhone.replace(/^0+/, '')}`
+    setPaymentError(null)
 
+    try {
+      let finalPaymentStatus = 'unpaid'
+      let finalPaymentIntentId = null
+
+      // ── If paying online, confirm the payment
+      //    FIRST, before creating the order. Order
+      //    is only created once payment genuinely
+      //    succeeds — never the other way around. ──
+      if (paymentMethod === 'card') {
+        if (!stripeHandle?.stripe || !stripeHandle?.elements) {
+          throw new Error('Payment form not ready')
+        }
+
+        const { error: submitError } = await stripeHandle.elements.submit()
+        if (submitError) throw new Error(submitError.message)
+
+        const { error: confirmError, paymentIntent } = await stripeHandle.stripe.confirmPayment({
+          elements: stripeHandle.elements,
+          clientSecret,
+          confirmParams: { return_url: window.location.href },
+          redirect: 'if_required',
+        })
+
+        if (confirmError) throw new Error(confirmError.message)
+        if (paymentIntent.status !== 'succeeded') {
+          throw new Error('Payment was not completed')
+        }
+
+        finalPaymentStatus = 'paid'
+        finalPaymentIntentId = paymentIntent.id
+      }
+
+      const fullPhone = `${countryCode}${localPhone.replace(/^0+/, '')}`
       const resolvedOrderType = isDineIn
         ? 'dine_in'
         : (isVenueMode ? 'delivery' : fulfillmentType)
@@ -185,7 +270,15 @@ export default function CheckoutSheet({
           translations: item.translations,
           options: item.options, quantity: item.quantity, unitPrice: item.unitPrice, total: item.total,
         })),
-        subtotal, delivery_fee: deliveryFee, total, language: lang,
+        subtotal,
+        delivery_fee: deliveryFee,
+        tax_amount: totalTax,
+        tax_breakdown: taxLines,
+        total,
+        language: lang,
+        payment_method: paymentMethod,
+        payment_status: finalPaymentStatus,
+        payment_intent_id: finalPaymentIntentId,
       }
 
       const response = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL, {
@@ -204,11 +297,12 @@ export default function CheckoutSheet({
         spotName: isVenueMode ? getSpotName(selectedSpot) : null,
         tableName: isDineIn ? getTableName(dineInTable) : null,
         orderType: resolvedOrderType,
+        paid: finalPaymentStatus === 'paid',
       })
       clearCart()
       onSuccess?.()
     } catch (err) {
-      setErrors({ submit: t('order_error', lang) })
+      setErrors({ submit: err.message || t('order_error', lang) })
     } finally {
       setSubmitting(false)
     }
@@ -223,6 +317,10 @@ export default function CheckoutSheet({
   const labelStyle = { fontSize: 11, fontWeight: 700, color: '#2D2A26', opacity: 0.5, display: 'block', marginBottom: 5, fontFamily: "'JetBrains Mono', monospace" }
   const titleSidePad = { [rtl ? 'paddingLeft' : 'paddingRight']: 40 }
 
+  const canSubmit = paymentMethod === 'cash'
+    ? true
+    : (!!clientSecret && paymentReady && !creatingIntent)
+
   // ── SUCCESS / CONFIRMATION STATE ──
   if (success) {
     return (
@@ -235,6 +333,15 @@ export default function CheckoutSheet({
         <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, fontWeight: 700, color: primary, marginBottom: 16 }}>
           #{success.orderNumber}
         </p>
+        {success.paid && (
+          <p style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700,
+            color: '#2D6E5A', background: 'rgba(45,110,90,0.1)', padding: '5px 12px', borderRadius: 100,
+            marginBottom: 12, fontFamily: arabicFont,
+          }}>
+            ✓ {lang === 'ar' ? 'تم الدفع' : lang === 'fr' ? 'Payé' : lang === 'es' ? 'Pagado' : 'Paid'} · {formatPrice(total, restaurant, lang)}
+          </p>
+        )}
         {success.tableName && (
           <p style={{ fontSize: 13, color: '#2D2A26', opacity: 0.7, marginBottom: 8, fontFamily: arabicFont, fontWeight: 600 }}>
             🪑 {success.tableName}
@@ -277,8 +384,6 @@ export default function CheckoutSheet({
         {isDineIn ? t('your_order', lang) : t('delivery_details', lang)}
       </h2>
 
-      {/* Dine-in banner — table already known,
-          no fulfillment choice needed */}
       {isDineIn && dineInTable && (
         <div style={{
           background: `${primary}10`, border: `1.5px solid ${primary}30`,
@@ -298,10 +403,6 @@ export default function CheckoutSheet({
         </div>
       )}
 
-      {/* Fulfillment type toggle — only shown when
-          the vendor supports both delivery AND
-          pickup, and this isn't a venue/dine-in
-          order (which already have a fixed mode) */}
       {canChooseFulfillment && (
         <div style={{
           display: 'flex', gap: 8, marginBottom: 10,
@@ -338,9 +439,6 @@ export default function CheckoutSheet({
         <input style={{ ...inputStyle(!!errors.name), marginBottom: 10 }} value={name} onChange={e => setName(e.target.value)} />
 
         <label style={labelStyle}>{t('phone_number', lang)}</label>
-        {/* Phone row: intentionally always LTR — dial
-            codes and digit sequences read left-to-right
-            regardless of interface language */}
         <div style={{ display: 'flex', gap: 8, direction: 'ltr' }}>
           <select value={countryCode} onChange={e => setCountryCode(e.target.value)} style={{ ...inputStyle(false), width: 90 }}>
             {COUNTRY_CODES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
@@ -356,8 +454,6 @@ export default function CheckoutSheet({
         {errors.phone && <p style={{ color: '#ef4444', fontSize: 11, marginTop: 4 }}>{errors.phone}</p>}
       </div>
 
-      {/* Address — only for delivery (not dine-in,
-          not venue, not pickup) */}
       {!isDineIn && !isVenueMode && fulfillmentType === 'delivery' && (
         <div style={{ background: 'white', borderRadius: 16, padding: 14, border: errors.address ? '1.5px solid #ef4444' : '1px solid rgba(45,42,38,0.06)', marginBottom: 10 }}>
           <label style={labelStyle}>{t('street_address', lang)}</label>
@@ -371,7 +467,6 @@ export default function CheckoutSheet({
         </div>
       )}
 
-      {/* Pickup note */}
       {!isDineIn && !isVenueMode && fulfillmentType === 'pickup' && (
         <div style={{
           background: `${primary}08`, borderRadius: 12, padding: '10px 14px', marginBottom: 10,
@@ -381,9 +476,6 @@ export default function CheckoutSheet({
         </div>
       )}
 
-      {/* Venue spot picker — unchanged, only for
-          actual multi-vendor venues, never for
-          this restaurant's own dine-in tables */}
       {isVenueMode && (
         <div style={{ background: 'white', borderRadius: 16, padding: 14, border: errors.spot ? '1.5px solid #ef4444' : '1px solid rgba(45,42,38,0.06)', marginBottom: 10 }}>
           <label style={labelStyle}>{t('your_location', lang)}</label>
@@ -425,7 +517,6 @@ export default function CheckoutSheet({
         </div>
       )}
 
-      {/* Dine-in delivery-to-table note */}
       {isDineIn && (
         <div style={{
           background: `${primary}08`, borderRadius: 12, padding: '10px 14px', marginBottom: 10,
@@ -435,9 +526,91 @@ export default function CheckoutSheet({
         </div>
       )}
 
-      {/* Total */}
+      {/* ── PAYMENT METHOD ── */}
+      <div style={{ background: 'white', borderRadius: 16, padding: 14, border: '1px solid rgba(45,42,38,0.06)', marginBottom: 10 }}>
+        <label style={labelStyle}>{t('payment', lang)}</label>
+
+        {supportsOnlinePayment ? (
+          <>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              {[
+                { key: 'cash', label: t('cash_on_delivery', lang), icon: '💵' },
+                { key: 'card', label: lang === 'ar' ? 'ادفع الآن' : lang === 'fr' ? 'Payer maintenant' : lang === 'es' ? 'Pagar ahora' : 'Pay Now', icon: '💳' },
+              ].map(opt => {
+                const active = paymentMethod === opt.key
+                return (
+                  <button
+                    key={opt.key}
+                    onClick={() => { setPaymentMethod(opt.key); setPaymentReady(false) }}
+                    style={{
+                      flex: 1, padding: '10px 12px', borderRadius: 11,
+                      border: active ? `2px solid ${primary}` : '1.5px solid rgba(45,42,38,.1)',
+                      background: active ? `${primary}08` : '#FFF8F0', cursor: 'pointer',
+                      fontSize: 13, fontWeight: 700, color: active ? primary : '#1A2530',
+                      fontFamily: arabicFont,
+                    }}
+                  >
+                    {opt.icon} {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            {paymentMethod === 'card' && (
+              <div>
+                {creatingIntent && !clientSecret && (
+                  <p style={{ fontSize: 12, opacity: 0.5, textAlign: 'center', padding: '10px 0' }}>
+                    {lang === 'ar' ? 'جاري التجهيز...' : lang === 'fr' ? 'Préparation...' : lang === 'es' ? 'Preparando...' : 'Preparing...'}
+                  </p>
+                )}
+                {paymentError && (
+                  <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 8 }}>{paymentError}</p>
+                )}
+                <StripePaymentSection
+                  clientSecret={clientSecret}
+                  connectedAccountId={restaurant?.payment_provider_account_id}
+                  lang={lang}
+                  isRTL={rtl}
+                  onReady={(handle) => { setStripeHandle(handle); setPaymentReady(true) }}
+                  onError={setPaymentError}
+                />
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{
+            borderRadius: 14, padding: '12px 16px', background: 'rgba(45,42,38,0.03)',
+            display: 'flex', alignItems: 'center', gap: 12, flexDirection: rtl ? 'row-reverse' : 'row',
+          }}>
+            <span style={{ fontSize: 24 }}>💵</span>
+            <div style={{ textAlign: rtl ? 'right' : 'left' }}>
+              <p style={{ fontWeight: 700, fontSize: 14, color: '#2D2A26', margin: 0, fontFamily: arabicFont }}>
+                {t('cash_on_delivery', lang)}
+              </p>
+              <p style={{ fontSize: 12, color: '#2D2A26', opacity: 0.5, margin: '2px 0 0', fontFamily: arabicFont }}>
+                {t('cash_ready', lang)} {formatPrice(total, restaurant, lang)} {fulfillmentType === 'pickup' ? t('order_ready_pickup', lang) : t('cash_ready_suffix', lang)}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Full price breakdown — subtotal, delivery
+          (only if genuine delivery), tax lines (only
+          if vendor.tax_enabled), total. This is the
+          FIRST place any of these numbers appear —
+          CartSheet intentionally shows subtotal only. ── */}
       <div style={{ background: 'white', borderRadius: 16, padding: 14, border: '1px solid rgba(45,42,38,0.06)', marginBottom: 16 }}>
-        {!isVenueMode && !isDineIn && fulfillmentType === 'delivery' && deliveryFee > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8 }}>
+          <span style={{ opacity: 0.55, fontFamily: arabicFont, order: rtl ? 2 : 1 }}>
+            {t('subtotal', lang)}
+          </span>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", order: rtl ? 1 : 2 }}>
+            {formatPrice(subtotal, restaurant, lang)}
+          </span>
+        </div>
+
+        {isGenuineDelivery && deliveryFee > 0 && (
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8 }}>
             <span style={{ opacity: 0.55, fontFamily: arabicFont, order: rtl ? 2 : 1 }}>
               {t('delivery', lang)}
@@ -447,6 +620,20 @@ export default function CheckoutSheet({
             </span>
           </div>
         )}
+
+        {taxLines.map(line => (
+          <div key={line.name} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8 }}>
+            <span style={{ opacity: 0.55, fontFamily: arabicFont, order: rtl ? 2 : 1 }}>
+              {line.name} ({line.pct}%)
+            </span>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", order: rtl ? 1 : 2 }}>
+              {formatPrice(line.amount, restaurant, lang)}
+            </span>
+          </div>
+        ))}
+
+        <div style={{ height: 1, background: 'rgba(45,42,38,0.06)', margin: '4px 0 8px' }} />
+
         <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
           <span style={{ fontFamily: arabicFont, order: rtl ? 2 : 1 }}>
             {t('total', lang)}
@@ -459,14 +646,19 @@ export default function CheckoutSheet({
 
       {errors.submit && <p style={{ color: '#ef4444', fontSize: 12, textAlign: 'center', marginBottom: 10 }}>{errors.submit}</p>}
 
-      <button onClick={handlePlaceOrder} disabled={submitting} style={{
+      <button onClick={handlePlaceOrder} disabled={submitting || !canSubmit} style={{
         width: '100%', borderRadius: 18, padding: '15px 22px', border: 'none',
-        background: submitting ? 'rgba(45,42,38,0.15)' : primary, color: submitting ? 'rgba(45,42,38,0.4)' : 'white',
-        fontWeight: 700, fontSize: 15, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: arabicFont,
+        background: (submitting || !canSubmit) ? 'rgba(45,42,38,0.15)' : primary,
+        color: (submitting || !canSubmit) ? 'rgba(45,42,38,0.4)' : 'white',
+        fontWeight: 700, fontSize: 15, cursor: (submitting || !canSubmit) ? 'not-allowed' : 'pointer', fontFamily: arabicFont,
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
       }}>
         <span style={{ order: rtl ? 2 : 1 }}>
-          {submitting ? t('placing_order', lang) : t('place_order', lang)}
+          {submitting
+            ? (paymentMethod === 'card'
+                ? (lang === 'ar' ? 'جاري معالجة الدفع...' : lang === 'fr' ? 'Traitement du paiement...' : lang === 'es' ? 'Procesando pago...' : 'Processing payment...')
+                : t('placing_order', lang))
+            : t('place_order', lang)}
         </span>
         <span style={{ order: rtl ? 1 : 2, fontFamily: "'JetBrains Mono', monospace" }}>
           {!submitting && `· ${formatPrice(total, restaurant, lang)}`}
