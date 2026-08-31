@@ -6,15 +6,15 @@ export const t = (key, lang = 'fr') => {
     // ── Header ──────────────────────────────
     open_now: {
       en: 'Open now',
-      fr: '● Ouvert maintenant',
-      ar: '● مفتوح الآن',
-      es: '● Abierto ahora',
+      fr: 'Ouvert maintenant',
+      ar: 'مفتوح الآن',
+      es: 'Abierto ahora',
     },
     closed_now: {
-      en: '● Closed',
-      fr: '● Fermé',
-      ar: '● مغلق',
-      es: '● Cerrado',
+      en: 'Closed',
+      fr: 'Fermé',
+      ar: 'مغلق',
+      es: 'Cerrado',
     },
 
     // ── Cart component ───────────────────────
