@@ -13,10 +13,6 @@ export default function CartSheet({
   const arabicFont = rtl ? "'Noto Naskh Arabic', serif" : "'Plus Jakarta Sans', sans-serif"
   const { cart, subtotal, itemCount, removeItem, updateQuantity } = useCart()
 
-  const isVenueMode = !!restaurant?.is_venue_vendor
-  const deliveryFee = isVenueMode ? 0 : (restaurant?.delivery_fee || 3.99)
-  const total = subtotal + deliveryFee
-
   function getItemName(item) {
     return pickTranslation(item.translations, 'name', lang, fallbackLang) || item.name
   }
@@ -84,32 +80,44 @@ export default function CartSheet({
         ))}
       </div>
 
+      {/* ── Only subtotal + total here.
+          NO delivery fee, NO tax — both depend
+          on fulfillment type (delivery vs pickup
+          vs dine-in), which isn't chosen yet at
+          this point in the flow. Showing them
+          here would either be wrong (assuming
+          delivery before it's picked) or
+          misleading (a number that changes at
+          checkout looks like a bait-and-switch).
+          At this stage, "total" simply equals
+          "subtotal" — the real total with fees/
+          tax only appears once CheckoutSheet
+          knows the actual fulfillment type. ── */}
       <div style={{ background: 'white', borderRadius: 16, padding: 14, border: '1px solid rgba(45,42,38,0.06)', marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8 }}>
           <span style={{ opacity: 0.55, fontFamily: arabicFont, order: rtl ? 2 : 1 }}>{t('subtotal', lang)}</span>
           <span style={{ fontFamily: "'JetBrains Mono', monospace", order: rtl ? 1 : 2 }}>{formatPrice(subtotal, restaurant, lang)}</span>
         </div>
-        {!isVenueMode && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
-            <span style={{ opacity: 0.55, fontFamily: arabicFont, order: rtl ? 2 : 1 }}>{t('delivery', lang)}</span>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", order: rtl ? 1 : 2 }}>{formatPrice(deliveryFee, restaurant, lang)}</span>
-          </div>
-        )}
-        <div style={{ height: 1, background: 'rgba(45,42,38,0.06)', margin: '8px 0' }} />
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
-          <span style={{ fontFamily: arabicFont, order: rtl ? 2 : 1 }}>{t('total', lang)}</span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", color: primary, fontSize: 16, order: rtl ? 1 : 2 }}>
-            {formatPrice(total, restaurant, lang)}
-          </span>
-        </div>
+        <p style={{
+          fontSize: 11, color: '#2D2A26', opacity: 0.45, margin: 0,
+          textAlign: rtl ? 'right' : 'left', fontFamily: arabicFont,
+        }}>
+          {lang === 'ar' ? 'رسوم التوصيل والضرائب هتتحسب في صفحة الدفع'
+            : lang === 'fr' ? 'Frais de livraison et taxes calculés au paiement'
+            : lang === 'es' ? 'Costo de envío e impuestos se calculan al pagar'
+            : 'Delivery fee and tax calculated at checkout'}
+        </p>
       </div>
 
       <button onClick={onCheckout} style={{
         width: '100%', borderRadius: 18, padding: '15px 22px', background: primary, border: 'none',
         color: 'white', fontWeight: 700, fontSize: 15, cursor: 'pointer', boxShadow: `0 8px 24px ${primary}44`,
-        fontFamily: arabicFont,
+        fontFamily: arabicFont, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
       }}>
-        {t('checkout', lang)}
+        <span style={{ order: rtl ? 2 : 1 }}>{t('checkout', lang)}</span>
+        <span style={{ order: rtl ? 1 : 2, fontFamily: "'JetBrains Mono', monospace" }}>
+          {formatPrice(subtotal, restaurant, lang)}
+        </span>
       </button>
     </div>
   )
