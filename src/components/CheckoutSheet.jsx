@@ -5,6 +5,7 @@ import { useSession }           from '../hooks/useSession'
 import { supabase }             from '../lib/supabase'
 import { t }                    from '../lib/translations'
 import { formatPrice }          from '../lib/currency'
+import { calculateTax }         from '../lib/tax'
 import SheetCloseButton         from './SheetCloseButton'
 import StripePaymentSection     from './StripePaymentSection'
 
@@ -74,20 +75,29 @@ export default function CheckoutSheet({
       : (supportsDelivery ? 'delivery' : 'pickup')
   )
 
-  const isPickup = fulfillmentType === 'pickup'
-  const deliveryFee = (isVenueMode || isDineIn || isPickup)
-    ? 0 : (restaurant?.delivery_fee || 3.99)
-  const total = subtotal + deliveryFee
+  // ── Delivery fee — explicit allowlist, only
+  //    charged for genuine standalone delivery
+  //    orders. Pickup, dine-in, and venue orders
+  //    never carry a delivery fee. ──
+  const isGenuineDelivery = !isDineIn && !isVenueMode && fulfillmentType === 'delivery'
+  const deliveryFee = isGenuineDelivery ? (restaurant?.delivery_fee || 3.99) : 0
+
+  // ── Tax — computed from the vendor's own
+  //    registered rate(s), never from customer
+  //    location. Recomputed whenever subtotal or
+  //    deliveryFee changes. ──
+  const { lines: taxLines, totalTax } = calculateTax(subtotal, deliveryFee, restaurant)
+
+  const total = subtotal + deliveryFee + totalTax
 
   // ── Payment method: cash vs online ──
   const supportsOnlinePayment = !!restaurant?.supports_online_payment
-  const [paymentMethod, setPaymentMethod] = useState('cash') // 'cash' | 'card'
+  const [paymentMethod, setPaymentMethod] = useState('cash')
 
   const [clientSecret, setClientSecret]           = useState(null)
-  const [paymentIntentId, setPaymentIntentId]     = useState(null)
   const [creatingIntent, setCreatingIntent]       = useState(false)
   const [paymentReady, setPaymentReady]           = useState(false)
-  const [stripeHandle, setStripeHandle]           = useState(null) // { stripe, elements }
+  const [stripeHandle, setStripeHandle]           = useState(null)
   const [paymentError, setPaymentError]           = useState(null)
 
   const [spots, setSpots] = useState([])
@@ -138,10 +148,7 @@ export default function CheckoutSheet({
         if (!response.ok || !result.client_secret) {
           throw new Error(result.error || 'Could not start payment')
         }
-        if (!cancelled) {
-          setClientSecret(result.client_secret)
-          setPaymentIntentId(result.payment_intent_id)
-        }
+        if (!cancelled) setClientSecret(result.client_secret)
       } catch (err) {
         if (!cancelled) setPaymentError(err.message)
       } finally {
@@ -223,13 +230,7 @@ export default function CheckoutSheet({
         const { error: confirmError, paymentIntent } = await stripeHandle.stripe.confirmPayment({
           elements: stripeHandle.elements,
           clientSecret,
-          confirmParams: {
-            // No redirect page needed for card —
-            // Stripe only redirects for methods that
-            // require it (some wallets/bank redirects);
-            // most card payments resolve inline
-            return_url: window.location.href,
-          },
+          confirmParams: { return_url: window.location.href },
           redirect: 'if_required',
         })
 
@@ -269,7 +270,12 @@ export default function CheckoutSheet({
           translations: item.translations,
           options: item.options, quantity: item.quantity, unitPrice: item.unitPrice, total: item.total,
         })),
-        subtotal, delivery_fee: deliveryFee, total, language: lang,
+        subtotal,
+        delivery_fee: deliveryFee,
+        tax_amount: totalTax,
+        tax_breakdown: taxLines,
+        total,
+        language: lang,
         payment_method: paymentMethod,
         payment_status: finalPaymentStatus,
         payment_intent_id: finalPaymentIntentId,
@@ -582,15 +588,29 @@ export default function CheckoutSheet({
                 {t('cash_on_delivery', lang)}
               </p>
               <p style={{ fontSize: 12, color: '#2D2A26', opacity: 0.5, margin: '2px 0 0', fontFamily: arabicFont }}>
-                {t('cash_ready', lang)} {formatPrice(total, restaurant, lang)} {isPickup ? t('order_ready_pickup', lang) : t('cash_ready_suffix', lang)}
+                {t('cash_ready', lang)} {formatPrice(total, restaurant, lang)} {fulfillmentType === 'pickup' ? t('order_ready_pickup', lang) : t('cash_ready_suffix', lang)}
               </p>
             </div>
           </div>
         )}
       </div>
 
+      {/* ── Full price breakdown — subtotal, delivery
+          (only if genuine delivery), tax lines (only
+          if vendor.tax_enabled), total. This is the
+          FIRST place any of these numbers appear —
+          CartSheet intentionally shows subtotal only. ── */}
       <div style={{ background: 'white', borderRadius: 16, padding: 14, border: '1px solid rgba(45,42,38,0.06)', marginBottom: 16 }}>
-        {!isVenueMode && !isDineIn && fulfillmentType === 'delivery' && deliveryFee > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8 }}>
+          <span style={{ opacity: 0.55, fontFamily: arabicFont, order: rtl ? 2 : 1 }}>
+            {t('subtotal', lang)}
+          </span>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", order: rtl ? 1 : 2 }}>
+            {formatPrice(subtotal, restaurant, lang)}
+          </span>
+        </div>
+
+        {isGenuineDelivery && deliveryFee > 0 && (
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8 }}>
             <span style={{ opacity: 0.55, fontFamily: arabicFont, order: rtl ? 2 : 1 }}>
               {t('delivery', lang)}
@@ -600,6 +620,20 @@ export default function CheckoutSheet({
             </span>
           </div>
         )}
+
+        {taxLines.map(line => (
+          <div key={line.name} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8 }}>
+            <span style={{ opacity: 0.55, fontFamily: arabicFont, order: rtl ? 2 : 1 }}>
+              {line.name} ({line.pct}%)
+            </span>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", order: rtl ? 1 : 2 }}>
+              {formatPrice(line.amount, restaurant, lang)}
+            </span>
+          </div>
+        ))}
+
+        <div style={{ height: 1, background: 'rgba(45,42,38,0.06)', margin: '4px 0 8px' }} />
+
         <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
           <span style={{ fontFamily: arabicFont, order: rtl ? 2 : 1 }}>
             {t('total', lang)}
