@@ -250,7 +250,7 @@ export default function CheckoutSheet({
 
       const orderPayload = {
         token: 'demo',
-        restaurant_id: restaurant?.id,
+        vendor_id: restaurant?.id,
         customer_phone: fullPhone,
         customer_name: name,
         order_type: resolvedOrderType,
