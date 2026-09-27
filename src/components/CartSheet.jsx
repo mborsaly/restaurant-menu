@@ -40,6 +40,7 @@ export default function CartSheet({
         margin: '10px 0 14px', textAlign: rtl ? 'right' : 'left', ...titleSidePad,
       }}>
         {t('your_cart', lang)} {itemCount}
+        {t('your_cart', lang)} · {itemCount}
       </h2>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
