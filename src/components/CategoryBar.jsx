@@ -49,11 +49,7 @@ export default function CategoryBar({
                 opacity: active ? 1 : 0.7,
               }}
             >
-              {cat.emoji && (
-                <span style={{ marginRight: 6 }}>
-                  {cat.emoji}
-                </span>
-              )}
+
               {name}
             </button>
           )
