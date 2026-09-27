@@ -26,7 +26,7 @@ export default function WelcomeScreen() {
   }, [restaurant])
 
   if (loading) return (
-    <LoadingScreens
+    <LoadingScreen
       message={t('loading_menu', lang)}
     />
   )
