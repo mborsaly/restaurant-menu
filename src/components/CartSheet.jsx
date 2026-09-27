@@ -39,7 +39,6 @@ export default function CartSheet({
         fontFamily: arabicFont, fontSize: 18, fontWeight: 700, color: '#1A4D3E',
         margin: '10px 0 14px', textAlign: rtl ? 'right' : 'left', ...titleSidePad,
       }}>
-        {t('your_cart', lang)} {itemCount}
         {t('your_cart', lang)} · {itemCount}
       </h2>
 
