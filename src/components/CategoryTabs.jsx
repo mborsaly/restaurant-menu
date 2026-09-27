@@ -61,7 +61,6 @@ export default function CategoryTabs({
                   }}
                 />
               )}
-              {cat.emoji && <span style={{ marginInlineEnd: 6 }}>{cat.emoji}</span>}
               {getName(cat)}
             </button>
           )
