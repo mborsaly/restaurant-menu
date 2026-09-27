@@ -61,13 +61,15 @@ export default function ProductCard({
       }}
     >
       <div style={{ width: '100%', aspectRatio: '4/3', overflow: 'hidden', background: `${primary}12`, position: 'relative' }}>
-        {imgSrc ? (
-          <img src={imgSrc} alt={name} loading="lazy" width={400} height={300}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        ) : (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 46 }}>
-            {item.emoji || '🛒'}
-          </div>
+        {imgSrc && (
+          <img
+            src={imgSrc}
+            alt={name}
+            loading="lazy"
+            width={400}
+            height={300}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
         )}
         {outOfStock && (
           <div style={{
@@ -122,7 +124,7 @@ export default function ProductCard({
               flexShrink: 0,
             }}
           >
-            {justAdded ? '✓' : '+'}
+            {justAdded ? '\u2713' : '+'}
           </motion.button>
         </div>
       </div>

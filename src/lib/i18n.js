@@ -1,7 +1,5 @@
 import { supabase } from './supabase'
 
-// ── Fetch the language catalog (cached in memory
-//    for the session — rarely changes) ──
 let _languagesCache = null
 
 export async function getAllLanguages() {
@@ -15,14 +13,6 @@ export async function getAllLanguages() {
   return _languagesCache
 }
 
-export function isRTLCode(code, languagesList) {
-  const lang = languagesList?.find(l => l.code === code)
-  return !!lang?.is_rtl
-}
-
-// ── Fetch which languages a specific vendor
-//    supports, joined with the language catalog
-//    for name/native_name/is_rtl ──
 export async function getVendorLanguages(vendorId) {
   const { data } = await supabase
     .from('vendor_languages')
@@ -36,11 +26,6 @@ export async function getVendorLanguages(vendorId) {
   }))
 }
 
-// ── Generic translation picker.
-//    translations: array of rows like
-//      [{ language_code: 'en', name: '...' }, ...]
-//    Falls back: requested lang → vendor default
-//    lang → first available → null
 export function pickTranslation(translations, field, lang, fallbackLang) {
   if (!translations || translations.length === 0) return null
 
@@ -56,9 +41,13 @@ export function pickTranslation(translations, field, lang, fallbackLang) {
   return anyMatch?.[field] || null
 }
 
-// ── Turn an array of translation rows into a
-//    lookup map keyed by entity id, for merging
-//    onto a list of parent rows after a query ──
+// ── Group name picker — same fallback chain,
+//    reads from a group's .translations array
+//    (populated from item_option_group_translations) ──
+export function pickGroupName(group, lang, fallbackLang) {
+  return pickTranslation(group.translations, 'name', lang, fallbackLang) || group.name_en || ''
+}
+
 export function groupTranslationsByEntity(translations, idField) {
   const map = {}
   for (const t of translations || []) {
@@ -67,4 +56,10 @@ export function groupTranslationsByEntity(translations, idField) {
     map[id].push(t)
   }
   return map
+}
+
+
+export function isRTLCode(code, languagesList) {
+  const lang = languagesList?.find(l => l.code === code)
+  return !!lang?.is_rtl
 }

@@ -9,16 +9,14 @@ export default function Header({
 }) {
   const { isRTL, vendorLanguages } = useSession()
   const primary = restaurant?.primary_color || '#1A4D3E'
-  const emoji   = restaurant?.logo_emoji    || '🍽️'
   const rtl     = isRTL
 
-  // Vendor name now needs to come from the caller
-  // via restaurant.translations (attached upstream)
-  // if present; fall back to legacy columns.
   const displayName =
     pickTranslation(restaurant?.translations, 'name', lang, vendorLanguages.find(l => l.is_default)?.code)
     || (lang === 'ar' ? restaurant?.name_ar : lang === 'fr' ? restaurant?.name_fr : restaurant?.name)
     || restaurant?.name
+
+  const initial = (displayName || 'B').charAt(0).toUpperCase()
 
   const logoBlock = (
     <div style={{
@@ -26,13 +24,15 @@ export default function Header({
       background: `${primary}16`,
       border: `1.5px solid ${primary}22`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 28, flexShrink: 0,
+      flexShrink: 0,
       boxShadow: `0 2px 8px ${primary}18`,
     }}>
       {restaurant?.logo_url ? (
         <img src={restaurant.logo_url} alt={displayName}
           style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 15 }} />
-      ) : emoji}
+      ) : (
+        <span style={{ fontWeight: 700, fontSize: 22, color: primary }}>{initial}</span>
+      )}
     </div>
   )
 
@@ -71,7 +71,7 @@ export default function Header({
           display: 'inline-flex', width: 'fit-content',
           fontFamily: rtl ? "'Noto Naskh Arabic', serif" : "'Plus Jakarta Sans', sans-serif",
         }}>
-          🪑 {t('dine_in_table', lang)} {dineInTable.table_number}
+          {t('dine_in_table', lang)} {dineInTable.table_number}
         </p>
       )}
     </div>

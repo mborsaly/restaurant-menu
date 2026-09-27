@@ -7,12 +7,12 @@ import { formatPrice }      from '../lib/currency'
 import SheetCloseButton     from './SheetCloseButton'
 
 const STATUS_LABELS = {
-  pending:   { en: 'Received',  fr: 'Reçue',      ar: 'تم الاستلام' },
-  confirmed: { en: 'Confirmed', fr: 'Confirmée',  ar: 'مؤكد' },
-  preparing: { en: 'Preparing', fr: 'En préparation', ar: 'قيد التحضير' },
-  ready:     { en: 'Ready',     fr: 'Prête',      ar: 'جاهز' },
-  delivered: { en: 'Delivered', fr: 'Livrée',     ar: 'تم التسليم' },
-  cancelled: { en: 'Cancelled', fr: 'Annulée',    ar: 'ملغي' },
+  pending:   { en: 'Received',  fr: 'Re\u00e7ue',      ar: '\u062a\u0645 \u0627\u0644\u0627\u0633\u062a\u0644\u0627\u0645' },
+  confirmed: { en: 'Confirmed', fr: 'Confirm\u00e9e',  ar: '\u0645\u0624\u0643\u062f' },
+  preparing: { en: 'Preparing', fr: 'En pr\u00e9paration', ar: '\u0642\u064a\u062f \u0627\u0644\u062a\u062d\u0636\u064a\u0631' },
+  ready:     { en: 'Ready',     fr: 'Pr\u00eate',      ar: '\u062c\u0627\u0647\u0632' },
+  delivered: { en: 'Delivered', fr: 'Livr\u00e9e',     ar: '\u062a\u0645 \u0627\u0644\u062a\u0633\u0644\u064a\u0645' },
+  cancelled: { en: 'Cancelled', fr: 'Annul\u00e9e',    ar: '\u0645\u0644\u063a\u064a' },
 }
 const STATUS_COLORS = {
   pending: '#FF7A47', confirmed: '#3b82f6', preparing: '#D4A03A',
@@ -40,8 +40,6 @@ export default function OrderHistorySheet({
           .order('created_at', { ascending: false })
 
         if (isDineIn && dineInSessionId) {
-          // Scoped to THIS visit only — not the
-          // table's entire history across all guests
           query = query.eq('dine_in_session_id', dineInSessionId)
         } else {
           const saved = JSON.parse(localStorage.getItem('bv_customer_info') || '{}')
@@ -85,13 +83,13 @@ export default function OrderHistorySheet({
         [rtl ? 'paddingLeft' : 'paddingRight']: 40,
       }}>
         {isDineIn
-          ? (lang === 'ar' ? 'حساب الطاولة' : lang === 'fr' ? 'Addition de la Table' : 'Your Table Tab')
+          ? (lang === 'ar' ? '\u062d\u0633\u0627\u0628 \u0627\u0644\u0637\u0627\u0648\u0644\u0629' : lang === 'fr' ? 'Addition de la Table' : 'Your Table Tab')
           : t('order_history', lang)}
       </h2>
 
       {isDineIn && dineInTable && (
         <p style={{ fontSize: 12.5, color: primary, opacity: 0.8, marginBottom: 14, fontFamily: arabicFont, fontWeight: 600 }}>
-          🪑 {lang === 'ar' ? 'طاولة' : 'Table'} {dineInTable.table_number}
+          {lang === 'ar' ? '\u0637\u0627\u0648\u0644\u0629' : 'Table'} {dineInTable.table_number}
         </p>
       )}
 
@@ -102,8 +100,8 @@ export default function OrderHistorySheet({
           <Clock size={36} style={{ margin: '0 auto 12px', color: '#1B2530' }} />
           <p style={{ fontSize: 13, fontFamily: arabicFont }}>
             {isDineIn
-              ? (lang === 'ar' ? 'لسه معملتش أي طلب' : lang === 'fr' ? 'Aucune commande pour le moment' : 'No orders yet this visit')
-              : (lang === 'ar' ? 'لا يوجد طلبات سابقة' : lang === 'fr' ? 'Aucune commande précédente' : 'No previous orders found')}
+              ? (lang === 'ar' ? '\u0644\u0633\u0647 \u0645\u0639\u0645\u0644\u062a\u0634 \u0623\u064a \u0637\u0644\u0628' : lang === 'fr' ? 'Aucune commande pour le moment' : 'No orders yet this visit')
+              : (lang === 'ar' ? '\u0644\u0627 \u064a\u0648\u062c\u062f \u0637\u0644\u0628\u0627\u062a \u0633\u0627\u0628\u0642\u0629' : lang === 'fr' ? 'Aucune commande pr\u00e9c\u00e9dente' : 'No previous orders found')}
           </p>
         </div>
       ) : (
@@ -129,7 +127,7 @@ export default function OrderHistorySheet({
                       color: '#1A2530', order: rtl ? 2 : 1,
                     }}>
                       {isDineIn
-                        ? `${lang === 'ar' ? 'جولة' : lang === 'fr' ? 'Tour' : 'Round'} ${orders.length - idx}`
+                        ? `${lang === 'ar' ? '\u062c\u0648\u0644\u0629' : lang === 'fr' ? 'Tour' : 'Round'} ${orders.length - idx}`
                         : `#${order.order_number}`}
                       <span style={{ opacity: 0.4, fontWeight: 500, marginInlineStart: 8, fontSize: 11 }}>
                         {formatTime(order.created_at)}
@@ -148,7 +146,7 @@ export default function OrderHistorySheet({
                     {items.map((item, i) => (
                       <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}>
                         <span style={{ color: '#1A2530', opacity: 0.75, fontFamily: arabicFont, order: rtl ? 2 : 1, textAlign: rtl ? 'right' : 'left' }}>
-                          {item.quantity}× {getItemName(item)}
+                          {item.quantity}\u00d7 {getItemName(item)}
                         </span>
                         <span style={{ fontFamily: "'JetBrains Mono', monospace", opacity: 0.6, order: rtl ? 1 : 2 }}>
                           {formatPrice(item.total, restaurant, lang)}
@@ -179,7 +177,7 @@ export default function OrderHistorySheet({
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
               <span style={{ color: 'white', fontWeight: 700, fontSize: 14, fontFamily: arabicFont, order: rtl ? 2 : 1 }}>
-                {lang === 'ar' ? 'إجمالي الطاولة' : lang === 'fr' ? 'Total de la Table' : 'Table Total'}
+                {lang === 'ar' ? '\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0637\u0627\u0648\u0644\u0629' : lang === 'fr' ? 'Total de la Table' : 'Table Total'}
               </span>
               <span style={{ color: 'white', fontWeight: 800, fontSize: 18, fontFamily: "'JetBrains Mono', monospace", order: rtl ? 1 : 2 }}>
                 {formatPrice(runningTotal, restaurant, lang)}

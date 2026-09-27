@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { motion }              from 'framer-motion'
-import { Minus, Plus }         from 'lucide-react'
+import { Minus, Plus, Check }  from 'lucide-react'
 import { supabase }            from '../lib/supabase'
 import { useCart }             from '../context/CartContext'
 import { t }                   from '../lib/translations'
-import { pickTranslation }     from '../lib/i18n'
+import { pickTranslation, pickGroupName } from '../lib/i18n'
 import { formatPrice }         from '../lib/currency'
 import SheetCloseButton        from './SheetCloseButton'
 
@@ -20,15 +20,22 @@ const UNIT_LABELS = {
 export default function ItemSheet({
   item, lang, isRTL, restaurant, isGrocery, onClose, onAdded, fallbackLang = 'en'
 }) {
-  const primary = restaurant?.primary_color || (isGrocery ? '#2E7D4F' : '#1A4D3E')
+  const primary = restaurant?.primary_color || '#1A4D3E'
   const rtl     = isRTL
-  const arabicFont = rtl ? "'Noto Naskh Arabic', serif" : "'Plus Jakarta Sans', sans-serif"
+  const arabicFont = rtl
+    ? "'Noto Naskh Arabic', serif"
+    : "'Plus Jakarta Sans', sans-serif"
+
   const { addItem } = useCart()
 
   const [fullItem, setFullItem]   = useState(item)
-  const [loading, setLoading]     = useState(!item.item_options)
+  const [loading, setLoading]     = useState(!item.optionGroups)
   const [quantity, setQuantity]   = useState(isGrocery ? (item.unit_step || 1) : 1)
-  const [selectedOptions, setSelectedOptions] = useState({})
+
+  // selections: { [groupId]: option }               for single-select groups
+  //             { [groupId]: { [optionId]: qty } }   for multiple-select groups
+  const [selections, setSelections] = useState({})
+  const [validationError, setValidationError] = useState(null)
   const [totalPrice, setTotalPrice] = useState(item.base_price)
   const [justAdded, setJustAdded] = useState(false)
 
@@ -37,35 +44,54 @@ export default function ItemSheet({
   const unitLabel = (UNIT_LABELS[unit] || UNIT_LABELS.piece)[lang] || (UNIT_LABELS[unit] || UNIT_LABELS.piece).en
 
   useEffect(() => {
-    if (item.item_options && item.translations) {
+    if (item.optionGroups) {
       setFullItem(item)
-      initOptions(item)
+      initSelections(item.optionGroups)
       return
     }
 
     async function load() {
-      const table    = isGrocery ? 'grocery_products' : 'menu_items'
-      const optKey   = isGrocery ? 'grocery_product_options' : 'item_options'
-      const optTrKey = isGrocery ? 'grocery_product_option_translations' : 'item_option_translations'
-      const trKey    = isGrocery ? 'grocery_product_translations' : 'menu_item_translations'
+      const table       = isGrocery ? 'grocery_products' : 'menu_items'
+      const groupsTable  = isGrocery ? 'grocery_product_option_groups' : 'item_option_groups'
+      const optionsTable = isGrocery ? 'grocery_product_options' : 'item_options'
+      const groupTrTable = isGrocery ? 'grocery_option_group_translations' : 'item_option_group_translations'
+      const optTrTable   = isGrocery ? 'grocery_product_option_translations' : 'item_option_translations'
+      const groupFk      = isGrocery ? 'grocery_product_id' : 'menu_item_id'
+      const trKey        = isGrocery ? 'grocery_product_translations' : 'menu_item_translations'
 
       const { data } = await supabase
         .from(table)
-        .select(`*, ${optKey}(*, ${optTrKey}(*)), ${trKey}(*)`)
+        .select(`
+          *,
+          ${trKey}(*),
+          ${groupsTable}!${groupFk} (
+            *,
+            ${groupTrTable}(*),
+            ${optionsTable} (
+              *,
+              ${optTrTable}(*)
+            )
+          )
+        `)
         .eq('id', item.id)
         .single()
 
       if (data) {
-        const normalized = {
-          ...data,
-          item_options: (data[optKey] || []).map(opt => ({
-            ...opt,
-            translations: opt[optTrKey],
-          })),
-          translations: data[trKey],
-        }
+        const rawGroups = data[groupsTable] || []
+        const optionGroups = rawGroups
+          .filter(g => g.active !== false)
+          .map(g => ({
+            ...g,
+            translations: g[groupTrTable],
+            options: (g[optionsTable] || [])
+              .map(o => ({ ...o, translations: o[optTrTable] }))
+              .sort((a, b) => a.sort_order - b.sort_order),
+          }))
+          .sort((a, b) => a.sort_order - b.sort_order)
+
+        const normalized = { ...data, translations: data[trKey], optionGroups }
         setFullItem(normalized)
-        initOptions(normalized)
+        initSelections(optionGroups)
       }
       setLoading(false)
     }
@@ -73,41 +99,90 @@ export default function ItemSheet({
     load()
   }, [item.id])
 
-  function initOptions(itemData) {
-    if (!itemData?.item_options?.length) return
-    const groups = groupOptions(itemData.item_options)
+  function initSelections(groups) {
     const defaults = {}
-    Object.entries(groups).forEach(([g, opts]) => {
-      const def = opts.find(o => o.is_default) || opts[0]
-      if (def) defaults[g] = def
+    groups.forEach(group => {
+      if (group.selection_type === 'single') {
+        const def = group.options.find(o => o.is_default) || (group.is_required ? group.options[0] : null)
+        if (def) defaults[group.id] = def
+      } else {
+        defaults[group.id] = {}
+      }
     })
-    setSelectedOptions(defaults)
+    setSelections(defaults)
   }
 
   useEffect(() => {
     if (!fullItem) return
-    const extra = Object.values(selectedOptions)
-      .reduce((sum, o) => sum + (o?.price_modifier || 0), 0)
-    setTotalPrice((fullItem.base_price + extra) * quantity)
-  }, [selectedOptions, quantity, fullItem])
+    let extra = 0
 
-  // Options are still grouped by a stable key —
-  // using group_name_en (legacy) as the grouping
-  // key since it's guaranteed unique per group and
-  // language-independent; DISPLAY uses translations
-  function groupOptions(options) {
-    return options.reduce((g, o) => {
-      const key = o.group_name_en || o.id
-      if (!g[key]) g[key] = []
-      g[key].push(o)
-      return g
-    }, {})
-  }
+    Object.entries(selections).forEach(([groupId, value]) => {
+      const group = fullItem.optionGroups?.find(g => g.id === groupId)
+      if (!group) return
+
+      if (group.selection_type === 'single') {
+        if (value) extra += value.price_modifier || 0
+      } else {
+        Object.entries(value || {}).forEach(([optionId, qty]) => {
+          const opt = group.options.find(o => o.id === optionId)
+          if (opt && qty > 0) extra += (opt.price_modifier || 0) * qty
+        })
+      }
+    })
+
+    setTotalPrice((fullItem.base_price + extra) * quantity)
+  }, [selections, quantity, fullItem])
 
   const getName = (obj) => pickTranslation(obj.translations, 'name', lang, fallbackLang) || obj.name_en
   const getDesc = (obj) => pickTranslation(obj.translations, 'description', lang, fallbackLang) || obj.description_en
-  const getGroupName  = (opt) => pickTranslation(opt.translations, 'group_name', lang, fallbackLang) || opt.group_name_en
   const getOptionName = (opt) => pickTranslation(opt.translations, 'option_name', lang, fallbackLang) || opt.option_name_en
+
+  function selectSingle(group, option) {
+    setSelections(prev => ({ ...prev, [group.id]: option }))
+    setValidationError(null)
+  }
+
+  function toggleMultiple(group, option) {
+    setSelections(prev => {
+      const current = { ...(prev[group.id] || {}) }
+      const currentQty = current[option.id] || 0
+
+      if (currentQty > 0) {
+        delete current[option.id]
+      } else {
+        // Respect max_select on the GROUP (how many
+        // distinct options can be chosen), separate
+        // from max_quantity on an OPTION (how many of
+        // the SAME option, e.g. "extra cheese x2")
+        const chosenCount = Object.keys(current).length
+        if (group.max_select && chosenCount >= group.max_select) {
+          setValidationError(
+            lang === 'ar' ? `اختر حتى ${group.max_select} فقط`
+            : lang === 'fr' ? `Choisissez jusqu'à ${group.max_select}`
+            : `Choose up to ${group.max_select}`
+          )
+          return prev
+        }
+        current[option.id] = 1
+      }
+      setValidationError(null)
+      return { ...prev, [group.id]: current }
+    })
+  }
+
+  function stepOptionQuantity(group, option, dir) {
+    setSelections(prev => {
+      const current = { ...(prev[group.id] || {}) }
+      const currentQty = current[option.id] || 0
+      const maxQty = option.max_quantity || 1
+      const nextQty = Math.max(0, Math.min(maxQty, currentQty + dir))
+
+      if (nextQty === 0) delete current[option.id]
+      else current[option.id] = nextQty
+
+      return { ...prev, [group.id]: current }
+    })
+  }
 
   function stepQuantity(dir) {
     setQuantity(q => {
@@ -119,15 +194,70 @@ export default function ItemSheet({
     })
   }
 
+  function validateRequiredGroups() {
+    const groups = fullItem?.optionGroups || []
+    for (const group of groups) {
+      if (!group.is_required) continue
+
+      if (group.selection_type === 'single') {
+        if (!selections[group.id]) {
+          setValidationError(
+            lang === 'ar' ? `يرجى الاختيار من: ${pickGroupName(group, lang, fallbackLang)}`
+            : lang === 'fr' ? `Veuillez choisir : ${pickGroupName(group, lang, fallbackLang)}`
+            : `Please choose: ${pickGroupName(group, lang, fallbackLang)}`
+          )
+          return false
+        }
+      } else {
+        const chosenCount = Object.keys(selections[group.id] || {}).length
+        const minNeeded = group.min_select || 1
+        if (chosenCount < minNeeded) {
+          setValidationError(
+            lang === 'ar' ? `اختر ${minNeeded} على الأقل من: ${pickGroupName(group, lang, fallbackLang)}`
+            : lang === 'fr' ? `Choisissez au moins ${minNeeded} dans : ${pickGroupName(group, lang, fallbackLang)}`
+            : `Choose at least ${minNeeded} from: ${pickGroupName(group, lang, fallbackLang)}`
+          )
+          return false
+        }
+      }
+    }
+    return true
+  }
+
+  function buildCartOptions() {
+    // Flattens group-based selections into the flat
+    // shape CartContext/checkout already expects:
+    // { [groupId_or_key]: option } for single,
+    // and one entry per chosen multi-option
+    const flat = {}
+    Object.entries(selections).forEach(([groupId, value]) => {
+      const group = fullItem.optionGroups?.find(g => g.id === groupId)
+      if (!group) return
+
+      if (group.selection_type === 'single') {
+        if (value) flat[groupId] = value
+      } else {
+        Object.entries(value || {}).forEach(([optionId, qty]) => {
+          if (qty > 0) {
+            const opt = group.options.find(o => o.id === optionId)
+            if (opt) flat[`${groupId}_${optionId}`] = { ...opt, selectedQty: qty }
+          }
+        })
+      }
+    })
+    return flat
+  }
+
   function handleAdd() {
-    addItem(fullItem, selectedOptions, quantity)
+    if (!validateRequiredGroups()) return
+    addItem(fullItem, buildCartOptions(), quantity)
     setJustAdded(true)
     onAdded?.()
     setTimeout(() => onClose(), 320)
   }
 
-  const optionGroups = fullItem?.item_options?.length ? groupOptions(fullItem.item_options) : {}
   const outOfStock = isGrocery && fullItem?.in_stock === false
+  const groups = fullItem?.optionGroups || []
 
   return (
     <div dir={rtl ? 'rtl' : 'ltr'} style={{ paddingBottom: 100, position: 'relative' }}>
@@ -137,14 +267,13 @@ export default function ItemSheet({
         height: 200, background: `${primary}15`, display: 'flex',
         alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
       }}>
-        {fullItem.image_url ? (
+        {fullItem.image_url && (
           <img
             src={`${fullItem.image_url}${fullItem.image_url.includes('?') ? '&' : '?'}fm=webp&auto=format`}
-            alt={getName(fullItem)} loading="lazy"
+            alt={getName(fullItem)}
+            loading="lazy"
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
-        ) : (
-          <span style={{ fontSize: 64 }}>{fullItem.emoji || (isGrocery ? '🛒' : '🍽️')}</span>
         )}
       </div>
 
@@ -187,41 +316,140 @@ export default function ItemSheet({
         <p style={{ textAlign: 'center', padding: 20, opacity: 0.5, fontSize: 13 }}>...</p>
       ) : (
         <>
-          {Object.entries(optionGroups).map(([groupKey, options]) => {
-            const groupLabel = getGroupName(options[0]) || groupKey
+          {groups.map(group => {
+            const groupLabel = pickGroupName(group, lang, fallbackLang)
+            const isMultiple = group.selection_type === 'multiple'
+
             return (
-              <div key={groupKey} style={{ borderTop: '1px solid rgba(45,42,38,0.06)' }}>
-                <div style={{ padding: '10px 20px', background: 'rgba(45,42,38,0.03)', textAlign: rtl ? 'right' : 'left' }}>
-                  <h4 style={{ fontWeight: 700, fontSize: 13, color: '#1B2530', margin: 0, fontFamily: arabicFont }}>
+              <div key={group.id} style={{ borderTop: '1px solid rgba(45,42,38,0.06)' }}>
+                <div style={{
+                  padding: '10px 20px', background: 'rgba(45,42,38,0.03)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                  <h4 style={{
+                    fontWeight: 700, fontSize: 13, color: '#1B2530', margin: 0,
+                    fontFamily: arabicFont, textAlign: rtl ? 'right' : 'left',
+                  }}>
                     {groupLabel}
+                    {group.is_required && (
+                      <span style={{ color: primary, marginInlineStart: 4 }}>*</span>
+                    )}
                   </h4>
+                  {isMultiple && (group.max_select || group.min_select > 0) && (
+                    <span style={{ fontSize: 10.5, color: '#1B2530', opacity: 0.45, fontFamily: "'JetBrains Mono', monospace" }}>
+                      {group.max_select
+                        ? (lang === 'ar' ? `حتى ${group.max_select}` : lang === 'fr' ? `Max ${group.max_select}` : `Max ${group.max_select}`)
+                        : (lang === 'ar' ? 'اختياري' : lang === 'fr' ? 'Optionnel' : 'Optional')}
+                    </span>
+                  )}
                 </div>
-                {options.sort((a, b) => a.sort_order - b.sort_order).map(option => {
-                  const isSelected = selectedOptions[groupKey]?.id === option.id
+
+                {group.options.map(option => {
+                  const optionName = getOptionName(option)
+
+                  if (!isMultiple) {
+                    const isSelected = selections[group.id]?.id === option.id
+                    return (
+                      <motion.button
+                        key={option.id}
+                        onClick={() => selectSingle(group, option)}
+                        whileTap={{ scale: 0.98 }}
+                        style={{
+                          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '13px 20px', background: isSelected ? `${primary}08` : 'white',
+                          border: 'none', borderTop: '1px solid rgba(45,42,38,0.04)', cursor: 'pointer',
+                        }}
+                      >
+                        <span style={{
+                          fontSize: 13.5, fontWeight: isSelected ? 600 : 400,
+                          color: isSelected ? primary : '#1B2530', fontFamily: arabicFont,
+                          order: rtl ? 2 : 1,
+                        }}>
+                          {optionName}
+                        </span>
+                        <span style={{
+                          fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5,
+                          color: isSelected ? primary : '#1B2530', opacity: isSelected ? 1 : 0.4,
+                          order: rtl ? 1 : 2,
+                        }}>
+                          {option.price_modifier === 0 ? t('included', lang) : `+${formatPrice(option.price_modifier, restaurant, lang)}`}
+                        </span>
+                      </motion.button>
+                    )
+                  }
+
+                  const selectedQty = selections[group.id]?.[option.id] || 0
+                  const canRepeat = (option.max_quantity || 1) > 1
+
                   return (
-                    <motion.button
+                    <div
                       key={option.id}
-                      onClick={() => setSelectedOptions(p => ({ ...p, [groupKey]: option }))}
-                      whileTap={{ scale: 0.98 }}
                       style={{
                         width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '13px 20px', background: isSelected ? `${primary}08` : 'white',
-                        border: 'none', borderTop: '1px solid rgba(45,42,38,0.04)', cursor: 'pointer',
-                        flexDirection: rtl ? 'row-reverse' : 'row',
+                        padding: '13px 20px', background: selectedQty > 0 ? `${primary}08` : 'white',
+                        borderTop: '1px solid rgba(45,42,38,0.04)',
                       }}
                     >
-                      <span style={{ fontSize: 13.5, fontWeight: isSelected ? 600 : 400, color: isSelected ? primary : '#1B2530', fontFamily: arabicFont }}>
-                        {getOptionName(option)}
-                      </span>
-                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, color: isSelected ? primary : '#1B2530', opacity: isSelected ? 1 : 0.4 }}>
-                        {option.price_modifier === 0 ? t('included', lang) : `+${formatPrice(option.price_modifier, restaurant, lang)}`}
-                      </span>
-                    </motion.button>
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0,
+                        order: rtl ? 2 : 1, flexDirection: rtl ? 'row-reverse' : 'row',
+                      }}>
+                        <button
+                          onClick={() => toggleMultiple(group, option)}
+                          aria-label={optionName}
+                          style={{
+                            width: 20, height: 20, borderRadius: 5, flexShrink: 0,
+                            border: selectedQty > 0 ? 'none' : '1.5px solid rgba(45,42,38,.25)',
+                            background: selectedQty > 0 ? primary : 'white',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                          }}
+                        >
+                          {selectedQty > 0 && <Check size={13} color="white" />}
+                        </button>
+                        <span style={{ fontSize: 13.5, color: '#1B2530', fontFamily: arabicFont, textAlign: rtl ? 'right' : 'left' }}>
+                          {optionName}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, order: rtl ? 1 : 2 }}>
+                        {selectedQty > 0 && canRepeat && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <button
+                              onClick={() => stepOptionQuantity(group, option, -1)}
+                              style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid rgba(45,42,38,.2)', background: 'white', cursor: 'pointer' }}
+                            >
+                              <Minus size={11} style={{ margin: 'auto' }} />
+                            </button>
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, width: 14, textAlign: 'center' }}>
+                              {selectedQty}
+                            </span>
+                            <button
+                              onClick={() => stepOptionQuantity(group, option, 1)}
+                              style={{ width: 22, height: 22, borderRadius: '50%', border: 'none', background: primary, color: 'white', cursor: 'pointer' }}
+                            >
+                              <Plus size={11} style={{ margin: 'auto' }} />
+                            </button>
+                          </div>
+                        )}
+                        <span style={{
+                          fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, minWidth: 46, textAlign: rtl ? 'left' : 'right',
+                          color: selectedQty > 0 ? primary : '#1B2530', opacity: selectedQty > 0 ? 1 : 0.4,
+                        }}>
+                          {option.price_modifier === 0 ? t('included', lang) : `+${formatPrice(option.price_modifier, restaurant, lang)}`}
+                        </span>
+                      </div>
+                    </div>
                   )
                 })}
               </div>
             )
           })}
+
+          {validationError && (
+            <p style={{ color: '#ef4444', fontSize: 12.5, padding: '10px 20px', margin: 0, fontFamily: arabicFont, textAlign: rtl ? 'right' : 'left' }}>
+              {validationError}
+            </p>
+          )}
 
           <div style={{
             padding: 20, borderTop: '1px solid rgba(45,42,38,0.06)',
@@ -276,7 +504,7 @@ export default function ItemSheet({
             {outOfStock
               ? (lang === 'ar' ? 'غير متوفر' : lang === 'fr' ? 'Indisponible' : 'Unavailable')
               : justAdded
-                ? (lang === 'ar' ? '✓ تمت الإضافة' : lang === 'fr' ? '✓ Ajouté' : '✓ Added')
+                ? (lang === 'ar' ? 'تمت الإضافة' : lang === 'fr' ? 'Ajouté' : 'Added')
                 : t('add_to_cart', lang)}
           </span>
           <span style={{ fontFamily: "'JetBrains Mono', monospace", order: rtl ? 1 : 2 }}>

@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSession }          from '../hooks/useSession'
 import { useCart }             from '../context/CartContext'
 import { supabase }            from '../lib/supabase'
-import { pickTranslation, groupTranslationsByEntity } from '../lib/i18n'
 import { t }                   from '../lib/translations'
 import { Search, X }           from 'lucide-react'
 import Header                  from '../components/Header'
@@ -43,15 +42,6 @@ export default function MenuScreen() {
   const isProgrammaticScroll = useRef(false)
   const programmaticTimeout = useRef(null)
 
-  // ─────────────────────────────────────────────
-  // Load Menu — now pulls category_translations
-  // and menu_item_translations / grocery_product_
-  // translations alongside the base rows, and
-  // merges the current-language text onto each
-  // row as .name / .description for the rest of
-  // the component tree to consume unchanged
-  // ─────────────────────────────────────────────
-
   useEffect(() => {
     if (!restaurant?.id) return
 
@@ -71,33 +61,26 @@ export default function MenuScreen() {
         if (isGrocery) {
           const { data } = await supabase
             .from('grocery_products')
-            .select('*, grocery_product_options(*, grocery_product_option_translations(*)), grocery_product_translations(*)')
+            .select('*, grocery_product_options(*), grocery_product_translations(*)')
             .eq('vendor_id', restaurant.id)
             .eq('available', true)
             .order('sort_order')
 
           items = (data || []).map(product => ({
             ...product,
-            item_options: (product.grocery_product_options || []).map(opt => ({
-              ...opt,
-              translations: opt.grocery_product_option_translations,
-            })),
+            item_options: product.grocery_product_options,
             translations: product.grocery_product_translations,
           }))
         } else {
           const { data } = await supabase
             .from('menu_items')
-            .select('*, item_options(*, item_option_translations(*)), menu_item_translations(*)')
+            .select('*, item_options(*), menu_item_translations(*)')
             .eq('vendor_id', restaurant.id)
             .eq('available', true)
             .order('sort_order')
 
           items = (data || []).map(item => ({
             ...item,
-            item_options: (item.item_options || []).map(opt => ({
-              ...opt,
-              translations: opt.item_option_translations,
-            })),
             translations: item.menu_item_translations,
           }))
         }
@@ -113,7 +96,6 @@ export default function MenuScreen() {
 
         setCategories(nonEmptyCats)
         setMenuItems(items)
-
         setActiveCategory(nonEmptyCats.length > 0 ? nonEmptyCats[0].id : null)
 
       } catch (error) {
@@ -126,32 +108,14 @@ export default function MenuScreen() {
     loadMenu()
   }, [restaurant?.id, isGrocery])
 
-  // ─────────────────────────────────────────────
-  // Translation helpers — pull from the joined
-  // .translations array using pickTranslation
-  // ─────────────────────────────────────────────
-
   const fallbackLang = vendorLanguages.find(l => l.is_default)?.code || 'en'
 
   function getCatName(category) {
-    return pickTranslation(category.translations, 'name', lang, fallbackLang)
-      || category.name_en  // legacy fallback while old columns still exist
+    const found = category.translations?.find(t => t.language_code === lang)?.name
+    if (found) return found
+    const fallback = category.translations?.find(t => t.language_code === fallbackLang)?.name
+    return fallback || category.name_en
   }
-
-  function getItemName(item) {
-    return pickTranslation(item.translations, 'name', lang, fallbackLang)
-      || item.name_en
-  }
-
-  function getItemDesc(item) {
-    return pickTranslation(item.translations, 'description', lang, fallbackLang)
-      || item.description_en
-  }
-
-  // ─────────────────────────────────────────────
-  // Search — now searches across ALL translations
-  // for an item, not just three hardcoded fields
-  // ─────────────────────────────────────────────
 
   function getItemSearchNames(item) {
     const names = (item.translations || []).map(t => t.name).filter(Boolean)
@@ -182,11 +146,13 @@ export default function MenuScreen() {
 
   useEffect(() => {
     if (loading || visibleCategories.length === 0) return
+
     const container = scrollContainerRef.current
     if (!container) return
 
     const handleScroll = () => {
       if (isProgrammaticScroll.current) return
+
       const containerTop = container.getBoundingClientRect().top
       let currentCategory = visibleCategories[0]?.id
 
@@ -197,11 +163,13 @@ export default function MenuScreen() {
         if (sectionTop <= 100) currentCategory = category.id
         else break
       }
+
       setActiveCategory(currentCategory)
     }
 
     container.addEventListener('scroll', handleScroll, { passive: true })
     handleScroll()
+
     return () => container.removeEventListener('scroll', handleScroll)
   }, [loading, visibleCategories])
 
@@ -343,17 +311,19 @@ export default function MenuScreen() {
               >
                 <div
                   style={{
-                    width: '100%', boxSizing: 'border-box',
+                    width: '100%',
+                    boxSizing: 'border-box',
                     padding: rtl ? '8px 20px 16px 16px' : '8px 16px 16px 20px',
-                    display: 'flex', alignItems: 'center', gap: 10,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
                     flexDirection: rtl ? 'row-reverse' : 'row',
-                    direction: 'ltr', justifyContent: 'flex-start',
+                    direction: 'ltr',
+                    justifyContent: 'flex-start',
                   }}
                 >
                   <div style={{ width: 4, height: 32, borderRadius: 4, background: primary, flexShrink: 0 }} />
-                  {category.emoji && (
-                    <span style={{ fontSize: 24, lineHeight: 1, flexShrink: 0 }}>{category.emoji}</span>
-                  )}
+
                   <h2
                     style={{
                       fontFamily: rtl ? "'Noto Naskh Arabic', serif" : "'Fraunces', serif",
@@ -373,8 +343,11 @@ export default function MenuScreen() {
 
                 <div
                   style={{
-                    display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                    gap: 12, padding: '0 16px 20px', direction: rtl ? 'rtl' : 'ltr',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                    gap: 12,
+                    padding: '0 16px 20px',
+                    direction: rtl ? 'rtl' : 'ltr',
                   }}
                 >
                   {categoryItems.map(item => (
@@ -393,13 +366,15 @@ export default function MenuScreen() {
           })
         ) : searchActive ? (
           <div style={{ textAlign: 'center', padding: '80px 24px', opacity: 0.5 }}>
-            <div style={{ fontSize: 40, marginBottom: 14 }}>🔍</div>
-            <p style={{ fontSize: 14, fontFamily: arabicFont }}>{t('no_search_results', lang)}</p>
+            <p style={{ fontSize: 14, fontFamily: arabicFont }}>
+              {t('no_search_results', lang)}
+            </p>
           </div>
         ) : (
           <div style={{ textAlign: 'center', padding: '80px 24px', opacity: 0.5 }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>{isGrocery ? '🛒' : '🍽️'}</div>
-            <p style={{ fontSize: 15, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{t('no_items', lang)}</p>
+            <p style={{ fontSize: 15, fontFamily: arabicFont }}>
+              {t('no_items', lang)}
+            </p>
           </div>
         )}
       </div>

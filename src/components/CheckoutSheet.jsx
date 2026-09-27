@@ -10,34 +10,10 @@ import SheetCloseButton         from './SheetCloseButton'
 import StripePaymentSection     from './StripePaymentSection'
 
 const COUNTRY_CODES = [
-  
-  // Nort America
-  { code: '+1', flag: '🇨🇦', placeholder: '514 000-0000', validate: d => /^\d{10}$/.test(d) },
-  { code: '+1', flag: '🇺🇸', placeholder: '202 000-0000', validate: d => /^\d{10}$/.test(d) }, // United States
-  { code: '+57', flag: '🇨🇴', placeholder: '300 0000000', validate: d => /^3\d{9}$/.test(d) }, // Colombia
-  { code: '+52',  flag: '🇲🇽', placeholder: '55 0000 0000', validate: d => /^\d{10}$/.test(d) }, // Mexico
-  // Carabian
-  { code: '+53',  flag: '🇨🇺', placeholder: '5 0000000', validate: d => /^\d{8}$/.test(d) }, // Cuba
-  { code: '+506', flag: '🇨🇷', placeholder: '8000 0000', validate: d => /^\d{8}$/.test(d) }, // Costa Rica
-  { code: '+507', flag: '🇵🇦', placeholder: '6000-0000', validate: d => /^\d{8}$/.test(d) }, // Panama
-  { code: '+509', flag: '🇭🇹', placeholder: '3700 0000', validate: d => /^\d{8}$/.test(d) }, // Haiti
-  // South America
-  { code: '+54', flag: '🇦🇷', placeholder: '11 0000-0000', validate: d => /^\d{10,11}$/.test(d) }, // Argentina
-  { code: '+591', flag: '🇧🇴', placeholder: '7 0000000', validate: d => /^\d{8}$/.test(d) }, // Bolivia
-  { code: '+55', flag: '🇧🇷', placeholder: '11 90000-0000', validate: d => /^\d{10,11}$/.test(d) }, // Brazil
-  { code: '+56', flag: '🇨🇱', placeholder: '9 0000 0000', validate: d => /^9\d{8}$/.test(d) }, // Chile
-  { code: '+593', flag: '🇪🇨', placeholder: '99 000 0000', validate: d => /^9\d{8}$/.test(d) }, // Ecuador
-  { code: '+592', flag: '🇬🇾', placeholder: '600 0000', validate: d => /^\d{7}$/.test(d) }, // Guyana
-  { code: '+595', flag: '🇵🇾', placeholder: '981 000000', validate: d => /^9\d{8}$/.test(d) }, // Paraguay
-  { code: '+51', flag: '🇵🇪', placeholder: '900 000 000', validate: d => /^9\d{8}$/.test(d) }, // Peru
-  { code: '+597', flag: '🇸🇷', placeholder: '700 0000', validate: d => /^\d{7}$/.test(d) }, // Suriname
-  { code: '+598', flag: '🇺🇾', placeholder: '99 000 000', validate: d => /^9\d{7}$/.test(d) }, // Uruguay
-  { code: '+58', flag: '🇻🇪', placeholder: '412 0000000', validate: d => /^4\d{9}$/.test(d) }, // Venezuela
-  // Egypt
-  { code: '+20', flag: '🇪🇬', placeholder: '10 0000 0000', validate: d => /^(10|11|12|15)\d{8}$/.test(d) },
-];
-
-const ARABIC_DIGITS = { '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9' }
+  { code: '+20', flag: '', placeholder: '10 0000 0000', validate: d => /^(10|11|12|15)\d{8}$/.test(d) },
+  { code: '+1',  flag: '', placeholder: '514 000-0000', validate: d => /^\d{10}$/.test(d) },
+]
+const ARABIC_DIGITS = { '\u0660':'0','\u0661':'1','\u0662':'2','\u0663':'3','\u0664':'4','\u0665':'5','\u0666':'6','\u0667':'7','\u0668':'8','\u0669':'9' }
 function normalizeDigits(v) {
   return v.split('').map(ch => ARABIC_DIGITS[ch] ?? ch).join('').replace(/[^\d]/g, '')
 }
@@ -75,22 +51,13 @@ export default function CheckoutSheet({
       : (supportsDelivery ? 'delivery' : 'pickup')
   )
 
-  // ── Delivery fee — explicit allowlist, only
-  //    charged for genuine standalone delivery
-  //    orders. Pickup, dine-in, and venue orders
-  //    never carry a delivery fee. ──
   const isGenuineDelivery = !isDineIn && !isVenueMode && fulfillmentType === 'delivery'
   const deliveryFee = isGenuineDelivery ? (restaurant?.delivery_fee || 3.99) : 0
 
-  // ── Tax — computed from the vendor's own
-  //    registered rate(s), never from customer
-  //    location. Recomputed whenever subtotal or
-  //    deliveryFee changes. ──
   const { lines: taxLines, totalTax } = calculateTax(subtotal, deliveryFee, restaurant)
 
   const total = subtotal + deliveryFee + totalTax
 
-  // ── Payment method: cash vs online ──
   const supportsOnlinePayment = !!restaurant?.supports_online_payment
   const [paymentMethod, setPaymentMethod] = useState('cash')
 
@@ -123,10 +90,6 @@ export default function CheckoutSheet({
       .then(({ data }) => { setSpots(data || []); setSpotsLoading(false) })
   }, [isVenueMode, restaurant?.venue_id])
 
-  // ── Create/refresh the PaymentIntent whenever
-  //    "Pay Now" is selected and the total is known.
-  //    Re-creates if the cart total changes so the
-  //    intent amount always matches what's charged. ──
   useEffect(() => {
     if (paymentMethod !== 'card' || !supportsOnlinePayment) return
     let cancelled = false
@@ -176,9 +139,6 @@ export default function CheckoutSheet({
     if (lang === 'ar') return spot.extra_field_placeholder_ar || spot.extra_field_placeholder_en || ''
     return spot.extra_field_placeholder_en || ''
   }
-  function getZoneEmoji(zone) {
-    return { pool: '🏊', garden: '🌿', clubhouse: '🏛️', tennis: '🎾', kids: '🎠', entrance: '🚪' }[zone] || '📍'
-  }
   function getTableName(table) {
     if (!table) return ''
     if (lang === 'ar') return table.name_ar || `${t('dine_in_table', lang)} ${table.table_number}`
@@ -190,14 +150,14 @@ export default function CheckoutSheet({
     const e = {}
     if (!name.trim()) e.name = t('name_required', lang)
     if (!localPhone.trim()) e.phone = t('phone_required', lang)
-    else if (!phoneIsValid) e.phone = lang === 'ar' ? 'رقم غير صحيح' : 'Invalid number'
+    else if (!phoneIsValid) e.phone = lang === 'ar' ? '\u0631\u0642\u0645 \u063a\u064a\u0631 \u0635\u062d\u064a\u062d' : 'Invalid number'
 
     if (isDineIn) {
       // Table already known from QR
     } else if (isVenueMode) {
       if (!selectedSpot) e.spot = t('spot_required', lang)
       else if (selectedSpot.extra_field_required && !extraFieldValue.trim()) {
-        e.extraField = lang === 'ar' ? 'هذا الحقل مطلوب' : 'This field is required'
+        e.extraField = lang === 'ar' ? '\u0647\u0630\u0627 \u0627\u0644\u062d\u0642\u0644 \u0645\u0637\u0644\u0648\u0628' : 'This field is required'
       }
     } else if (fulfillmentType === 'delivery' && !address.trim()) {
       e.address = t('address_required', lang)
@@ -215,10 +175,6 @@ export default function CheckoutSheet({
       let finalPaymentStatus = 'unpaid'
       let finalPaymentIntentId = null
 
-      // ── If paying online, confirm the payment
-      //    FIRST, before creating the order. Order
-      //    is only created once payment genuinely
-      //    succeeds — never the other way around. ──
       if (paymentMethod === 'card') {
         if (!stripeHandle?.stripe || !stripeHandle?.elements) {
           throw new Error('Payment form not ready')
@@ -250,7 +206,7 @@ export default function CheckoutSheet({
 
       const orderPayload = {
         token: 'demo',
-        vendor_id: restaurant?.id,
+        restaurant_id: restaurant?.id,
         customer_phone: fullPhone,
         customer_name: name,
         order_type: resolvedOrderType,
@@ -321,7 +277,6 @@ export default function CheckoutSheet({
     ? true
     : (!!clientSecret && paymentReady && !creatingIntent)
 
-  // ── SUCCESS / CONFIRMATION STATE ──
   if (success) {
     return (
       <div dir={rtl ? 'rtl' : 'ltr'} style={{ position: 'relative', padding: '50px 24px', textAlign: 'center' }}>
@@ -339,17 +294,17 @@ export default function CheckoutSheet({
             color: '#2D6E5A', background: 'rgba(45,110,90,0.1)', padding: '5px 12px', borderRadius: 100,
             marginBottom: 12, fontFamily: arabicFont,
           }}>
-            ✓ {lang === 'ar' ? 'تم الدفع' : lang === 'fr' ? 'Payé' : lang === 'es' ? 'Pagado' : 'Paid'} · {formatPrice(total, restaurant, lang)}
+            {lang === 'ar' ? '\u062a\u0645 \u0627\u0644\u062f\u0641\u0639' : lang === 'fr' ? 'Pay\u00e9' : lang === 'es' ? 'Pagado' : 'Paid'} \u00b7 {formatPrice(total, restaurant, lang)}
           </p>
         )}
         {success.tableName && (
           <p style={{ fontSize: 13, color: '#2D2A26', opacity: 0.7, marginBottom: 8, fontFamily: arabicFont, fontWeight: 600 }}>
-            🪑 {success.tableName}
+            {success.tableName}
           </p>
         )}
         {success.spotName && (
           <p style={{ fontSize: 13, color: '#2D2A26', opacity: 0.6, marginBottom: 8, fontFamily: arabicFont }}>
-            📍 {success.spotName}
+            {success.spotName}
           </p>
         )}
         {success.orderType === 'pickup' && (
@@ -372,7 +327,6 @@ export default function CheckoutSheet({
     )
   }
 
-  // ── CHECKOUT FORM STATE ──
   return (
     <div dir={rtl ? 'rtl' : 'ltr'} style={{ position: 'relative', padding: '4px 16px 20px' }}>
       <SheetCloseButton lang={lang} onClose={onClose} />
@@ -388,10 +342,7 @@ export default function CheckoutSheet({
         <div style={{
           background: `${primary}10`, border: `1.5px solid ${primary}30`,
           borderRadius: 14, padding: '12px 14px', marginBottom: 10,
-          display: 'flex', alignItems: 'center', gap: 10,
-          flexDirection: rtl ? 'row-reverse' : 'row',
         }}>
-          <span style={{ fontSize: 22 }}>🪑</span>
           <div style={{ textAlign: rtl ? 'right' : 'left' }}>
             <p style={{ fontSize: 11, color: primary, opacity: 0.8, margin: 0, fontFamily: arabicFont, fontWeight: 700 }}>
               {t('dine_in_banner', lang)}
@@ -410,8 +361,8 @@ export default function CheckoutSheet({
           border: '1px solid rgba(45,42,38,0.06)',
         }}>
           {[
-            { key: 'delivery', label: t('fulfillment_delivery', lang), icon: '🛵' },
-            { key: 'pickup',   label: t('fulfillment_pickup', lang),   icon: '🥡' },
+            { key: 'delivery', label: t('fulfillment_delivery', lang) },
+            { key: 'pickup',   label: t('fulfillment_pickup', lang) },
           ].map(opt => {
             const active = fulfillmentType === opt.key
             return (
@@ -427,7 +378,7 @@ export default function CheckoutSheet({
                   fontFamily: arabicFont,
                 }}
               >
-                {opt.icon} {opt.label}
+                {opt.label}
               </button>
             )
           })}
@@ -441,7 +392,7 @@ export default function CheckoutSheet({
         <label style={labelStyle}>{t('phone_number', lang)}</label>
         <div style={{ display: 'flex', gap: 8, direction: 'ltr' }}>
           <select value={countryCode} onChange={e => setCountryCode(e.target.value)} style={{ ...inputStyle(false), width: 90 }}>
-            {COUNTRY_CODES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
+            {COUNTRY_CODES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
           </select>
           <input
             style={{ ...inputStyle(!!errors.phone), flex: 1, direction: 'ltr' }}
@@ -472,7 +423,7 @@ export default function CheckoutSheet({
           background: `${primary}08`, borderRadius: 12, padding: '10px 14px', marginBottom: 10,
           fontSize: 12.5, color: primary, fontFamily: arabicFont, textAlign: rtl ? 'right' : 'left',
         }}>
-          🥡 {t('pickup_note', lang)}
+          {t('pickup_note', lang)}
         </div>
       )}
 
@@ -492,9 +443,12 @@ export default function CheckoutSheet({
                       display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5,
                       fontFamily: arabicFont, textAlign: rtl ? 'right' : 'left',
                     }}>
-                    <span style={{ order: rtl ? 3 : 1 }}>{getZoneEmoji(spot.zone)}</span>
-                    <span style={{ flex: 1, order: 2 }}>{getSpotName(spot)}</span>
-                    {isSelected && <span style={{ color: primary, order: rtl ? 1 : 3 }}>✓</span>}
+                    <span style={{ flex: 1 }}>{getSpotName(spot)}</span>
+                    {isSelected && (
+                      <span style={{ fontSize: 11, color: primary, fontWeight: 700 }}>
+                        {lang === 'ar' ? '\u0645\u062d\u062f\u062f' : lang === 'fr' ? 'S\u00e9lectionn\u00e9' : 'Selected'}
+                      </span>
+                    )}
                   </button>
                 )
               })}
@@ -522,11 +476,10 @@ export default function CheckoutSheet({
           background: `${primary}08`, borderRadius: 12, padding: '10px 14px', marginBottom: 10,
           fontSize: 12.5, color: primary, fontFamily: arabicFont, textAlign: rtl ? 'right' : 'left',
         }}>
-          🪑 {t('dine_in_note', lang)}
+          {t('dine_in_note', lang)}
         </div>
       )}
 
-      {/* ── PAYMENT METHOD ── */}
       <div style={{ background: 'white', borderRadius: 16, padding: 14, border: '1px solid rgba(45,42,38,0.06)', marginBottom: 10 }}>
         <label style={labelStyle}>{t('payment', lang)}</label>
 
@@ -534,8 +487,8 @@ export default function CheckoutSheet({
           <>
             <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
               {[
-                { key: 'cash', label: t('cash_on_delivery', lang), icon: '💵' },
-                { key: 'card', label: lang === 'ar' ? 'ادفع الآن' : lang === 'fr' ? 'Payer maintenant' : lang === 'es' ? 'Pagar ahora' : 'Pay Now', icon: '💳' },
+                { key: 'cash', label: t('cash_on_delivery', lang) },
+                { key: 'card', label: lang === 'ar' ? '\u0627\u062f\u0641\u0639 \u0627\u0644\u0622\u0646' : lang === 'fr' ? 'Payer maintenant' : lang === 'es' ? 'Pagar ahora' : 'Pay Now' },
               ].map(opt => {
                 const active = paymentMethod === opt.key
                 return (
@@ -550,7 +503,7 @@ export default function CheckoutSheet({
                       fontFamily: arabicFont,
                     }}
                   >
-                    {opt.icon} {opt.label}
+                    {opt.label}
                   </button>
                 )
               })}
@@ -560,7 +513,7 @@ export default function CheckoutSheet({
               <div>
                 {creatingIntent && !clientSecret && (
                   <p style={{ fontSize: 12, opacity: 0.5, textAlign: 'center', padding: '10px 0' }}>
-                    {lang === 'ar' ? 'جاري التجهيز...' : lang === 'fr' ? 'Préparation...' : lang === 'es' ? 'Preparando...' : 'Preparing...'}
+                    {lang === 'ar' ? '\u062c\u0627\u0631\u064a \u0627\u0644\u062a\u062c\u0647\u064a\u0632...' : lang === 'fr' ? 'Pr\u00e9paration...' : lang === 'es' ? 'Preparando...' : 'Preparing...'}
                   </p>
                 )}
                 {paymentError && (
@@ -580,9 +533,7 @@ export default function CheckoutSheet({
         ) : (
           <div style={{
             borderRadius: 14, padding: '12px 16px', background: 'rgba(45,42,38,0.03)',
-            display: 'flex', alignItems: 'center', gap: 12, flexDirection: rtl ? 'row-reverse' : 'row',
           }}>
-            <span style={{ fontSize: 24 }}>💵</span>
             <div style={{ textAlign: rtl ? 'right' : 'left' }}>
               <p style={{ fontWeight: 700, fontSize: 14, color: '#2D2A26', margin: 0, fontFamily: arabicFont }}>
                 {t('cash_on_delivery', lang)}
@@ -595,22 +546,8 @@ export default function CheckoutSheet({
         )}
       </div>
 
-      {/* ── Full price breakdown — subtotal, delivery
-          (only if genuine delivery), tax lines (only
-          if vendor.tax_enabled), total. This is the
-          FIRST place any of these numbers appear —
-          CartSheet intentionally shows subtotal only. ── */}
       <div style={{ background: 'white', borderRadius: 16, padding: 14, border: '1px solid rgba(45,42,38,0.06)', marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8 }}>
-          <span style={{ opacity: 0.55, fontFamily: arabicFont, order: rtl ? 2 : 1 }}>
-            {t('subtotal', lang)}
-          </span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", order: rtl ? 1 : 2 }}>
-            {formatPrice(subtotal, restaurant, lang)}
-          </span>
-        </div>
-
-        {isGenuineDelivery && deliveryFee > 0 && (
+        {!isVenueMode && !isDineIn && fulfillmentType === 'delivery' && deliveryFee > 0 && (
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8 }}>
             <span style={{ opacity: 0.55, fontFamily: arabicFont, order: rtl ? 2 : 1 }}>
               {t('delivery', lang)}
@@ -656,12 +593,12 @@ export default function CheckoutSheet({
         <span style={{ order: rtl ? 2 : 1 }}>
           {submitting
             ? (paymentMethod === 'card'
-                ? (lang === 'ar' ? 'جاري معالجة الدفع...' : lang === 'fr' ? 'Traitement du paiement...' : lang === 'es' ? 'Procesando pago...' : 'Processing payment...')
+                ? (lang === 'ar' ? '\u062c\u0627\u0631\u064a \u0645\u0639\u0627\u0644\u062c\u0629 \u0627\u0644\u062f\u0641\u0639...' : lang === 'fr' ? 'Traitement du paiement...' : lang === 'es' ? 'Procesando pago...' : 'Processing payment...')
                 : t('placing_order', lang))
             : t('place_order', lang)}
         </span>
         <span style={{ order: rtl ? 1 : 2, fontFamily: "'JetBrains Mono', monospace" }}>
-          {!submitting && `· ${formatPrice(total, restaurant, lang)}`}
+          {!submitting && `\u00b7 ${formatPrice(total, restaurant, lang)}`}
         </span>
       </button>
     </div>

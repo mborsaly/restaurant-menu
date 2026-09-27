@@ -23,7 +23,6 @@ export default function CartSheet({
     return (
       <div dir={rtl ? 'rtl' : 'ltr'} style={{ position: 'relative', padding: '50px 24px', textAlign: 'center' }}>
         <SheetCloseButton lang={lang} onClose={onClose} />
-        <div style={{ fontSize: 44, marginBottom: 14 }}>🛒</div>
         <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: 18, color: '#1A4D3E', marginBottom: 6 }}>
           {t('cart_empty', lang)}
         </h3>
@@ -40,7 +39,7 @@ export default function CartSheet({
         fontFamily: arabicFont, fontSize: 18, fontWeight: 700, color: '#1A4D3E',
         margin: '10px 0 14px', textAlign: rtl ? 'right' : 'left', ...titleSidePad,
       }}>
-        {t('your_cart', lang)} · {itemCount}
+        {t('your_cart', lang)} \u00b7 {itemCount}
       </h2>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
@@ -80,19 +79,6 @@ export default function CartSheet({
         ))}
       </div>
 
-      {/* ── Only subtotal + total here.
-          NO delivery fee, NO tax — both depend
-          on fulfillment type (delivery vs pickup
-          vs dine-in), which isn't chosen yet at
-          this point in the flow. Showing them
-          here would either be wrong (assuming
-          delivery before it's picked) or
-          misleading (a number that changes at
-          checkout looks like a bait-and-switch).
-          At this stage, "total" simply equals
-          "subtotal" — the real total with fees/
-          tax only appears once CheckoutSheet
-          knows the actual fulfillment type. ── */}
       <div style={{ background: 'white', borderRadius: 16, padding: 14, border: '1px solid rgba(45,42,38,0.06)', marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8 }}>
           <span style={{ opacity: 0.55, fontFamily: arabicFont, order: rtl ? 2 : 1 }}>{t('subtotal', lang)}</span>

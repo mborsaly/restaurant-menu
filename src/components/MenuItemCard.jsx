@@ -44,13 +44,15 @@ export default function MenuItemCard({
       }}
     >
       <div style={{ width: '100%', aspectRatio: '4/3', overflow: 'hidden', background: `${primary}12`, position: 'relative' }}>
-        {imgSrc ? (
-          <img src={imgSrc} alt={name} loading="lazy" width={400} height={300}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        ) : (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 46 }}>
-            {item.emoji || '🍽️'}
-          </div>
+        {imgSrc && (
+          <img
+            src={imgSrc}
+            alt={name}
+            loading="lazy"
+            width={400}
+            height={300}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
         )}
         {item.is_popular && (
           <div style={{
@@ -60,7 +62,7 @@ export default function MenuItemCard({
             letterSpacing: '0.03em', textTransform: 'uppercase',
             fontFamily: "'Plus Jakarta Sans', sans-serif",
           }}>
-            ⭐ Popular
+            {lang === 'ar' ? 'الأكثر طلباً' : lang === 'fr' ? 'Populaire' : 'Popular'}
           </div>
         )}
       </div>
@@ -102,7 +104,7 @@ export default function MenuItemCard({
               boxShadow: `0 3px 10px ${(justAdded ? '#2D6E5A' : primary)}40`,
             }}
           >
-            {justAdded ? '✓' : '+'}
+            {justAdded ? '\u2713' : '+'}
           </motion.button>
         </div>
       </div>
