@@ -1,24 +1,26 @@
-Category Name English,Category Name French,Item Name English,Description English,Item Name French,Description French,Item img URL,item Price,
-Combos,Les Combos,Diet Pepsi and Wonton Soup Combo,Enjoy a wonton soup paired with a Diet Pepsi for a comforting experience.,Combo Pepsi Diet et Soupe Won Ton,Savourez une soupe won ton accompagnée d'un Pepsi Diet pour une expérience réconfortante.,,7.5,
-Khmer Express Specialties,Les Spécialités Khmer Express,Mi Katang,Wide rice noodles with oyster sauce.,Mi Katang,Nouilles de riz larges avec sauce aux huîtres.,https://axiwfkpwgyvccdzpclfu.supabase.co/storage/v1/object/public/vendors-imgs/khmer-express/c67fc65e9b4e16a553eb7574fba090f1.jpeg,18.99,
-Khmer Express Specialties,Les Spécialités Khmer Express,Ke Tirv Phnom Penh,Dry noodle option available.,Ke Tirv Phnom Penh,Option nouilles seches disponible.,https://axiwfkpwgyvccdzpclfu.supabase.co/storage/v1/object/public/vendors-imgs/khmer-express/c67fc65e9b4e16a553eb7574fba090f1%20(2).jpeg,19.99,
-Khmer Express Specialties,Les Spécialités Khmer Express,Crispy Fried Chicken Wings,Crispy fried chicken wings.,Ailes De Poulet Frits,Ailes de poulet frites croustillantes.,https://axiwfkpwgyvccdzpclfu.supabase.co/storage/v1/object/public/vendors-imgs/khmer-express/bc9c318a9c96996e2d990faf2b0c65f6.jpeg,14.99,
-Khmer Express Specialties,Les Spécialités Khmer Express,Cha Loc Lac,Sauteed beef cube served with a side of rice with tomato paste.,Cha Loc Lac,Sauté de cubes de bœuf servi avec du riz à la pâte de tomate.,https://axiwfkpwgyvccdzpclfu.supabase.co/storage/v1/object/public/vendors-imgs/khmer-express/c67fc65e9b4e16a553eb7574fba090f1%20(3).jpeg,23.99,
-Khmer Express Specialties,Les Spécialités Khmer Express,Ke Tirv Khor Ko,"Traditional Khmer-style soup with rice noodles, beef and carrots.",Ke Tirv Khor Ko,"Soupe traditionnelle khmère avec nouilles de riz, bœuf et carottes.",https://axiwfkpwgyvccdzpclfu.supabase.co/storage/v1/object/public/vendors-imgs/khmer-express/c67fc65e9b4e16a553eb7574fba090f1%20(1).jpeg,23.99,
-Khmer Express Specialties,Les Spécialités Khmer Express,Beef Skewer Plate (3 pieces),"Tender beef skewers, served in a set of three.",Assiette 3 brochettes de boeuf,"Brochettes de bœuf tendre, servies en ensemble de trois.",https://axiwfkpwgyvccdzpclfu.supabase.co/storage/v1/object/public/vendors-imgs/khmer-express/bc9c318a9c96996e2d990faf2b0c65f6%20(1).jpeg,24.99,
-Khmer Express Specialties,Les Spécialités Khmer Express,Tender Beef Wok with Crunchy Broccoli,"Sauteed beef with broccoli, served with rice.",Boeuf tendre au wok et broccolis croquants,Sauté de bœuf avec broccolis servis avec du riz.,https://axiwfkpwgyvccdzpclfu.supabase.co/storage/v1/object/public/vendors-imgs/khmer-express/70aa2a4db7f990373ca9c376323e3dea.jpeg,23,
-Asian Classics,Les Classiques Asiatiques,Pad See Ew,"Wide rice noodles, egg, broccoli, and Chinese broccoli with a soy sauce base.",Pad See Ew,"Nouilles de riz larges, oeuf, broccolis, broccolis chinois avec sauce à base de sauce soya.",https://axiwfkpwgyvccdzpclfu.supabase.co/storage/v1/object/public/vendors-imgs/khmer-express/70aa2a4db7f990373ca9c376323e3dea%20(2).jpeg,18.99,
-Asian Classics,Les Classiques Asiatiques,Mi Cha,Cambodian-style rice noodle dish.,Mi Cha,Plat de nouilles de riz à la cambodgienne.,https://axiwfkpwgyvccdzpclfu.supabase.co/storage/v1/object/public/vendors-imgs/khmer-express/c67fc65e9b4e16a553eb7574fba090f1%20(7).jpeg,16.99,
-Asian Classics,Les Classiques Asiatiques,Vegetable Fried Rice,"Fried rice with onions, carrots and green peas.",Riz frit aux légumes,"Riz frits avec oignons, carottes et pois verts.",https://axiwfkpwgyvccdzpclfu.supabase.co/storage/v1/object/public/vendors-imgs/khmer-express/70aa2a4db7f990373ca9c376323e3dea%20(3).jpeg,16.99,
-Asian Classics,Les Classiques Asiatiques,Family-Size General Tao,"General Tao for 5 people, served with rice.",General Tao Familial,General tao pour 5 personnes accompagné de riz.,https://axiwfkpwgyvccdzpclfu.supabase.co/storage/v1/object/public/vendors-imgs/khmer-express/70aa2a4db7f990373ca9c376323e3dea%20(1).jpeg,69,
-Asian Classics,Les Classiques Asiatiques,Vegetable Pad Thai,Stir-fried rice noodles with shallots and chop suey.,Pad Thai aux légumes,Nouilles de riz sautées avec échalotes et chop suey.,https://axiwfkpwgyvccdzpclfu.supabase.co/storage/v1/object/public/vendors-imgs/khmer-express/70aa2a4db7f990373ca9c376323e3dea%20(4).jpeg,17.99,
-Asian Classics,Les Classiques Asiatiques,Fried Rice,Savory Asian rice dish with a delightful mix of authentic flavors.,Riz Frit,Plat de riz asiatique savoureux avec un mélange de saveurs authentiques.,https://axiwfkpwgyvccdzpclfu.supabase.co/storage/v1/object/public/vendors-imgs/khmer-express/c67fc65e9b4e16a553eb7574fba090f1%20(4).jpeg,18,
-Asian Classics,Les Classiques Asiatiques,Chef's General Tao,"Large crispy pieces of chicken (about 9-10), coated in a homemade sweet-spicy Tao sauce with onions and peppers. Generous portion, served with steamed white rice on the side.",Général Tao du Chef,"Gros morceaux croustillants de poulet (~9 ou ~10), enrobés d'une sauce Tao maison sucrée-épicée avec oignons et poivrons. Portion généreuse, servie avec riz blanc vapeur à côté.",https://axiwfkpwgyvccdzpclfu.supabase.co/storage/v1/object/public/vendors-imgs/khmer-express/c67fc65e9b4e16a553eb7574fba090f1%20(5).jpeg,23,
-Asian Classics,Les Classiques Asiatiques,Pad Thai,"Stir-fried rice noodles with shallots, chop suey and your choice of protein.",Pad Thai,"Nouilles de riz sautées avec échalotes, chop suey et votre choix de protéine.",https://axiwfkpwgyvccdzpclfu.supabase.co/storage/v1/object/public/vendors-imgs/khmer-express/c67fc65e9b4e16a553eb7574fba090f1%20(9).jpeg,18.99,
-Asian Classics,Les Classiques Asiatiques,Crispy Bird's Nest,"Crispy bird's nest filled with a choice of shrimp, chicken, or beef and vegetables.",Nid D'oiseaux Croustillant,"Nid d'oiseaux croustillant garni de crevettes, poulet ou bœuf au choix et de légumes.",https://axiwfkpwgyvccdzpclfu.supabase.co/storage/v1/object/public/vendors-imgs/khmer-express/c67fc65e9b4e16a553eb7574fba090f1%20(6).jpeg,17.99,
-Asian Classics,Les Classiques Asiatiques,Vegetable Pad See Ew,"Wide rice noodles, egg, broccoli, and Chinese broccoli with a soy sauce base.",Pad See Ew aux légumes,"Nouilles de riz larges, oeuf, broccolis, broccolis chinois avec sauce à base de sauce soya.",https://axiwfkpwgyvccdzpclfu.supabase.co/storage/v1/object/public/vendors-imgs/khmer-express/70aa2a4db7f990373ca9c376323e3dea%20(5).jpeg,18.99,
-Starters,Les Entrées,Wonton Soup (Small),"Delicate stuffed chicken wontons served in a savory broth. 5 wontons, 12 oz.",Soupe Won Ton (petite),"Délicats won ton farcis au poulet servis dans un bouillon savoureux. 5 won ton, 12 onces.",https://axiwfkpwgyvccdzpclfu.supabase.co/storage/v1/object/public/vendors-imgs/khmer-express/c67fc65e9b4e16a553eb7574fba090f1%20(8)%20(1).jpeg,6.25,
-Starters,Les Entrées,Wonton Soup (Large),"Delicate wontons served in a savory broth. 9 wontons, 16 oz.",Soupe Won Ton (grande),"Délicats won ton servis dans un bouillon savoureux. 9 won ton, 16 onces.",https://axiwfkpwgyvccdzpclfu.supabase.co/storage/v1/object/public/vendors-imgs/khmer-express/c67fc65e9b4e16a553eb7574fba090f1%20(8)%20(1).jpeg,9.25,
-Starters,Les Entrées,Homemade Crispy Chicken & Taro Spring Roll,Homemade crispy spring roll filled with chicken and taro.,Rouleau impérial maison au poulet taro - croustillant,Rouleau impérial maison croustillant farci au poulet et au taro.,https://axiwfkpwgyvccdzpclfu.supabase.co/storage/v1/object/public/vendors-imgs/khmer-express/bc9c318a9c96996e2d990faf2b0c65f6%20(2).jpeg,4.5,8
-Starters,Les Entrées,Homemade Crispy Vegetable Spring Roll,Homemade crispy spring roll filled with vegetables.,Rouleau impérial maison aux légumes - croustillant,Rouleau impérial maison croustillant farci aux légumes.,https://axiwfkpwgyvccdzpclfu.supabase.co/storage/v1/object/public/vendors-imgs/khmer-express/bc9c318a9c96996e2d990faf2b0c65f6%20(3).jpeg,4,
-,,,,,,,,
+item_option_group_en,item_option_group_fr,item_option_en,item_option_fr,item_option_price
+Add a protein of your choice,Ajoutez une protéine de votre choix,Vegetables,Légumes,0
+Add a protein of your choice,Ajoutez une protéine de votre choix,Chicken,Poulet,4
+Add a protein of your choice,Ajoutez une protéine de votre choix,Shrimp,Crevettes,5
+Drinks,Boissons,Pepsi (can),Pepsi (canette),3
+Drinks,Boissons,Diet Pepsi (can),Pepsi Diet (canette),3
+Drinks,Boissons,7UP (can),Seven Up (canette),3
+Desserts,Desserts,5 Golden Mini Sesame Balls – Molten Center,5 Mini-boules de sésame dorées - coeur fondant,4
+Side,Accompagnement,Mini Homemade Soup,Mini-Soupe maison,3
+Protein,protein,Shrimp,Crevettes,7
+Cooking Condiments,Condiments cuisson,Fried Garlic,Ail frit,1
+Extra Green Vegetables,Extra légumes verts,Extra Regular Broccoli,Extra broccolis réguliers,2
+Extra Green Vegetables,Extra légumes verts,Extra Chinese Broccoli,Extra broccolis chinois,2
+Extra Green Vegetables,Extra légumes verts,Extra Regular & Chinese Broccoli,Extra broccolis et broccolis chinois,3.5
+Extra Green Vegetables,Extra légumes verts,No Regular Broccoli,Sans broccolis réguliers,0
+Thai Chili,Piment thai,With Thai Chili Pieces,Avec morceaux de piment thai,1.25
+Extra Sauce,Extra sauce,Extra Sauce,Extra sauce,2
+Extra Egg,extra oeuf,"With Fried Egg, Sunny Side Up",Avec Oeuf Frit à plat,1.5
+Extra Egg,extra oeuf,Extra Scrambled Egg,extra oeuf brouillé,1.25
+Extra Noodles,Extra nouilles,More Noodles (Half Portion),Plus de nouilles (demi portion),3.5
+Extra Noodles,Extra nouilles,Double Noodles (One Extra Portion),Double nouilles (une portion de plus),5
+Spice Level,Niveau de piquant,Mild,Doux,0
+Spice Level,Niveau de piquant,Medium Spicy,Moyen épicé,0
+Spice Level,Niveau de piquant,Very Spicy,Très épicé,0.5
+Spice Level,Niveau de piquant,Dragon,Dragon,1
+Signature Version,Version Signature,"Extra onions, bell peppers, garlic, and black pepper","extra oignons, poivrons, ail, poivre noir",5
