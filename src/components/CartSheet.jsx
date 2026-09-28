@@ -3,6 +3,7 @@ import { useCart }             from '../context/CartContext'
 import { t }                   from '../lib/translations'
 import { pickTranslation }     from '../lib/i18n'
 import { formatPrice }         from '../lib/currency'
+import { getOptionLines }      from '../lib/cartOptions'
 import SheetCloseButton        from './SheetCloseButton'
 
 export default function CartSheet({
@@ -43,40 +44,62 @@ export default function CartSheet({
       </h2>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-        {cart.map(item => (
-          <div key={item.id} style={{ background: 'white', borderRadius: 16, padding: 12, border: '1px solid rgba(45,42,38,0.06)' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-              <div style={{ flex: 1, minWidth: 0, order: rtl ? 2 : 1 }}>
-                <p style={{ fontWeight: 700, fontSize: 13, color: '#2D2A26', marginBottom: 6, fontFamily: arabicFont, textAlign: rtl ? 'right' : 'left' }}>
-                  {getItemName(item)}
-                </p>
+        {cart.map(item => {
+          const optionLines = getOptionLines(item.options, lang, fallbackLang)
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: rtl ? 'flex-end' : 'flex-start' }}>
-                  <button onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                    style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(45,42,38,0.06)', border: 'none', cursor: 'pointer' }}>
-                    <Minus size={12} style={{ margin: 'auto' }} />
-                  </button>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, width: 16, textAlign: 'center' }}>
-                    {item.quantity}
-                  </span>
-                  <button onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                    style={{ width: 24, height: 24, borderRadius: '50%', background: primary, color: 'white', border: 'none', cursor: 'pointer' }}>
-                    <Plus size={12} style={{ margin: 'auto' }} />
+          return (
+            <div key={item.id} style={{ background: 'white', borderRadius: 16, padding: 12, border: '1px solid rgba(45,42,38,0.06)' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                <div style={{ flex: 1, minWidth: 0, order: rtl ? 2 : 1 }}>
+                  <p style={{
+                    fontWeight: 700, fontSize: 13, color: '#2D2A26',
+                    marginBottom: optionLines.length ? 4 : 6,
+                    fontFamily: arabicFont, textAlign: rtl ? 'right' : 'left',
+                  }}>
+                    {getItemName(item)}
+                  </p>
+
+                  {optionLines.length > 0 && (
+                    <div style={{ marginBottom: 8, textAlign: rtl ? 'right' : 'left' }}>
+                      {optionLines.map((line, i) => (
+                        <p key={i} style={{
+                          fontSize: 11.5, color: '#2D2A26', opacity: 0.6,
+                          margin: '1px 0', lineHeight: 1.4, fontFamily: arabicFont,
+                        }}>
+                          {line.name}
+                          {line.price > 0 && ` (+${formatPrice(line.price, restaurant, lang)})`}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: rtl ? 'flex-end' : 'flex-start' }}>
+                    <button onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                      style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(45,42,38,0.06)', border: 'none', cursor: 'pointer' }}>
+                      <Minus size={12} style={{ margin: 'auto' }} />
+                    </button>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, width: 16, textAlign: 'center' }}>
+                      {item.quantity}
+                    </span>
+                    <button onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      style={{ width: 24, height: 24, borderRadius: '50%', background: primary, color: 'white', border: 'none', cursor: 'pointer' }}>
+                      <Plus size={12} style={{ margin: 'auto' }} />
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ order: rtl ? 1 : 2, textAlign: rtl ? 'left' : 'right' }}>
+                  <p style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: primary }}>
+                    {formatPrice(item.total, restaurant, lang)}
+                  </p>
+                  <button onClick={() => removeItem(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', opacity: 0.6, marginTop: 6 }}>
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </div>
-
-              <div style={{ order: rtl ? 1 : 2, textAlign: rtl ? 'left' : 'right' }}>
-                <p style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: primary }}>
-                  {formatPrice(item.total, restaurant, lang)}
-                </p>
-                <button onClick={() => removeItem(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', opacity: 0.6, marginTop: 6 }}>
-                  <Trash2 size={14} />
-                </button>
-              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <div style={{ background: 'white', borderRadius: 16, padding: 14, border: '1px solid rgba(45,42,38,0.06)', marginBottom: 16 }}>

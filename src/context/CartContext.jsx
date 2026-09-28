@@ -2,11 +2,13 @@ import { createContext, useContext, useState } from 'react'
 
 const CartContext = createContext(null)
 
+// Signature includes each option's chosen quantity, so
+// "Extra Egg x1" and "Extra Egg x2" stay separate lines.
 function buildOptionsSignature(selectedOptions) {
   if (!selectedOptions || Object.keys(selectedOptions).length === 0) return ''
   return Object.keys(selectedOptions)
     .sort()
-    .map(key => `${key}:${selectedOptions[key]?.id}`)
+    .map(key => `${key}:${selectedOptions[key]?.id}x${selectedOptions[key]?.selectedQty || 1}`)
     .join('|')
 }
 
@@ -34,29 +36,24 @@ export function CartProvider({ children }) {
         return next
       }
 
+      // Option price now honours per-option quantity
       const optionsPrice = Object.values(selectedOptions)
-        .reduce((sum, opt) => sum + (opt.price_modifier || 0), 0)
+        .reduce((sum, opt) => sum + (opt.price_modifier || 0) * (opt.selectedQty || 1), 0)
 
-      const totalPrice = item.base_price + optionsPrice
+      const unitPrice = item.base_price + optionsPrice
 
       const cartItem = {
         id: `${item.id}-${optionsSignature || 'base'}-${Date.now()}`,
         itemId: item.id,
-        // Legacy flat fields kept for backward
-        // compatibility with anything still reading
-        // .name / .name_fr / .name_ar directly
         name: item.name_en,
         name_fr: item.name_fr,
         name_ar: item.name_ar,
-        // New: full translations array, carried
-        // through so the cart can display correctly
-        // in ANY vendor-supported language
         translations: item.translations || [],
         basePrice: item.base_price,
         options: selectedOptions,
         optionsPrice,
-        unitPrice: totalPrice,
-        total: totalPrice * quantity,
+        unitPrice,
+        total: unitPrice * quantity,
         quantity,
         image_url: item.image_url,
       }

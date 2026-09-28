@@ -5,6 +5,7 @@ import { t }                from '../lib/translations'
 import { pickTranslation }  from '../lib/i18n'
 import { formatPrice }      from '../lib/currency'
 import SheetCloseButton     from './SheetCloseButton'
+import { getOptionLines } from '../lib/cartOptions'
 
 const STATUS_LABELS = {
   pending:   { en: 'Received',  fr: 'Re\u00e7ue',      ar: '\u062a\u0645 \u0627\u0644\u0627\u0633\u062a\u0644\u0627\u0645' },
@@ -143,16 +144,30 @@ export default function OrderHistorySheet({
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 8 }}>
-                    {items.map((item, i) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}>
-                        <span style={{ color: '#1A2530', opacity: 0.75, fontFamily: arabicFont, order: rtl ? 2 : 1, textAlign: rtl ? 'right' : 'left' }}>
-                          {item.quantity}\u00d7 {getItemName(item)}
-                        </span>
-                        <span style={{ fontFamily: "'JetBrains Mono', monospace", opacity: 0.6, order: rtl ? 1 : 2 }}>
-                          {formatPrice(item.total, restaurant, lang)}
-                        </span>
-                      </div>
-                    ))}
+                    import { getOptionLines } from '../lib/cartOptions'
+
+// inside the order card, replace the items.map(...) block:
+{items.map((item, i) => (
+  <div key={i}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}>
+      <span style={{ color: '#1A2530', opacity: 0.75, fontFamily: arabicFont, order: rtl ? 2 : 1, textAlign: rtl ? 'right' : 'left' }}>
+        {item.quantity}x {getItemName(item)}
+      </span>
+      <span style={{ fontFamily: "'JetBrains Mono', monospace", opacity: 0.6, order: rtl ? 1 : 2 }}>
+        {formatPrice(item.total, restaurant, lang)}
+      </span>
+    </div>
+    {getOptionLines(item.options, lang, fallbackLang).map((line, j) => (
+      <p key={j} style={{
+        fontSize: 11, opacity: 0.5, margin: '1px 0',
+        marginInlineStart: 12, fontFamily: arabicFont,
+        textAlign: rtl ? 'right' : 'left',
+      }}>
+        {line.name}
+      </p>
+    ))}
+  </div>
+))}
                   </div>
 
                   <div style={{

@@ -30,10 +30,11 @@ export default function ItemSheet({
 
   const [fullItem, setFullItem]   = useState(item)
   const [loading, setLoading]     = useState(!item.optionGroups)
+  const [loadError, setLoadError] = useState(null)
   const [quantity, setQuantity]   = useState(isGrocery ? (item.unit_step || 1) : 1)
 
-  // selections: { [groupId]: option }               for single-select groups
-  //             { [groupId]: { [optionId]: qty } }   for multiple-select groups
+  // single groups:   { [groupId]: option }
+  // multiple groups: { [groupId]: { [optionId]: qty } }
   const [selections, setSelections] = useState({})
   const [validationError, setValidationError] = useState(null)
   const [totalPrice, setTotalPrice] = useState(item.base_price)
@@ -50,53 +51,91 @@ export default function ItemSheet({
       return
     }
 
+    let cancelled = false
+
     async function load() {
-      const table       = isGrocery ? 'grocery_products' : 'menu_items'
+      const table        = isGrocery ? 'grocery_products' : 'menu_items'
+      const trTable      = isGrocery ? 'grocery_product_translations' : 'menu_item_translations'
       const groupsTable  = isGrocery ? 'grocery_product_option_groups' : 'item_option_groups'
-      const optionsTable = isGrocery ? 'grocery_product_options' : 'item_options'
-      const groupTrTable = isGrocery ? 'grocery_option_group_translations' : 'item_option_group_translations'
-      const optTrTable   = isGrocery ? 'grocery_product_option_translations' : 'item_option_translations'
       const groupFk      = isGrocery ? 'grocery_product_id' : 'menu_item_id'
-      const trKey        = isGrocery ? 'grocery_product_translations' : 'menu_item_translations'
+      const groupTrTable = isGrocery ? 'grocery_option_group_translations' : 'item_option_group_translations'
+      const optionsTable = isGrocery ? 'grocery_product_options' : 'item_options'
+      const optTrTable   = isGrocery ? 'grocery_product_option_translations' : 'item_option_translations'
+      const optTrFk      = isGrocery ? 'grocery_product_option_id' : 'item_option_id'
 
-      const { data } = await supabase
-        .from(table)
-        .select(`
-          *,
-          ${trKey}(*),
-          ${groupsTable}!${groupFk} (
-            *,
-            ${groupTrTable}(*),
-            ${optionsTable} (
-              *,
-              ${optTrTable}(*)
-            )
-          )
-        `)
-        .eq('id', item.id)
-        .single()
+      try {
+        // 1. The item and its own translations
+        const { data: itemRow, error: itemErr } = await supabase
+          .from(table)
+          .select(`*, ${trTable}(*)`)
+          .eq('id', item.id)
+          .single()
+        if (itemErr) throw new Error(`item: ${itemErr.message}`)
 
-      if (data) {
-        const rawGroups = data[groupsTable] || []
-        const optionGroups = rawGroups
-          .filter(g => g.active !== false)
-          .map(g => ({
+        // 2. Option groups for this item
+        const { data: groups, error: groupsErr } = await supabase
+          .from(groupsTable)
+          .select('*')
+          .eq(groupFk, item.id)
+          .eq('active', true)
+          .order('sort_order')
+        if (groupsErr) throw new Error(`groups: ${groupsErr.message}`)
+
+        let optionGroups = []
+
+        if (groups?.length) {
+          const groupIds = groups.map(g => g.id)
+
+          // 3. Group translations and options, in parallel
+          const [groupTrRes, optionsRes] = await Promise.all([
+            supabase.from(groupTrTable).select('*').in('group_id', groupIds),
+            supabase.from(optionsTable).select('*').in('group_id', groupIds).order('sort_order'),
+          ])
+          if (groupTrRes.error) throw new Error(`group translations: ${groupTrRes.error.message}`)
+          if (optionsRes.error) throw new Error(`options: ${optionsRes.error.message}`)
+
+          const options = optionsRes.data || []
+
+          // 4. Option translations
+          let optTrs = []
+          if (options.length) {
+            const { data, error } = await supabase
+              .from(optTrTable)
+              .select('*')
+              .in(optTrFk, options.map(o => o.id))
+            if (error) throw new Error(`option translations: ${error.message}`)
+            optTrs = data || []
+          }
+
+          optionGroups = groups.map(g => ({
             ...g,
-            translations: g[groupTrTable],
-            options: (g[optionsTable] || [])
-              .map(o => ({ ...o, translations: o[optTrTable] }))
-              .sort((a, b) => a.sort_order - b.sort_order),
+            translations: (groupTrRes.data || []).filter(tr => tr.group_id === g.id),
+            options: options
+              .filter(o => o.group_id === g.id)
+              .map(o => ({
+                ...o,
+                translations: optTrs.filter(tr => tr[optTrFk] === o.id),
+              })),
           }))
-          .sort((a, b) => a.sort_order - b.sort_order)
+        }
 
-        const normalized = { ...data, translations: data[trKey], optionGroups }
+        if (cancelled) return
+
+        const normalized = { ...itemRow, translations: itemRow[trTable], optionGroups }
         setFullItem(normalized)
         initSelections(optionGroups)
+      } catch (err) {
+        // Technical detail goes to the console only;
+        // customers see a plain message
+        console.error('ItemSheet options load failed ->', err.message)
+        if (!cancelled) setLoadError(err.message)
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-      setLoading(false)
     }
 
     load()
+    return () => { cancelled = true }
   }, [item.id])
 
   function initSelections(groups) {
@@ -142,6 +181,21 @@ export default function ItemSheet({
     setValidationError(null)
   }
 
+  // Optional single-select groups can be cleared by tapping
+  // the selected option again
+  function selectSingleToggle(group, option) {
+    setSelections(prev => {
+      const isSelected = prev[group.id]?.id === option.id
+      if (isSelected && !group.is_required) {
+        const next = { ...prev }
+        delete next[group.id]
+        return next
+      }
+      return { ...prev, [group.id]: option }
+    })
+    setValidationError(null)
+  }
+
   function toggleMultiple(group, option) {
     setSelections(prev => {
       const current = { ...(prev[group.id] || {}) }
@@ -150,10 +204,6 @@ export default function ItemSheet({
       if (currentQty > 0) {
         delete current[option.id]
       } else {
-        // Respect max_select on the GROUP (how many
-        // distinct options can be chosen), separate
-        // from max_quantity on an OPTION (how many of
-        // the SAME option, e.g. "extra cheese x2")
         const chosenCount = Object.keys(current).length
         if (group.max_select && chosenCount >= group.max_select) {
           setValidationError(
@@ -198,13 +248,14 @@ export default function ItemSheet({
     const groups = fullItem?.optionGroups || []
     for (const group of groups) {
       if (!group.is_required) continue
+      const label = pickGroupName(group, lang, fallbackLang)
 
       if (group.selection_type === 'single') {
         if (!selections[group.id]) {
           setValidationError(
-            lang === 'ar' ? `يرجى الاختيار من: ${pickGroupName(group, lang, fallbackLang)}`
-            : lang === 'fr' ? `Veuillez choisir : ${pickGroupName(group, lang, fallbackLang)}`
-            : `Please choose: ${pickGroupName(group, lang, fallbackLang)}`
+            lang === 'ar' ? `يرجى الاختيار من: ${label}`
+            : lang === 'fr' ? `Veuillez choisir : ${label}`
+            : `Please choose: ${label}`
           )
           return false
         }
@@ -213,9 +264,9 @@ export default function ItemSheet({
         const minNeeded = group.min_select || 1
         if (chosenCount < minNeeded) {
           setValidationError(
-            lang === 'ar' ? `اختر ${minNeeded} على الأقل من: ${pickGroupName(group, lang, fallbackLang)}`
-            : lang === 'fr' ? `Choisissez au moins ${minNeeded} dans : ${pickGroupName(group, lang, fallbackLang)}`
-            : `Choose at least ${minNeeded} from: ${pickGroupName(group, lang, fallbackLang)}`
+            lang === 'ar' ? `اختر ${minNeeded} على الأقل من: ${label}`
+            : lang === 'fr' ? `Choisissez au moins ${minNeeded} dans : ${label}`
+            : `Choose at least ${minNeeded} from: ${label}`
           )
           return false
         }
@@ -224,11 +275,10 @@ export default function ItemSheet({
     return true
   }
 
+  // Flattens group-based selections into the flat shape the
+  // cart and checkout expect. Multi-select entries carry
+  // selectedQty so pricing and display can honour it.
   function buildCartOptions() {
-    // Flattens group-based selections into the flat
-    // shape CartContext/checkout already expects:
-    // { [groupId_or_key]: option } for single,
-    // and one entry per chosen multi-option
     const flat = {}
     Object.entries(selections).forEach(([groupId, value]) => {
       const group = fullItem.optionGroups?.find(g => g.id === groupId)
@@ -316,6 +366,14 @@ export default function ItemSheet({
         <p style={{ textAlign: 'center', padding: 20, opacity: 0.5, fontSize: 13 }}>...</p>
       ) : (
         <>
+          {loadError && (
+            <p style={{ color: '#ef4444', fontSize: 12, padding: '8px 20px', margin: 0, fontFamily: arabicFont, textAlign: rtl ? 'right' : 'left' }}>
+              {lang === 'ar' ? 'تعذر تحميل الخيارات، حاول مرة أخرى'
+                : lang === 'fr' ? 'Impossible de charger les options, réessayez'
+                : 'Options could not be loaded, please try again'}
+            </p>
+          )}
+
           {groups.map(group => {
             const groupLabel = pickGroupName(group, lang, fallbackLang)
             const isMultiple = group.selection_type === 'multiple'
@@ -329,16 +387,17 @@ export default function ItemSheet({
                   <h4 style={{
                     fontWeight: 700, fontSize: 13, color: '#1B2530', margin: 0,
                     fontFamily: arabicFont, textAlign: rtl ? 'right' : 'left',
+                    order: rtl ? 2 : 1,
                   }}>
                     {groupLabel}
                     {group.is_required && (
                       <span style={{ color: primary, marginInlineStart: 4 }}>*</span>
                     )}
                   </h4>
-                  {isMultiple && (group.max_select || group.min_select > 0) && (
-                    <span style={{ fontSize: 10.5, color: '#1B2530', opacity: 0.45, fontFamily: "'JetBrains Mono', monospace" }}>
-                      {group.max_select
-                        ? (lang === 'ar' ? `حتى ${group.max_select}` : lang === 'fr' ? `Max ${group.max_select}` : `Max ${group.max_select}`)
+                  {!group.is_required && (
+                    <span style={{ fontSize: 10.5, color: '#1B2530', opacity: 0.45, fontFamily: arabicFont, order: rtl ? 1 : 2 }}>
+                      {isMultiple && group.max_select
+                        ? (lang === 'ar' ? `حتى ${group.max_select}` : `Max ${group.max_select}`)
                         : (lang === 'ar' ? 'اختياري' : lang === 'fr' ? 'Optionnel' : 'Optional')}
                     </span>
                   )}
@@ -352,7 +411,7 @@ export default function ItemSheet({
                     return (
                       <motion.button
                         key={option.id}
-                        onClick={() => selectSingle(group, option)}
+                        onClick={() => selectSingleToggle(group, option)}
                         whileTap={{ scale: 0.98 }}
                         style={{
                           width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
