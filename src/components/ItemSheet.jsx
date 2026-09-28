@@ -9,7 +9,7 @@ import { formatPrice }         from '../lib/currency'
 import SheetCloseButton        from './SheetCloseButton'
 
 const UNIT_LABELS = {
-  piece: { en: 'pc', ar: 'قطعة', fr: 'pcs' },
+  piece: { en: 'pc', ar: 'قطعة', fr: 'pc' },
   kg:    { en: 'kg', ar: 'كجم',  fr: 'kg' },
   gram:  { en: 'g',  ar: 'جم',   fr: 'g'  },
   liter: { en: 'L',  ar: 'لتر',  fr: 'L'  },
