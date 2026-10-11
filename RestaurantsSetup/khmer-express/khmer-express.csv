@@ -1,26 +1,40 @@
 item_option_group_en,item_option_group_fr,item_option_en,item_option_fr,item_option_price
-Add a protein of your choice,Ajoutez une protéine de votre choix,Vegetables,Légumes,0
-Add a protein of your choice,Ajoutez une protéine de votre choix,Chicken,Poulet,4
-Add a protein of your choice,Ajoutez une protéine de votre choix,Shrimp,Crevettes,5
+Noodle type,Type de nouilles,Dry noodles,Nouilles Sèches,1
+Add a protein to your soup,Ajoutez une protéine pour votre soupe,Chicken,Poulet,0
+Add a protein to your soup,Ajoutez une protéine pour votre soupe,Beef,Bœuf,0
+Add a protein to your soup,Ajoutez une protéine pour votre soupe,Shrimp,Crevettes,2.5
+Extra protein,proteines extra,Extra chicken,Extra Poulet,6.25
+Extra protein,proteines extra,Extra beef,Extra boeuf,7.75
+Extra protein,proteines extra,Extra shrimp,Extra crevette,8.75
 Drinks,Boissons,Pepsi (can),Pepsi (canette),3
 Drinks,Boissons,Diet Pepsi (can),Pepsi Diet (canette),3
 Drinks,Boissons,7UP (can),Seven Up (canette),3
 Desserts,Desserts,5 Golden Mini Sesame Balls – Molten Center,5 Mini-boules de sésame dorées - coeur fondant,4
 Side,Accompagnement,Mini Homemade Soup,Mini-Soupe maison,3
-Protein,protein,Shrimp,Crevettes,7
-Cooking Condiments,Condiments cuisson,Fried Garlic,Ail frit,1
-Extra Green Vegetables,Extra légumes verts,Extra Regular Broccoli,Extra broccolis réguliers,2
-Extra Green Vegetables,Extra légumes verts,Extra Chinese Broccoli,Extra broccolis chinois,2
-Extra Green Vegetables,Extra légumes verts,Extra Regular & Chinese Broccoli,Extra broccolis et broccolis chinois,3.5
-Extra Green Vegetables,Extra légumes verts,No Regular Broccoli,Sans broccolis réguliers,0
-Thai Chili,Piment thai,With Thai Chili Pieces,Avec morceaux de piment thai,1.25
-Extra Sauce,Extra sauce,Extra Sauce,Extra sauce,2
-Extra Egg,extra oeuf,"With Fried Egg, Sunny Side Up",Avec Oeuf Frit à plat,1.5
-Extra Egg,extra oeuf,Extra Scrambled Egg,extra oeuf brouillé,1.25
+Extra broth,Extra bouillon,More broth,Plus de bouillon,2.5
 Extra Noodles,Extra nouilles,More Noodles (Half Portion),Plus de nouilles (demi portion),3.5
 Extra Noodles,Extra nouilles,Double Noodles (One Extra Portion),Double nouilles (une portion de plus),5
-Spice Level,Niveau de piquant,Mild,Doux,0
-Spice Level,Niveau de piquant,Medium Spicy,Moyen épicé,0
-Spice Level,Niveau de piquant,Very Spicy,Très épicé,0.5
-Spice Level,Niveau de piquant,Dragon,Dragon,1
-Signature Version,Version Signature,"Extra onions, bell peppers, garlic, and black pepper","extra oignons, poivrons, ail, poivre noir",5
+Add vegetables,Ajout de légumes,Add 3 broccoli florets,Ajouter 3 broccolis,2
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+Combo Pepsi Diet et Soupe Won Ton,,,,
+,,,,
+Savourez une soupe won ton accompagnée d'un Pepsi Diet pour une expérience réconfortante.,,,,
+,,,,
+Diet Pepsi and Wonton Soup Combo,,,,
+,,,,
+,,,,
+7585099f-768b-4c56-81d2-51555e36cf1e,,,,
+,,,,
+,,,,
+,,,,
+059d8fa3-5d2c-473a-a415-7408d035d30b,,,,
