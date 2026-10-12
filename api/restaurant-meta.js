@@ -87,6 +87,14 @@ export function isValidHttpUrl(value) {
   }
 }
 
+// A Facebook/Meta App ID is a plain numeric string (Meta's own apps are
+// typically 15-16 digits, but the format itself is just "digits"). Guards
+// against a misconfigured env var (placeholder text, a URL, etc.) silently
+// shipping as a broken fb:app_id tag.
+export function isValidFacebookAppId(value) {
+  return typeof value === 'string' && /^\d{1,20}$/.test(value)
+}
+
 export function pickLocalizedName(vendor, lang) {
   if (lang === 'fr' && vendor.name_fr) return vendor.name_fr
   if (lang === 'ar' && vendor.name_ar) return vendor.name_ar
@@ -116,18 +124,33 @@ export function buildCanonicalPath({ looksLikeVenuePair, venueSlug, vendorSlug }
   return `/${encodeURIComponent(vendorSlug)}`
 }
 
-export function buildHeadExtra({ title, description, canonicalUrl, logoUrl }) {
+export function buildHeadExtra({ title, description, canonicalUrl, logoUrl, restaurantName, fbAppId }) {
+  const hasImage = isValidHttpUrl(logoUrl)
+  const hasFbAppId = isValidFacebookAppId(fbAppId)
   const parts = [
     `<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />`,
     `<meta property="og:title" content="${escapeHtml(title)}" />`,
     description ? `<meta property="og:description" content="${escapeHtml(description)}" />` : null,
     `<meta property="og:url" content="${escapeHtml(canonicalUrl)}" />`,
-    `<meta property="og:type" content="restaurant.restaurant" />`,
+    // "website", not the Open Graph vertical "restaurant.restaurant": a
+    // non-basic og:type requires declaring its RDFa namespace on <html>
+    // (e.g. prefix="restaurant: http://ogp.me/ns/restaurant#"), which
+    // index.html never did, making the old value spec-invalid — and
+    // "website" is the one type every consumer (Twitter/Slack/iMessage/
+    // LinkedIn/Google) reliably understands without any extra setup.
+    `<meta property="og:type" content="website" />`,
+    hasFbAppId ? `<meta property="fb:app_id" content="${escapeHtml(fbAppId)}" />` : null,
     `<meta name="twitter:card" content="summary" />`,
     `<meta name="twitter:title" content="${escapeHtml(title)}" />`,
     description ? `<meta name="twitter:description" content="${escapeHtml(description)}" />` : null,
-    isValidHttpUrl(logoUrl) ? `<meta property="og:image" content="${escapeHtml(logoUrl)}" />` : null,
-    isValidHttpUrl(logoUrl) ? `<meta name="twitter:image" content="${escapeHtml(logoUrl)}" />` : null,
+    hasImage ? `<meta property="og:image" content="${escapeHtml(logoUrl)}" />` : null,
+    hasImage && restaurantName
+      ? `<meta property="og:image:alt" content="${escapeHtml(restaurantName)}" />`
+      : null,
+    hasImage ? `<meta name="twitter:image" content="${escapeHtml(logoUrl)}" />` : null,
+    hasImage && restaurantName
+      ? `<meta name="twitter:image:alt" content="${escapeHtml(restaurantName)}" />`
+      : null,
   ].filter(Boolean)
   return parts.join('\n  ')
 }
@@ -233,10 +256,16 @@ export async function resolveLanguage(supabase, vendorId) {
   }
 }
 
-export function substituteTemplate(template, { title, description, lang, canonicalUrl, logoUrl }) {
+export function substituteTemplate(
+  template,
+  { title, description, lang, canonicalUrl, logoUrl, restaurantName, fbAppId }
+) {
   if (looksDangerous(title) || looksDangerous(description) || looksDangerous(canonicalUrl)) {
     // Should be unreachable given escaping, but if it ever triggers, fail
     // toward the untouched template rather than risk injected markup.
+    // (restaurantName is always a literal prefix of title, so this check on
+    // title already covers it — no separate veto needed. fbAppId comes from
+    // an env var, not vendor data, so it's never user/DB-controlled input.)
     return template
   }
 
@@ -249,7 +278,10 @@ export function substituteTemplate(template, { title, description, lang, canonic
       `<meta name="description" content="${escapeHtml(description)}" />`
     )
   }
-  html = html.replace(HEAD_EXTRA_MARKER, buildHeadExtra({ title, description, canonicalUrl, logoUrl }))
+  html = html.replace(
+    HEAD_EXTRA_MARKER,
+    buildHeadExtra({ title, description, canonicalUrl, logoUrl, restaurantName, fbAppId })
+  )
   return html
 }
 
@@ -353,6 +385,12 @@ export default async function handler(request, response) {
     lang,
     canonicalUrl,
     logoUrl: vendor.logo_url,
+    restaurantName: displayName,
+    // No BistroVite Facebook/Meta App ID exists in this project today (none
+    // found in .env, vercel.json, or docs) — FACEBOOK_APP_ID is read so the
+    // tag activates automatically once a real one is configured in Vercel's
+    // Environment Variables, but it is never invented here.
+    fbAppId: process.env.FACEBOOK_APP_ID,
   })
 
   response.status(200)
