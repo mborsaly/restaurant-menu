@@ -41,11 +41,20 @@ export const RESERVED = ['welcome', 'menu', 'item', 'cart', 'checkout', 'confirm
 export const SUB_ROUTES = ['cart', 'checkout', 'confirmation', 'item']
 export const CANONICAL_BASE_URL = 'https://order.bistrovite.com'
 
-// Keep this string identical to the "source" of the restaurant-meta rewrite
-// in vercel.json — restaurant-meta.test.js asserts against this exact
-// pattern so the two can't silently drift apart.
-export const REWRITE_SOURCE_PATTERN =
-  '^/(?!welcome|menu|item|cart|checkout|confirmation|assets)([^/.]+)(?:/(.*))?$'
+// The actual request routing (which paths reach this function at all) is
+// defined entirely in vercel.json's "rewrites" array — Vercel's rewrite
+// "source" patterns are matched with path-to-regexp, which does NOT support
+// regex lookahead/lookbehind (a single lookahead-based pattern here used to
+// be deployed and was rejected at deploy time: "Rewrite at index 0 has
+// invalid source pattern"). vercel.json now uses several explicit,
+// lookahead-free rules instead of one clever regex: literal passthroughs for
+// RESERVED routes/assets/api (checked first, so they never reach this
+// function), then two plain path-to-regexp rules for a bare slug and a
+// slug+rest, then the existing SPA catch-all. restaurant-meta.test.js reads
+// vercel.json directly and asserts on its actual rule shapes/order, so the
+// two can't silently drift apart. RESERVED/SUB_ROUTES below are still the
+// one shared source of truth for sub-route classification, mirrored from
+// src/hooks/useSession.js as noted above.
 
 const DEFAULT_TITLE_TAG = '<title>BistroVite — Commandez en quelques secondes</title>'
 const DEFAULT_DESCRIPTION_TAG =

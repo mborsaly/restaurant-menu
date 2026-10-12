@@ -10,11 +10,13 @@
 
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
 import {
   RESERVED,
   SUB_ROUTES,
   CANONICAL_BASE_URL,
-  REWRITE_SOURCE_PATTERN,
   escapeHtml,
   looksDangerous,
   isValidHttpUrl,
@@ -213,27 +215,101 @@ describe('request classification: standalone vs. venue-prefixed vs. reserved', (
   })
 })
 
-describe('REWRITE_SOURCE_PATTERN (must stay identical to vercel.json)', () => {
-  const regex = new RegExp(REWRITE_SOURCE_PATTERN)
+// ---------------------------------------------------------------------------
+// vercel.json rewrite rules — read the REAL file, not a copy, so these tests
+// can't silently drift from what actually ships. This replaced a single
+// lookahead-based regex ("^/(?!welcome|menu|...)...") that Vercel rejected
+// at deploy time ("Rewrite at index 0 has invalid source pattern") because
+// path-to-regexp — what Vercel's rewrite "source" matching actually uses —
+// does not support lookahead/lookbehind assertions. vercel.json now lists
+// explicit, lookahead-free passthrough rules (reserved SPA routes, /assets,
+// /api) before the slug rules, relying only on array order (first match
+// wins), not on regex exclusion tricks.
+// ---------------------------------------------------------------------------
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const vercelConfig = JSON.parse(readFileSync(join(__dirname, '..', 'vercel.json'), 'utf8'))
+const REWRITE_RULES = vercelConfig.rewrites
 
-  test('matches a standalone restaurant slug and a venue-pair path', () => {
-    assert.ok(regex.test('/la-saveur-colombienne'))
-    assert.ok(regex.test('/esc-giza/dokan-el-kahwa'))
-    assert.ok(regex.test('/la-saveur-colombienne/cart'))
-  })
+// Converts the small, known set of path-to-regexp shapes actually used in
+// vercel.json into a real RegExp, so tests can simulate "first match wins"
+// against representative request paths without adding a path-to-regexp
+// dependency. Throws on any shape it doesn't recognize, so a future edit to
+// vercel.json that changes a rule's shape fails loudly here instead of
+// silently matching the wrong thing.
+function sourceToRegExp(source) {
+  if (source === '/(.*)') return /^\/(.*)$/
 
-  test('does NOT match any RESERVED legacy route', () => {
-    for (const word of RESERVED) {
-      assert.equal(regex.test(`/${word}`), false, `expected "/${word}" to be excluded`)
+  let m = source.match(/^\/([a-zA-Z0-9-]+)\/:[a-zA-Z0-9]+\*$/)
+  if (m) return new RegExp(`^/${m[1]}(?:/.*)?$`)
+
+  m = source.match(/^\/:[a-zA-Z0-9]+\(([^()]+)\)$/)
+  if (m) return new RegExp(`^/(${m[1]})$`)
+
+  m = source.match(/^\/:[a-zA-Z0-9]+\(([^()]+)\)\/:[a-zA-Z0-9]+\(([^()]+)\)$/)
+  if (m) return new RegExp(`^/(${m[1]})/(${m[2]})$`)
+
+  throw new Error(`sourceToRegExp: unrecognized vercel.json rewrite source shape: "${source}"`)
+}
+
+function matchRewrite(pathname, rules) {
+  for (const rule of rules) {
+    if (sourceToRegExp(rule.source).test(pathname)) return rule
+  }
+  return null
+}
+
+describe('vercel.json rewrite rules (read from the real file, first-match-wins)', () => {
+  test('no rewrite source uses lookahead/lookbehind — the exact syntax Vercel rejected at deploy time', () => {
+    for (const rule of REWRITE_RULES) {
+      assert.ok(
+        !/\(\?[!=<]/.test(rule.source),
+        `expected "${rule.source}" not to contain a lookahead/lookbehind assertion`
+      )
     }
   })
 
-  test('does NOT match /assets/* — the whole Vite build-output directory is excluded by name', () => {
-    assert.equal(regex.test('/assets/index-abc123.js'), false)
-    assert.equal(regex.test('/assets/index-abc123.css'), false)
+  test('a standalone restaurant slug routes to the restaurant-meta function', () => {
+    const rule = matchRewrite('/la-saveur-colombienne', REWRITE_RULES)
+    assert.equal(rule.destination, '/api/restaurant-meta?seg1=:seg1')
   })
 
-  test('does NOT match a root-level static file — any first segment containing a "." is excluded', () => {
+  test('a vendor + sub-route path (nested ordering route) routes to the restaurant-meta function', () => {
+    const rule = matchRewrite('/la-saveur-colombienne/cart', REWRITE_RULES)
+    assert.equal(rule.destination, '/api/restaurant-meta?seg1=:seg1&rest=:rest')
+  })
+
+  test('a venue + vendor path routes to the restaurant-meta function', () => {
+    const rule = matchRewrite('/esc-giza/dokan-el-kahwa', REWRITE_RULES)
+    assert.equal(rule.destination, '/api/restaurant-meta?seg1=:seg1&rest=:rest')
+  })
+
+  test('a venue + vendor + nested sub-route path routes to the restaurant-meta function', () => {
+    const rule = matchRewrite('/esc-giza/dokan-el-kahwa/cart', REWRITE_RULES)
+    assert.equal(rule.destination, '/api/restaurant-meta?seg1=:seg1&rest=:rest')
+  })
+
+  test('every RESERVED route, bare and nested, bypasses the function entirely', () => {
+    for (const word of RESERVED) {
+      assert.equal(matchRewrite(`/${word}`, REWRITE_RULES).destination, '/index.html', `/${word}`)
+      assert.equal(
+        matchRewrite(`/${word}/something/nested`, REWRITE_RULES).destination,
+        '/index.html',
+        `/${word}/something/nested`
+      )
+    }
+  })
+
+  test('static assets bypass the function and are served as themselves, not rewritten to index.html', () => {
+    const rule = matchRewrite('/assets/index-abc123.js', REWRITE_RULES)
+    assert.equal(rule.destination, '/assets/:rest*')
+  })
+
+  test('/api/* bypasses the function and is served as itself — avoids a self-referential rewrite', () => {
+    const rule = matchRewrite('/api/restaurant-meta', REWRITE_RULES)
+    assert.equal(rule.destination, '/api/:rest*')
+  })
+
+  test('root-level dotted static files fall through to the SPA catch-all, not the function', () => {
     for (const path of [
       '/robots.txt',
       '/favicon.svg',
@@ -244,15 +320,38 @@ describe('REWRITE_SOURCE_PATTERN (must stay identical to vercel.json)', () => {
       '/icons.svg',
       '/sitemap.xml',
     ]) {
-      assert.equal(regex.test(path), false, `expected "${path}" to be excluded`)
+      assert.equal(matchRewrite(path, REWRITE_RULES).destination, '/index.html', path)
     }
   })
 
-  test('REMAINING, genuinely unresolved: rewrite-array evaluation order itself', () => {
-    // This test only proves the regex's own matching behavior, in isolation.
-    // It cannot prove that Vercel evaluates this rewrite before the existing
-    // catch-all for paths that DO match (real restaurant slugs) — that
-    // ordering/precedence question still requires a Preview deployment,
+  test('the homepage falls through to the SPA catch-all', () => {
+    assert.equal(matchRewrite('/', REWRITE_RULES).destination, '/index.html')
+  })
+
+  test('reserved/asset/api passthroughs are ordered before the slug rules, which are ordered before the final catch-all', () => {
+    const slugRuleIndexes = REWRITE_RULES.map((r, i) => (/^\/:[a-zA-Z0-9]+\(/.test(r.source) ? i : -1)).filter(
+      (i) => i !== -1
+    )
+    const catchAllIndex = REWRITE_RULES.findIndex((r) => r.source === '/(.*)')
+    const passthroughIndexes = REWRITE_RULES.map((r, i) =>
+      RESERVED.some((w) => r.source.startsWith(`/${w}/`)) || r.source.startsWith('/assets/') || r.source.startsWith('/api/')
+        ? i
+        : -1
+    ).filter((i) => i !== -1)
+
+    assert.ok(passthroughIndexes.length > 0 && slugRuleIndexes.length > 0 && catchAllIndex !== -1)
+    assert.ok(Math.max(...passthroughIndexes) < Math.min(...slugRuleIndexes))
+    assert.ok(Math.max(...slugRuleIndexes) < catchAllIndex)
+  })
+
+  test('REMAINING, genuinely unresolved: live path-to-regexp behavior on Vercel itself', () => {
+    // These tests prove the rule set's matching/ordering behavior against a
+    // conversion of the documented path-to-regexp syntax, and that no source
+    // uses unsupported regex. They cannot prove Vercel's live engine
+    // interpolates a plain named param (":seg1", ":rest") into a query-string
+    // destination exactly as assumed, or that a trailing "*" modifier really
+    // makes its preceding "/" optional in Vercel's specific implementation.
+    // That still requires one real Preview request per representative path,
     // exactly as flagged in the design review. Nothing here claims otherwise.
     assert.ok(true)
   })
