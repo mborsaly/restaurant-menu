@@ -20,6 +20,7 @@ import {
   escapeHtml,
   looksDangerous,
   isValidHttpUrl,
+  isValidFacebookAppId,
   pickLocalizedName,
   buildDescription,
   classifyRequest,
@@ -101,6 +102,17 @@ describe('escaping and missing-optional-field handling', () => {
     assert.equal(isValidHttpUrl(null), false)
   })
 
+  test('isValidFacebookAppId accepts plain digit strings only', () => {
+    assert.equal(isValidFacebookAppId('1234567890123456'), true)
+    assert.equal(isValidFacebookAppId('123'), true)
+    assert.equal(isValidFacebookAppId(''), false)
+    assert.equal(isValidFacebookAppId(undefined), false)
+    assert.equal(isValidFacebookAppId(null), false)
+    assert.equal(isValidFacebookAppId('abc123'), false)
+    assert.equal(isValidFacebookAppId('123.456'), false)
+    assert.equal(isValidFacebookAppId('<script>1</script>'), false)
+  })
+
   test('buildDescription omits missing fields and never fabricates them', () => {
     assert.equal(
       buildDescription('Khmer Express', { cuisine_type: 'Cambodian', city: 'Laval' }),
@@ -147,6 +159,86 @@ describe('escaping and missing-optional-field handling', () => {
     })
     assert.ok(!headExtra.includes('og:description'))
     assert.ok(!headExtra.includes('twitter:description'))
+  })
+
+  test('buildHeadExtra always uses the basic "website" og:type, never the unregistered restaurant vertical', () => {
+    const headExtra = buildHeadExtra({
+      title: 'A',
+      description: 'B',
+      canonicalUrl: 'https://order.bistrovite.com/a',
+      logoUrl: null,
+    })
+    assert.ok(headExtra.includes('<meta property="og:type" content="website" />'))
+    assert.ok(!headExtra.includes('restaurant.restaurant'))
+  })
+
+  test('buildHeadExtra emits og:image:alt and twitter:image:alt from the restaurant name, only when an image is present', () => {
+    const withImageAndName = buildHeadExtra({
+      title: 'Khmer Express — BistroVite',
+      description: 'B',
+      canonicalUrl: 'https://order.bistrovite.com/khmer-express',
+      logoUrl: 'https://example.com/logo.png',
+      restaurantName: 'Khmer Express',
+    })
+    assert.ok(withImageAndName.includes('<meta property="og:image:alt" content="Khmer Express" />'))
+    assert.ok(withImageAndName.includes('<meta name="twitter:image:alt" content="Khmer Express" />'))
+
+    const withImageNoName = buildHeadExtra({
+      title: 'A',
+      description: 'B',
+      canonicalUrl: 'https://order.bistrovite.com/a',
+      logoUrl: 'https://example.com/logo.png',
+    })
+    assert.ok(!withImageNoName.includes('image:alt'))
+
+    const withNameNoImage = buildHeadExtra({
+      title: 'A',
+      description: 'B',
+      canonicalUrl: 'https://order.bistrovite.com/a',
+      logoUrl: null,
+      restaurantName: 'Khmer Express',
+    })
+    assert.ok(!withNameNoImage.includes('image:alt'))
+  })
+
+  test('buildHeadExtra escapes HTML-significant characters in the image alt text', () => {
+    const headExtra = buildHeadExtra({
+      title: 'A',
+      description: 'B',
+      canonicalUrl: 'https://order.bistrovite.com/a',
+      logoUrl: 'https://example.com/logo.png',
+      restaurantName: `Chez l'Ami & <Fancy>`,
+    })
+    assert.ok(headExtra.includes('&amp; &lt;Fancy&gt;'))
+    assert.ok(!headExtra.includes('<Fancy>'))
+  })
+
+  test('buildHeadExtra emits fb:app_id only when a valid, numeric App ID is provided', () => {
+    const withAppId = buildHeadExtra({
+      title: 'A',
+      description: 'B',
+      canonicalUrl: 'https://order.bistrovite.com/a',
+      logoUrl: null,
+      fbAppId: '1234567890123456',
+    })
+    assert.ok(withAppId.includes('<meta property="fb:app_id" content="1234567890123456" />'))
+
+    const withoutAppId = buildHeadExtra({
+      title: 'A',
+      description: 'B',
+      canonicalUrl: 'https://order.bistrovite.com/a',
+      logoUrl: null,
+    })
+    assert.ok(!withoutAppId.includes('fb:app_id'))
+
+    const withInvalidAppId = buildHeadExtra({
+      title: 'A',
+      description: 'B',
+      canonicalUrl: 'https://order.bistrovite.com/a',
+      logoUrl: null,
+      fbAppId: 'not-a-real-app-id',
+    })
+    assert.ok(!withInvalidAppId.includes('fb:app_id'))
   })
 })
 
@@ -495,13 +587,19 @@ describe('substituteTemplate — end-to-end escaping on a realistic template', (
       lang: 'ar',
       canonicalUrl: `${CANONICAL_BASE_URL}/khmer-express`,
       logoUrl: 'https://example.com/logo.png',
+      restaurantName: `Café "Chez l'Ami" & <Fancy>`,
+      fbAppId: '1234567890123456',
     })
     assert.ok(!html.includes(`"Chez l'Ami"`)) // raw quote/apostrophe must not survive unescaped
     assert.ok(html.includes('&quot;Chez l&#39;Ami&quot;'))
     assert.ok(html.includes('&amp; &lt;Fancy&gt;'))
     assert.ok(html.includes('<html lang="ar">'))
     assert.ok(html.includes(`<link rel="canonical" href="${CANONICAL_BASE_URL}/khmer-express" />`))
+    assert.ok(html.includes('<meta property="og:type" content="website" />'))
     assert.ok(html.includes('og:image'))
+    assert.ok(html.includes('og:image:alt'))
+    assert.ok(html.includes('twitter:image:alt'))
+    assert.ok(html.includes('<meta property="fb:app_id" content="1234567890123456" />'))
     assert.ok(!html.includes('<!--SEO_HEAD_EXTRA-->'))
   })
 
