@@ -1,9 +1,4 @@
 {
-  "functions": {
-    "api/restaurant-meta.js": {
-      "includeFiles": "dist/index.html"
-    }
-  },
   "rewrites": [
     { "source": "/welcome/:rest*", "destination": "/index.html" },
     { "source": "/menu/:rest*", "destination": "/index.html" },
@@ -13,6 +8,7 @@
     { "source": "/confirmation/:rest*", "destination": "/index.html" },
     { "source": "/assets/:rest*", "destination": "/assets/:rest*" },
     { "source": "/api/:rest*", "destination": "/api/:rest*" },
+    { "source": "/sitemap.xml", "destination": "/api/sitemap" },
     {
       "source": "/:seg1([^/.]+)",
       "destination": "/api/restaurant-meta?seg1=:seg1"
