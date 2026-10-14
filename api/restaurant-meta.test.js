@@ -29,7 +29,6 @@ import {
   resolveRestaurant,
   resolveLanguage,
   substituteTemplate,
-  resolveTemplate,
 } from './restaurant-meta.js'
 
 // ---------------------------------------------------------------------------
@@ -341,11 +340,6 @@ function sourceToRegExp(source) {
   m = source.match(/^\/:[a-zA-Z0-9]+\(([^()]+)\)\/:[a-zA-Z0-9]+\(([^()]+)\)$/)
   if (m) return new RegExp(`^/(${m[1]})/(${m[2]})$`)
 
-  // A plain literal path with no params at all, e.g. "/robots.txt" or
-  // "/sitemap.xml" — matches itself exactly.
-  m = source.match(/^\/[a-zA-Z0-9.-]+$/)
-  if (m) return new RegExp(`^${source.replace(/\./g, '\\.')}$`)
-
   throw new Error(`sourceToRegExp: unrecognized vercel.json rewrite source shape: "${source}"`)
 }
 
@@ -407,20 +401,7 @@ describe('vercel.json rewrite rules (read from the real file, first-match-wins)'
     assert.equal(rule.destination, '/api/:rest*')
   })
 
-  test('root-level dotted static files (with no dedicated rewrite rule) fall through to the SPA catch-all within the rewrites array', () => {
-    // This only proves what the REWRITES array itself does with these paths
-    // in isolation. It is NOT what a real request experiences: Vercel's own
-    // Build Output API docs (confirmed directly, not assumed) define the
-    // "filesystem" handle phase as running BEFORE any rewrite is evaluated
-    // ("check matches after the filesystem misses") — and robots.txt,
-    // favicon.svg, favicon.ico, apple-touch-icon.png, icon-192.png,
-    // icon-512.png and icons.svg all physically exist as real files in
-    // `.vercel/output/static/` once built, confirmed via a local
-    // `vercel build`. So in production every one of these is served
-    // directly by that filesystem phase and never reaches this array at
-    // all — a dedicated passthrough rule for any of them would be dead
-    // code, which is why none exists (one for /robots.txt was tried and
-    // removed after this was confirmed).
+  test('root-level dotted static files fall through to the SPA catch-all, not the function', () => {
     for (const path of [
       '/robots.txt',
       '/favicon.svg',
@@ -429,29 +410,26 @@ describe('vercel.json rewrite rules (read from the real file, first-match-wins)'
       '/icon-192.png',
       '/icon-512.png',
       '/icons.svg',
+      '/sitemap.xml',
     ]) {
       assert.equal(matchRewrite(path, REWRITE_RULES).destination, '/index.html', path)
     }
-  })
-
-  test('/sitemap.xml routes to the sitemap function, not the SPA catch-all or the restaurant-meta function', () => {
-    const rule = matchRewrite('/sitemap.xml', REWRITE_RULES)
-    assert.equal(rule.destination, '/api/sitemap')
   })
 
   test('the homepage falls through to the SPA catch-all', () => {
     assert.equal(matchRewrite('/', REWRITE_RULES).destination, '/index.html')
   })
 
-  test('every passthrough rule (reserved/asset/api/sitemap.xml) is ordered before the slug rules, which are ordered before the final catch-all', () => {
+  test('reserved/asset/api passthroughs are ordered before the slug rules, which are ordered before the final catch-all', () => {
+    const slugRuleIndexes = REWRITE_RULES.map((r, i) => (/^\/:[a-zA-Z0-9]+\(/.test(r.source) ? i : -1)).filter(
+      (i) => i !== -1
+    )
     const catchAllIndex = REWRITE_RULES.findIndex((r) => r.source === '/(.*)')
-    const slugRuleIndexes = []
-    const passthroughIndexes = []
-    REWRITE_RULES.forEach((r, i) => {
-      if (r.source === '/(.*)') return
-      if (/^\/:[a-zA-Z0-9]+\(/.test(r.source)) slugRuleIndexes.push(i)
-      else passthroughIndexes.push(i)
-    })
+    const passthroughIndexes = REWRITE_RULES.map((r, i) =>
+      RESERVED.some((w) => r.source.startsWith(`/${w}/`)) || r.source.startsWith('/assets/') || r.source.startsWith('/api/')
+        ? i
+        : -1
+    ).filter((i) => i !== -1)
 
     assert.ok(passthroughIndexes.length > 0 && slugRuleIndexes.length > 0 && catchAllIndex !== -1)
     assert.ok(Math.max(...passthroughIndexes) < Math.min(...slugRuleIndexes))
@@ -652,61 +630,5 @@ describe('substituteTemplate — end-to-end escaping on a realistic template', (
   test('pickLocalizedName falls back to the base name when no translation exists', () => {
     assert.equal(pickLocalizedName({ name: 'Default Name', name_fr: null, name_ar: null }, 'fr'), 'Default Name')
     assert.equal(pickLocalizedName({ name: 'Default Name', name_fr: 'Nom Français' }, 'fr'), 'Nom Français')
-  })
-})
-
-describe('resolveTemplate — fetches the deployed SPA shell via VERCEL_URL, never the filesystem, on Vercel', () => {
-  test('with vercelUrl set, fetches https://<vercelUrl>/index.html and returns its text', async () => {
-    const calls = []
-    const fetchImpl = async (url) => {
-      calls.push(url)
-      return { ok: true, text: async () => '<html>deployed shell</html>' }
-    }
-    const html = await resolveTemplate({ vercelUrl: 'my-app-abc123.vercel.app', fetchImpl })
-    assert.equal(html, '<html>deployed shell</html>')
-    assert.deepEqual(calls, ['https://my-app-abc123.vercel.app/index.html'])
-  })
-
-  test('never uses the incoming request Host header or a hardcoded production/preview URL — only the injected vercelUrl', async () => {
-    const fetchImpl = async (url) => ({ ok: true, text: async () => `fetched:${url}` })
-    const html = await resolveTemplate({ vercelUrl: 'some-preview-deployment-xyz.vercel.app', fetchImpl })
-    assert.equal(html, 'fetched:https://some-preview-deployment-xyz.vercel.app/index.html')
-  })
-
-  test('a non-ok fetch response throws (so the caller\'s infra-failure path runs, not a silently broken page)', async () => {
-    const fetchImpl = async () => ({ ok: false, status: 503, text: async () => 'should not be read' })
-    await assert.rejects(
-      () => resolveTemplate({ vercelUrl: 'my-app-abc123.vercel.app', fetchImpl }),
-      /503/
-    )
-  })
-
-  test('a network error from fetch propagates, is not swallowed', async () => {
-    const fetchImpl = async () => {
-      throw new Error('network unreachable')
-    }
-    await assert.rejects(
-      () => resolveTemplate({ vercelUrl: 'my-app-abc123.vercel.app', fetchImpl }),
-      /network unreachable/
-    )
-  })
-
-  test('with no vercelUrl (local dev / local build, not a Vercel deployment), reads the local filesystem instead', async () => {
-    const readFileImpl = (path, encoding) => `read:${path}:${encoding}`
-    const html = await resolveTemplate({ vercelUrl: undefined, readFileImpl })
-    assert.ok(html.startsWith('read:'))
-    assert.ok(html.includes(join('dist', 'index.html')))
-    assert.ok(html.endsWith('utf8'))
-  })
-
-  test('with no vercelUrl, never calls fetch at all', async () => {
-    let fetchCalled = false
-    const fetchImpl = async () => {
-      fetchCalled = true
-      return { ok: true, text: async () => '' }
-    }
-    const readFileImpl = () => 'local shell'
-    await resolveTemplate({ vercelUrl: undefined, fetchImpl, readFileImpl })
-    assert.equal(fetchCalled, false)
   })
 })

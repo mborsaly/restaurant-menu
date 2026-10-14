@@ -285,45 +285,10 @@ export function substituteTemplate(
   return html
 }
 
-/**
- * dist/index.html is NOT reliably available to this function via the
- * filesystem on Vercel: @vercel/node's function bundler does not expose
- * @vercel/static-build's (framework: vite) output to sibling functions in
- * this project — confirmed directly via `vercel build`, where neither
- * `includeFiles` (tried as a literal path and as a glob) nor automatic
- * file-tracing bundled it, for a file that doesn't even need to be
- * build-generated to fail the same way.
- *
- * Fix: fetch the already-deployed /index.html from THIS SAME deployment,
- * using Vercel's own VERCEL_URL system environment variable — set
- * automatically for every deployment, Preview and Production alike, to
- * that deployment's own unique host. This is never a hardcoded URL and
- * never the incoming request's Host header (which is attacker-
- * controllable and explicitly not trusted anywhere in this file — see
- * CANONICAL_BASE_URL). /index.html itself is served by Vercel's static
- * "filesystem" phase, which runs before any rewrite, so this fetch cannot
- * recurse back into this function.
- *
- * Falls back to a local filesystem read when VERCEL_URL isn't set, which
- * is the case for local `npm run build` + local testing, where dist/ is
- * genuinely on disk next to this file (the two-builder isolation above
- * only happens on Vercel's own infrastructure).
- */
-export async function resolveTemplate({ vercelUrl, fetchImpl = fetch, readFileImpl = readFileSync } = {}) {
-  if (vercelUrl) {
-    const response = await fetchImpl(`https://${vercelUrl}/index.html`)
-    if (!response.ok) {
-      throw new Error(`Fetching the deployed index.html failed with status ${response.status}`)
-    }
-    return response.text()
-  }
-  return readFileImpl(join(process.cwd(), 'dist', 'index.html'), 'utf8')
-}
-
 let templateCache = null
-async function getTemplate() {
+function getTemplate() {
   if (!templateCache) {
-    templateCache = await resolveTemplate({ vercelUrl: process.env.VERCEL_URL })
+    templateCache = readFileSync(join(process.cwd(), 'dist', 'index.html'), 'utf8')
   }
   return templateCache
 }
@@ -358,7 +323,7 @@ function sendInfraFailureMinimal(response) {
 export default async function handler(request, response) {
   let template
   try {
-    template = await getTemplate()
+    template = getTemplate()
   } catch (err) {
     // No working shell exists to fall back to at all — a deployment/
     // packaging problem, distinct from a Supabase/infra failure.
