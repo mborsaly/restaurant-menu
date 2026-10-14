@@ -139,7 +139,7 @@ export default function CartScreen() {
         <span style={{
           [rtl ? 'marginRight' : 'marginLeft']: 'auto',
           fontFamily:  "'JetBrains Mono', monospace",
-          fontSize:    13,
+          fontSize:    15,
           fontWeight:  700,
           color:       coral,
         }}>
