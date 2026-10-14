@@ -124,9 +124,21 @@ export function buildCanonicalPath({ looksLikeVenuePair, venueSlug, vendorSlug }
   return `/${encodeURIComponent(vendorSlug)}`
 }
 
-export function buildHeadExtra({ title, description, canonicalUrl, logoUrl, restaurantName, fbAppId }) {
+export function buildHeadExtra({
+  title,
+  description,
+  canonicalUrl,
+  logoUrl,
+  restaurantName,
+  fbAppId,
+  cuisineType,
+  city,
+}) {
   const hasImage = isValidHttpUrl(logoUrl)
   const hasFbAppId = isValidFacebookAppId(fbAppId)
+  const jsonLdScriptTag = buildJsonLdScriptTag(
+    buildRestaurantJsonLd({ name: restaurantName, url: canonicalUrl, logoUrl, cuisineType, city })
+  )
   const parts = [
     `<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />`,
     `<meta property="og:title" content="${escapeHtml(title)}" />`,
@@ -151,8 +163,66 @@ export function buildHeadExtra({ title, description, canonicalUrl, logoUrl, rest
     hasImage && restaurantName
       ? `<meta name="twitter:image:alt" content="${escapeHtml(restaurantName)}" />`
       : null,
+    jsonLdScriptTag,
   ].filter(Boolean)
   return parts.join('\n  ')
+}
+
+// Trims and treats null/undefined/empty/whitespace-only as "not provided" —
+// the one shared rule for every optional JSON-LD field below, so a blank
+// string in the database never produces an empty schema property.
+function meaningfulString(value) {
+  const trimmed = typeof value === 'string' ? value.trim() : ''
+  return trimmed || null
+}
+
+/**
+ * Builds a Schema.org Restaurant object from already-resolved, already-
+ * verified values (the same vendor record resolveRestaurant() returned —
+ * no new Supabase query). Returns null when no valid Restaurant object can
+ * be built (no display name), so callers never emit a misleading one.
+ * Deliberately only includes properties this codebase can actually back
+ * with a real, selected database field — no invented address/phone/hours/
+ * rating/menu/price data.
+ */
+export function buildRestaurantJsonLd({ name, url, logoUrl, cuisineType, city }) {
+  const displayName = meaningfulString(name)
+  if (!displayName || !url) return null
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Restaurant',
+    name: displayName,
+    url,
+  }
+
+  if (isValidHttpUrl(logoUrl)) jsonLd.image = logoUrl
+
+  const cuisine = meaningfulString(cuisineType)
+  if (cuisine) jsonLd.servesCuisine = cuisine
+
+  const locality = meaningfulString(city)
+  if (locality) jsonLd.address = { '@type': 'PostalAddress', addressLocality: locality }
+
+  return jsonLd
+}
+
+/**
+ * Serializes a JSON-LD object for safe embedding inside an
+ * <script type="application/ld+json"> element. JSON.stringify alone is not
+ * enough: a database value containing "</script>" would still terminate the
+ * element early and let the rest be parsed as HTML/script content. Escaping
+ * "<" (as "\u003c") inside the JSON string neutralizes that while staying
+ * valid JSON — "\u003c" decodes right back to "<" for any JSON.parse caller,
+ * so semantics (including accented/Arabic text, which JSON.stringify already
+ * emits as literal UTF-8) are unaffected. ">" and "&" are escaped too, purely
+ * as defense in depth; they are not required to break out of a script
+ * element the way "<" is.
+ */
+export function buildJsonLdScriptTag(jsonLd) {
+  if (!jsonLd) return null
+  const json = JSON.stringify(jsonLd).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026')
+  return `<script type="application/ld+json">${json}</script>`
 }
 
 const VENDOR_SELECT =
@@ -258,7 +328,7 @@ export async function resolveLanguage(supabase, vendorId) {
 
 export function substituteTemplate(
   template,
-  { title, description, lang, canonicalUrl, logoUrl, restaurantName, fbAppId }
+  { title, description, lang, canonicalUrl, logoUrl, restaurantName, fbAppId, cuisineType, city }
 ) {
   if (looksDangerous(title) || looksDangerous(description) || looksDangerous(canonicalUrl)) {
     // Should be unreachable given escaping, but if it ever triggers, fail
@@ -280,7 +350,7 @@ export function substituteTemplate(
   }
   html = html.replace(
     HEAD_EXTRA_MARKER,
-    buildHeadExtra({ title, description, canonicalUrl, logoUrl, restaurantName, fbAppId })
+    buildHeadExtra({ title, description, canonicalUrl, logoUrl, restaurantName, fbAppId, cuisineType, city })
   )
   return html
 }
@@ -421,6 +491,8 @@ export default async function handler(request, response) {
     canonicalUrl,
     logoUrl: vendor.logo_url,
     restaurantName: displayName,
+    cuisineType: vendor.cuisine_type,
+    city: vendor.city,
     // No BistroVite Facebook/Meta App ID exists in this project today (none
     // found in .env, vercel.json, or docs) — FACEBOOK_APP_ID is read so the
     // tag activates automatically once a real one is configured in Vercel's

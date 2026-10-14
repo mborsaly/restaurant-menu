@@ -26,6 +26,8 @@ import {
   classifyRequest,
   buildCanonicalPath,
   buildHeadExtra,
+  buildRestaurantJsonLd,
+  buildJsonLdScriptTag,
   resolveRestaurant,
   resolveLanguage,
   substituteTemplate,
@@ -38,9 +40,14 @@ import {
 // (select/eq/order chain, then either .maybeSingle() or a bare await) for
 // resolveRestaurant/resolveLanguage to run against it unmodified.
 // ---------------------------------------------------------------------------
-function makeMockSupabase(byTable) {
+// `fromCalls`, when passed, records every table name `.from()` is called
+// with — used to prove JSON-LD construction issues no extra Supabase query
+// beyond what resolveRestaurant/resolveLanguage already made (it's a pure
+// function over the already-fetched vendor record, not a querying one).
+function makeMockSupabase(byTable, fromCalls) {
   return {
     from(table) {
+      if (fromCalls) fromCalls.push(table)
       if (!(table in byTable)) {
         throw new Error(`mock supabase: no fixture configured for table "${table}"`)
       }
@@ -240,6 +247,215 @@ describe('escaping and missing-optional-field handling', () => {
       fbAppId: 'not-a-real-app-id',
     })
     assert.ok(!withInvalidAppId.includes('fb:app_id'))
+  })
+})
+
+describe('buildRestaurantJsonLd / buildJsonLdScriptTag — Restaurant JSON-LD', () => {
+  const FULL = {
+    name: 'Khmer Express',
+    url: `${CANONICAL_BASE_URL}/khmer-express`,
+    logoUrl: 'https://example.com/logo.png',
+    cuisineType: 'Cambodian',
+    city: 'Laval',
+  }
+
+  test('a complete record produces a valid Restaurant object with every mapped property', () => {
+    const jsonLd = buildRestaurantJsonLd(FULL)
+    assert.deepEqual(jsonLd, {
+      '@context': 'https://schema.org',
+      '@type': 'Restaurant',
+      name: 'Khmer Express',
+      url: `${CANONICAL_BASE_URL}/khmer-express`,
+      image: 'https://example.com/logo.png',
+      servesCuisine: 'Cambodian',
+      address: { '@type': 'PostalAddress', addressLocality: 'Laval' },
+    })
+  })
+
+  test('missing optional fields (not present at all) are omitted, not emitted as empty/null', () => {
+    const jsonLd = buildRestaurantJsonLd({ name: 'Khmer Express', url: FULL.url })
+    assert.deepEqual(jsonLd, {
+      '@context': 'https://schema.org',
+      '@type': 'Restaurant',
+      name: 'Khmer Express',
+      url: FULL.url,
+    })
+    assert.ok(!('image' in jsonLd))
+    assert.ok(!('servesCuisine' in jsonLd))
+    assert.ok(!('address' in jsonLd))
+  })
+
+  test('optional fields explicitly set to null are omitted', () => {
+    const jsonLd = buildRestaurantJsonLd({
+      name: 'Khmer Express',
+      url: FULL.url,
+      logoUrl: null,
+      cuisineType: null,
+      city: null,
+    })
+    assert.ok(!('image' in jsonLd))
+    assert.ok(!('servesCuisine' in jsonLd))
+    assert.ok(!('address' in jsonLd))
+  })
+
+  test('empty and whitespace-only optional strings are omitted', () => {
+    const jsonLd = buildRestaurantJsonLd({
+      name: 'Khmer Express',
+      url: FULL.url,
+      cuisineType: '   ',
+      city: '',
+    })
+    assert.ok(!('servesCuisine' in jsonLd))
+    assert.ok(!('address' in jsonLd))
+  })
+
+  test('an invalid logo URL does not produce an image property', () => {
+    const jsonLd = buildRestaurantJsonLd({ ...FULL, logoUrl: 'javascript:alert(1)' })
+    assert.ok(!('image' in jsonLd))
+
+    const relativeLogo = buildRestaurantJsonLd({ ...FULL, logoUrl: '/relative/logo.png' })
+    assert.ok(!('image' in relativeLogo))
+  })
+
+  test('a missing or blank name prevents generation of a Restaurant object entirely', () => {
+    assert.equal(buildRestaurantJsonLd({ ...FULL, name: null }), null)
+    assert.equal(buildRestaurantJsonLd({ ...FULL, name: undefined }), null)
+    assert.equal(buildRestaurantJsonLd({ ...FULL, name: '' }), null)
+    assert.equal(buildRestaurantJsonLd({ ...FULL, name: '   ' }), null)
+  })
+
+  test('a missing canonical url prevents generation of a Restaurant object entirely', () => {
+    assert.equal(buildRestaurantJsonLd({ ...FULL, url: null }), null)
+  })
+
+  test('follows pickLocalizedName for fr/ar/default display names', () => {
+    const vendor = { name: 'Default Name', name_fr: 'Nom Français', name_ar: 'الاسم العربي' }
+    assert.equal(buildRestaurantJsonLd({ ...FULL, name: pickLocalizedName(vendor, 'fr') }).name, 'Nom Français')
+    assert.equal(buildRestaurantJsonLd({ ...FULL, name: pickLocalizedName(vendor, 'ar') }).name, 'الاسم العربي')
+    assert.equal(buildRestaurantJsonLd({ ...FULL, name: pickLocalizedName(vendor, 'en') }).name, 'Default Name')
+  })
+
+  test('buildJsonLdScriptTag returns null when no valid Restaurant object exists', () => {
+    assert.equal(buildJsonLdScriptTag(null), null)
+  })
+
+  test('buildJsonLdScriptTag produces a <script type="application/ld+json"> element whose content parses with JSON.parse', () => {
+    const tag = buildJsonLdScriptTag(buildRestaurantJsonLd(FULL))
+    assert.ok(tag.startsWith('<script type="application/ld+json">'))
+    assert.ok(tag.endsWith('</script>'))
+    const inner = tag.slice('<script type="application/ld+json">'.length, -'</script>'.length)
+    const parsed = JSON.parse(inner)
+    assert.deepEqual(parsed, buildRestaurantJsonLd(FULL))
+  })
+
+  test('hostile database text (</script><script>alert(1)</script>) cannot escape the JSON-LD script element', () => {
+    const hostile = '</script><script>alert(1)</script>'
+    const tag = buildJsonLdScriptTag(buildRestaurantJsonLd({ ...FULL, cuisineType: hostile }))
+    // The literal byte sequence "</script>" must never appear inside the
+    // emitted tag except as the single, final, legitimate closing tag.
+    const scriptCloseOccurrences = tag.split('</script>').length - 1
+    assert.equal(scriptCloseOccurrences, 1)
+    assert.ok(!tag.includes('<script>alert(1)</script>'))
+
+    const inner = tag.slice('<script type="application/ld+json">'.length, -'</script>'.length)
+    const parsed = JSON.parse(inner)
+    // The original hostile string round-trips intact through JSON.parse —
+    // the data was escaped for HTML-embedding, not corrupted or stripped.
+    assert.equal(parsed.servesCuisine, hostile)
+  })
+
+  test('preserves Unicode (accented French, Arabic) exactly through serialization', () => {
+    const tag = buildJsonLdScriptTag(
+      buildRestaurantJsonLd({ ...FULL, name: 'Café Chez l’Ami', city: 'Montréal' })
+    )
+    const inner = tag.slice('<script type="application/ld+json">'.length, -'</script>'.length)
+    const parsed = JSON.parse(inner)
+    assert.equal(parsed.name, 'Café Chez l’Ami')
+    assert.equal(parsed.address.addressLocality, 'Montréal')
+
+    const arabicTag = buildJsonLdScriptTag(buildRestaurantJsonLd({ ...FULL, name: 'دكان القهوة' }))
+    const arabicInner = arabicTag.slice('<script type="application/ld+json">'.length, -'</script>'.length)
+    assert.equal(JSON.parse(arabicInner).name, 'دكان القهوة')
+  })
+})
+
+describe('buildHeadExtra — JSON-LD integration', () => {
+  test('emits the JSON-LD script tag when a valid name/url are supplied, alongside existing tags', () => {
+    const headExtra = buildHeadExtra({
+      title: 'Khmer Express — BistroVite',
+      description: 'Cambodian — Laval',
+      canonicalUrl: `${CANONICAL_BASE_URL}/khmer-express`,
+      logoUrl: 'https://example.com/logo.png',
+      restaurantName: 'Khmer Express',
+      cuisineType: 'Cambodian',
+      city: 'Laval',
+    })
+    assert.ok(headExtra.includes('<script type="application/ld+json">'))
+    assert.ok(headExtra.includes('"@type":"Restaurant"'))
+    assert.ok(headExtra.includes('<link rel="canonical"')) // existing tags still present
+  })
+
+  test('omits the JSON-LD script tag entirely when there is no restaurant name', () => {
+    const headExtra = buildHeadExtra({
+      title: 'A',
+      description: 'B',
+      canonicalUrl: `${CANONICAL_BASE_URL}/a`,
+      logoUrl: null,
+    })
+    assert.ok(!headExtra.includes('application/ld+json'))
+  })
+
+  test('a hostile restaurant name cannot break out of the JSON-LD script element', () => {
+    const hostile = `</script><script>alert(1)</script>`
+    const headExtra = buildHeadExtra({
+      title: 'A',
+      description: 'B',
+      canonicalUrl: `${CANONICAL_BASE_URL}/a`,
+      logoUrl: null,
+      restaurantName: hostile,
+    })
+    assert.ok(!headExtra.includes('<script>alert(1)</script>'))
+  })
+})
+
+describe('resolveRestaurant / resolveLanguage + JSON-LD — no extra Supabase query is introduced', () => {
+  test('building JSON-LD from the already-resolved vendor record issues zero additional .from() calls', async () => {
+    const fromCalls = []
+    const supabase = makeMockSupabase(
+      {
+        vendors: {
+          data: {
+            id: 'v1',
+            slug: 'khmer-express',
+            name: 'Khmer Express',
+            cuisine_type: 'Cambodian',
+            city: 'Laval',
+            logo_url: 'https://example.com/logo.png',
+            venue_id: null,
+          },
+          error: null,
+        },
+        vendor_languages: { data: [], error: null },
+      },
+      fromCalls
+    )
+
+    const resolved = await resolveRestaurant(supabase, { seg1: 'khmer-express', rest: '' })
+    const lang = await resolveLanguage(supabase, resolved.vendor.id)
+    const callsBeforeJsonLd = fromCalls.length
+
+    const displayName = pickLocalizedName(resolved.vendor, lang)
+    const jsonLd = buildRestaurantJsonLd({
+      name: displayName,
+      url: `${CANONICAL_BASE_URL}${resolved.canonicalPath}`,
+      logoUrl: resolved.vendor.logo_url,
+      cuisineType: resolved.vendor.cuisine_type,
+      city: resolved.vendor.city,
+    })
+
+    assert.ok(jsonLd) // sanity: JSON-LD was actually built from the reused record
+    assert.equal(fromCalls.length, callsBeforeJsonLd, 'buildRestaurantJsonLd must not query Supabase')
+    assert.deepEqual(fromCalls, ['vendors', 'vendor_languages']) // exactly the pre-existing calls
   })
 })
 
@@ -652,6 +868,44 @@ describe('substituteTemplate — end-to-end escaping on a realistic template', (
   test('pickLocalizedName falls back to the base name when no translation exists', () => {
     assert.equal(pickLocalizedName({ name: 'Default Name', name_fr: null, name_ar: null }, 'fr'), 'Default Name')
     assert.equal(pickLocalizedName({ name: 'Default Name', name_fr: 'Nom Français' }, 'fr'), 'Nom Français')
+  })
+
+  test('end-to-end: the JSON-LD script can be extracted from the generated HTML and parsed with JSON.parse', () => {
+    const html = substituteTemplate(SAMPLE_TEMPLATE, {
+      title: 'Khmer Express — BistroVite',
+      description: 'Cambodian — Laval',
+      lang: 'fr',
+      canonicalUrl: `${CANONICAL_BASE_URL}/khmer-express`,
+      logoUrl: 'https://example.com/logo.png',
+      restaurantName: 'Khmer Express',
+      cuisineType: 'Cambodian',
+      city: 'Laval',
+    })
+    const match = html.match(
+      /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+    )
+    assert.ok(match, 'expected a JSON-LD <script> tag in the generated HTML')
+    const jsonLd = JSON.parse(match[1])
+    assert.equal(jsonLd['@context'], 'https://schema.org')
+    assert.equal(jsonLd['@type'], 'Restaurant')
+    assert.equal(jsonLd.name, 'Khmer Express')
+    assert.equal(jsonLd.url, `${CANONICAL_BASE_URL}/khmer-express`)
+    assert.equal(jsonLd.image, 'https://example.com/logo.png')
+    assert.equal(jsonLd.servesCuisine, 'Cambodian')
+    assert.equal(jsonLd.address.addressLocality, 'Laval')
+  })
+
+  test('end-to-end: a missing restaurant name omits the JSON-LD script but preserves the rest of the response', () => {
+    const html = substituteTemplate(SAMPLE_TEMPLATE, {
+      title: 'Some Restaurant',
+      description: null,
+      lang: 'en',
+      canonicalUrl: `${CANONICAL_BASE_URL}/some-restaurant`,
+      logoUrl: null,
+      restaurantName: '',
+    })
+    assert.ok(!html.includes('application/ld+json'))
+    assert.ok(html.includes('<title>Some Restaurant</title>'))
   })
 })
 
