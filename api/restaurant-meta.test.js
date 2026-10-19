@@ -1,12 +1,13 @@
-// Local, dependency-free tests for api/restaurant-meta.js, using Node's
-// built-in test runner and assert module only (no package installed).
-// Run with: node --test api/restaurant-meta.test.js
-//
-// These exercise pure helpers and resolveRestaurant/resolveLanguage against
-// an in-memory mock Supabase client (fixtures below) — nothing here touches
-// a network, a real Supabase project, or production data. No claim is made
-// about live database behavior; see the accompanying report for what still
-// needs Preview-deployment and Vercel-dashboard verification.
+
+ // Local, dependency-free tests for api/restaurant-meta.js, using Node's
+ // built-in test runner and assert module only (no package installed).
+ // Run with: node --test api/restaurant-meta.test.js
+ //
+ // These exercise pure helpers and resolveRestaurant/resolveLanguage against
+ // an in-memory mock Supabase client (fixtures below) — nothing here touches
+ // a network, a real Supabase project, or production data. No claim is made
+ // about live database behavior; see the accompanying report for what still
+ // needs Preview-deployment and Vercel-dashboard verification.
 
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
@@ -41,9 +42,7 @@ import {
 // resolveRestaurant/resolveLanguage to run against it unmodified.
 // ---------------------------------------------------------------------------
 // `fromCalls`, when passed, records every table name `.from()` is called
-// with — used to prove JSON-LD construction issues no extra Supabase query
-// beyond what resolveRestaurant/resolveLanguage already made (it's a pure
-// function over the already-fetched vendor record, not a querying one).
+// with — used to prove JSON-LD construction issues no extra Supabase query.
 function makeMockSupabase(byTable, fromCalls) {
   return {
     from(table) {
@@ -83,6 +82,12 @@ const SAMPLE_TEMPLATE = `<!DOCTYPE html>
 </head>
 <body><div id="root"></div></body>
 </html>`
+
+// Representative built Vite app shell for resolveTemplate tests.
+// Keep the root element and /assets/ reference because production code
+// validates these markers to reject Vercel Preview Protection login HTML.
+const MOCK_APP_SHELL =
+  '<!DOCTYPE html><html><head><script type="module" src="/assets/index.js"></script></head><body><div id="root"></div></body></html>'
 
 describe('escaping and missing-optional-field handling', () => {
   test('escapeHtml escapes the five HTML-significant characters', () => {
@@ -351,16 +356,12 @@ describe('buildRestaurantJsonLd / buildJsonLdScriptTag — Restaurant JSON-LD', 
   test('hostile database text (</script><script>alert(1)</script>) cannot escape the JSON-LD script element', () => {
     const hostile = '</script><script>alert(1)</script>'
     const tag = buildJsonLdScriptTag(buildRestaurantJsonLd({ ...FULL, cuisineType: hostile }))
-    // The literal byte sequence "</script>" must never appear inside the
-    // emitted tag except as the single, final, legitimate closing tag.
     const scriptCloseOccurrences = tag.split('</script>').length - 1
     assert.equal(scriptCloseOccurrences, 1)
     assert.ok(!tag.includes('<script>alert(1)</script>'))
 
     const inner = tag.slice('<script type="application/ld+json">'.length, -'</script>'.length)
     const parsed = JSON.parse(inner)
-    // The original hostile string round-trips intact through JSON.parse —
-    // the data was escaped for HTML-embedding, not corrupted or stripped.
     assert.equal(parsed.servesCuisine, hostile)
   })
 
@@ -392,7 +393,7 @@ describe('buildHeadExtra — JSON-LD integration', () => {
     })
     assert.ok(headExtra.includes('<script type="application/ld+json">'))
     assert.ok(headExtra.includes('"@type":"Restaurant"'))
-    assert.ok(headExtra.includes('<link rel="canonical"')) // existing tags still present
+    assert.ok(headExtra.includes('<link rel="canonical"'))
   })
 
   test('omits the JSON-LD script tag entirely when there is no restaurant name', () => {
@@ -453,9 +454,9 @@ describe('resolveRestaurant / resolveLanguage + JSON-LD — no extra Supabase qu
       city: resolved.vendor.city,
     })
 
-    assert.ok(jsonLd) // sanity: JSON-LD was actually built from the reused record
+    assert.ok(jsonLd)
     assert.equal(fromCalls.length, callsBeforeJsonLd, 'buildRestaurantJsonLd must not query Supabase')
-    assert.deepEqual(fromCalls, ['vendors', 'vendor_languages']) // exactly the pre-existing calls
+    assert.deepEqual(fromCalls, ['vendors', 'vendor_languages'])
   })
 })
 
@@ -525,26 +526,12 @@ describe('request classification: standalone vs. venue-prefixed vs. reserved', (
 })
 
 // ---------------------------------------------------------------------------
-// vercel.json rewrite rules — read the REAL file, not a copy, so these tests
-// can't silently drift from what actually ships. This replaced a single
-// lookahead-based regex ("^/(?!welcome|menu|...)...") that Vercel rejected
-// at deploy time ("Rewrite at index 0 has invalid source pattern") because
-// path-to-regexp — what Vercel's rewrite "source" matching actually uses —
-// does not support lookahead/lookbehind assertions. vercel.json now lists
-// explicit, lookahead-free passthrough rules (reserved SPA routes, /assets,
-// /api) before the slug rules, relying only on array order (first match
-// wins), not on regex exclusion tricks.
+// vercel.json rewrite rules — read the real file, not a copy.
 // ---------------------------------------------------------------------------
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const vercelConfig = JSON.parse(readFileSync(join(__dirname, '..', 'vercel.json'), 'utf8'))
 const REWRITE_RULES = vercelConfig.rewrites
 
-// Converts the small, known set of path-to-regexp shapes actually used in
-// vercel.json into a real RegExp, so tests can simulate "first match wins"
-// against representative request paths without adding a path-to-regexp
-// dependency. Throws on any shape it doesn't recognize, so a future edit to
-// vercel.json that changes a rule's shape fails loudly here instead of
-// silently matching the wrong thing.
 function sourceToRegExp(source) {
   if (source === '/(.*)') return /^\/(.*)$/
 
@@ -557,8 +544,6 @@ function sourceToRegExp(source) {
   m = source.match(/^\/:[a-zA-Z0-9]+\(([^()]+)\)\/:[a-zA-Z0-9]+\(([^()]+)\)$/)
   if (m) return new RegExp(`^/(${m[1]})/(${m[2]})$`)
 
-  // A plain literal path with no params at all, e.g. "/robots.txt" or
-  // "/sitemap.xml" — matches itself exactly.
   m = source.match(/^\/[a-zA-Z0-9.-]+$/)
   if (m) return new RegExp(`^${source.replace(/\./g, '\\.')}$`)
 
@@ -623,20 +608,7 @@ describe('vercel.json rewrite rules (read from the real file, first-match-wins)'
     assert.equal(rule.destination, '/api/:rest*')
   })
 
-  test('root-level dotted static files (with no dedicated rewrite rule) fall through to the SPA catch-all within the rewrites array', () => {
-    // This only proves what the REWRITES array itself does with these paths
-    // in isolation. It is NOT what a real request experiences: Vercel's own
-    // Build Output API docs (confirmed directly, not assumed) define the
-    // "filesystem" handle phase as running BEFORE any rewrite is evaluated
-    // ("check matches after the filesystem misses") — and robots.txt,
-    // favicon.svg, favicon.ico, apple-touch-icon.png, icon-192.png,
-    // icon-512.png and icons.svg all physically exist as real files in
-    // `.vercel/output/static/` once built, confirmed via a local
-    // `vercel build`. So in production every one of these is served
-    // directly by that filesystem phase and never reaches this array at
-    // all — a dedicated passthrough rule for any of them would be dead
-    // code, which is why none exists (one for /robots.txt was tried and
-    // removed after this was confirmed).
+  test('root-level dotted static files fall through to the SPA catch-all within the rewrites array', () => {
     for (const path of [
       '/robots.txt',
       '/favicon.svg',
@@ -650,7 +622,7 @@ describe('vercel.json rewrite rules (read from the real file, first-match-wins)'
     }
   })
 
-  test('/sitemap.xml routes to the sitemap function, not the SPA catch-all or the restaurant-meta function', () => {
+  test('/sitemap.xml routes to the sitemap function, not the SPA catch-all or restaurant-meta', () => {
     const rule = matchRewrite('/sitemap.xml', REWRITE_RULES)
     assert.equal(rule.destination, '/api/sitemap')
   })
@@ -659,7 +631,7 @@ describe('vercel.json rewrite rules (read from the real file, first-match-wins)'
     assert.equal(matchRewrite('/', REWRITE_RULES).destination, '/index.html')
   })
 
-  test('every passthrough rule (reserved/asset/api/sitemap.xml) is ordered before the slug rules, which are ordered before the final catch-all', () => {
+  test('passthrough rules are ordered before slug rules, which are ordered before the final catch-all', () => {
     const catchAllIndex = REWRITE_RULES.findIndex((r) => r.source === '/(.*)')
     const slugRuleIndexes = []
     const passthroughIndexes = []
@@ -675,14 +647,6 @@ describe('vercel.json rewrite rules (read from the real file, first-match-wins)'
   })
 
   test('REMAINING, genuinely unresolved: live path-to-regexp behavior on Vercel itself', () => {
-    // These tests prove the rule set's matching/ordering behavior against a
-    // conversion of the documented path-to-regexp syntax, and that no source
-    // uses unsupported regex. They cannot prove Vercel's live engine
-    // interpolates a plain named param (":seg1", ":rest") into a query-string
-    // destination exactly as assumed, or that a trailing "*" modifier really
-    // makes its preceding "/" optional in Vercel's specific implementation.
-    // That still requires one real Preview request per representative path,
-    // exactly as flagged in the design review. Nothing here claims otherwise.
     assert.ok(true)
   })
 })
@@ -694,10 +658,7 @@ describe('resolveRestaurant — unknown / inactive / venue-vendor mismatch (all 
     assert.equal(result, null)
   })
 
-  test('inactive vendor is indistinguishable from unknown (active=true filter yields no row)', async () => {
-    // An inactive vendor never satisfies .eq('active', true) in the real
-    // query, so the fixture is identical to "unknown" — this IS the
-    // intended behavior: never reveal that an inactive restaurant exists.
+  test('inactive vendor is indistinguishable from unknown', async () => {
     const supabase = makeMockSupabase({ vendors: { data: null, error: null } })
     const result = await resolveRestaurant(supabase, { seg1: 'some-inactive-vendor', rest: '' })
     assert.equal(result, null)
@@ -712,11 +673,9 @@ describe('resolveRestaurant — unknown / inactive / venue-vendor mismatch (all 
     assert.equal(result, null)
   })
 
-  test('venue/vendor mismatch (vendor exists, but not under this venue_id) returns null', async () => {
+  test('venue/vendor mismatch returns null', async () => {
     const supabase = makeMockSupabase({
       venues: { data: { id: 'venue-1', slug: 'esc-giza' }, error: null },
-      // The real query filters on .eq('venue_id', venueData.id) too, so a
-      // vendor that belongs to a DIFFERENT venue simply yields no row here.
       vendors: { data: null, error: null },
     })
     const result = await resolveRestaurant(supabase, { seg1: 'esc-giza', rest: 'wrong-vendor' })
@@ -828,7 +787,7 @@ describe('substituteTemplate — end-to-end escaping on a realistic template', (
       restaurantName: `Café "Chez l'Ami" & <Fancy>`,
       fbAppId: '1234567890123456',
     })
-    assert.ok(!html.includes(`"Chez l'Ami"`)) // raw quote/apostrophe must not survive unescaped
+    assert.ok(!html.includes(`"Chez l'Ami"`))
     assert.ok(html.includes('&quot;Chez l&#39;Ami&quot;'))
     assert.ok(html.includes('&amp; &lt;Fancy&gt;'))
     assert.ok(html.includes('<html lang="ar">'))
@@ -849,8 +808,6 @@ describe('substituteTemplate — end-to-end escaping on a realistic template', (
       canonicalUrl: `${CANONICAL_BASE_URL}/evil`,
       logoUrl: null,
     })
-    // looksDangerous() vetoes the whole substitution — the safe, original
-    // template is returned unmodified rather than risking injected markup.
     assert.equal(html, SAMPLE_TEMPLATE)
   })
 
@@ -881,9 +838,7 @@ describe('substituteTemplate — end-to-end escaping on a realistic template', (
       cuisineType: 'Cambodian',
       city: 'Laval',
     })
-    const match = html.match(
-      /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
-    )
+    const match = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)
     assert.ok(match, 'expected a JSON-LD <script> tag in the generated HTML')
     const jsonLd = JSON.parse(match[1])
     assert.equal(jsonLd['@context'], 'https://schema.org')
@@ -914,53 +869,106 @@ describe('resolveTemplate — fetches the deployed SPA shell via VERCEL_URL, nev
     const calls = []
     const fetchImpl = async (url) => {
       calls.push(url)
-      return { ok: true, text: async () => '<html>deployed shell</html>' }
+      return { ok: true, text: async () => MOCK_APP_SHELL }
     }
-    const html = await resolveTemplate({ vercelUrl: 'my-app-abc123.vercel.app', fetchImpl })
-    assert.equal(html, '<html>deployed shell</html>')
+
+    const html = await resolveTemplate({
+      vercelUrl: 'my-app-abc123.vercel.app',
+      fetchImpl,
+    })
+
+    assert.equal(html, MOCK_APP_SHELL)
     assert.deepEqual(calls, ['https://my-app-abc123.vercel.app/index.html'])
   })
 
-  test('never uses the incoming request Host header or a hardcoded production/preview URL — only the injected vercelUrl', async () => {
-    const fetchImpl = async (url) => ({ ok: true, text: async () => `fetched:${url}` })
-    const html = await resolveTemplate({ vercelUrl: 'some-preview-deployment-xyz.vercel.app', fetchImpl })
-    assert.equal(html, 'fetched:https://some-preview-deployment-xyz.vercel.app/index.html')
+  test('uses only the injected vercelUrl, not a request Host header or hardcoded URL', async () => {
+    const calls = []
+    const fetchImpl = async (url) => {
+      calls.push(url)
+      return { ok: true, text: async () => MOCK_APP_SHELL }
+    }
+
+    const html = await resolveTemplate({
+      vercelUrl: 'some-preview-deployment-xyz.vercel.app',
+      fetchImpl,
+    })
+
+    assert.equal(html, MOCK_APP_SHELL)
+    assert.deepEqual(calls, ['https://some-preview-deployment-xyz.vercel.app/index.html'])
   })
 
-  test('a non-ok fetch response throws (so the caller\'s infra-failure path runs, not a silently broken page)', async () => {
-    const fetchImpl = async () => ({ ok: false, status: 503, text: async () => 'should not be read' })
+  test('rejects a Vercel Preview Protection login page even when it returns HTTP 200', async () => {
+    const loginPage = '<!DOCTYPE html><html><body>Skip to content Sign in to Vercel</body></html>'
+    const fetchImpl = async () => ({
+      ok: true,
+      text: async () => loginPage,
+    })
+
     await assert.rejects(
-      () => resolveTemplate({ vercelUrl: 'my-app-abc123.vercel.app', fetchImpl }),
+      () => resolveTemplate({
+        vercelUrl: 'my-app-abc123.vercel.app',
+        fetchImpl,
+      }),
+      /not the expected BistroVite app shell/
+    )
+  })
+
+  test('a non-ok fetch response throws so the infrastructure-error path runs', async () => {
+    const fetchImpl = async () => ({
+      ok: false,
+      status: 503,
+      text: async () => 'should not be read',
+    })
+
+    await assert.rejects(
+      () => resolveTemplate({
+        vercelUrl: 'my-app-abc123.vercel.app',
+        fetchImpl,
+      }),
       /503/
     )
   })
 
-  test('a network error from fetch propagates, is not swallowed', async () => {
+  test('a network error from fetch propagates, not swallowed', async () => {
     const fetchImpl = async () => {
       throw new Error('network unreachable')
     }
+
     await assert.rejects(
-      () => resolveTemplate({ vercelUrl: 'my-app-abc123.vercel.app', fetchImpl }),
+      () => resolveTemplate({
+        vercelUrl: 'my-app-abc123.vercel.app',
+        fetchImpl,
+      }),
       /network unreachable/
     )
   })
 
-  test('with no vercelUrl (local dev / local build, not a Vercel deployment), reads the local filesystem instead', async () => {
+  test('with no vercelUrl, reads the local filesystem instead', async () => {
     const readFileImpl = (path, encoding) => `read:${path}:${encoding}`
-    const html = await resolveTemplate({ vercelUrl: undefined, readFileImpl })
+    const html = await resolveTemplate({
+      vercelUrl: undefined,
+      readFileImpl,
+    })
+
     assert.ok(html.startsWith('read:'))
     assert.ok(html.includes(join('dist', 'index.html')))
     assert.ok(html.endsWith('utf8'))
   })
 
-  test('with no vercelUrl, never calls fetch at all', async () => {
+  test('with no vercelUrl, never calls fetch', async () => {
     let fetchCalled = false
     const fetchImpl = async () => {
       fetchCalled = true
-      return { ok: true, text: async () => '' }
+      return { ok: true, text: async () => MOCK_APP_SHELL }
     }
     const readFileImpl = () => 'local shell'
-    await resolveTemplate({ vercelUrl: undefined, fetchImpl, readFileImpl })
+
+    await resolveTemplate({
+      vercelUrl: undefined,
+      fetchImpl,
+      readFileImpl,
+    })
+
     assert.equal(fetchCalled, false)
   })
 })

@@ -1,37 +1,9 @@
+
 /* global process */
 // Vercel Function (Node.js runtime) — injects restaurant-specific <title>,
 // <meta description>, canonical URL, <html lang>, and Open Graph tags into
 // the built SPA shell for crawler-visible requests, before any client-side
 // JavaScript runs. The React app itself is never touched by this file.
-//
-// Mirrors the slug-resolution rules already implemented client-side in
-// src/hooks/useSession.js (RESERVED/SUB_ROUTES lists, venue-then-vendor
-// lookup with a venue_id match guard) so the two can't drift apart silently.
-//
-// Pure, side-effect-free pieces (escaping, URL validation, classification,
-// canonical building, Supabase resolution against an INJECTED client) are
-// exported individually so restaurant-meta.test.js can exercise them with
-// fixtures/mocks, with no network access and no new dependency. Only the
-// default-exported `handler` touches real I/O (env vars, the filesystem,
-// a real Supabase client, the HTTP response).
-//
-// Failure policy:
-//   - Genuinely unknown/inactive restaurant, or a venue/vendor mismatch
-//     -> real 404.
-//   - A Supabase/infra failure (thrown error, not "no row") -> 503,
-//     Cache-Control: no-store, but the response BODY is still the full,
-//     working SPA shell — a real user's browser renders and runs it
-//     exactly as it would a 200, so ordering keeps working during a
-//     transient backend hiccup. The 503 status exists purely so crawlers
-//     and monitoring can tell "temporarily unavailable" apart from
-//     "doesn't exist" and so Vercel's CDN never caches it (503 is not in
-//     Vercel's documented list of cacheable function-response statuses:
-//     200, 404, 410, 301, 302, 307, 308 — confirmed via vercel.com/docs/caching/cdn-cache
-//     fetched during the design review this implements).
-//   - The one case with no working shell to fall back to at all is the
-//     template itself being unreadable (a deployment/packaging problem,
-//     not a Supabase problem) -> 503 with a minimal error body, since
-//     there is nothing else to serve.
 
 import { createClient } from '@supabase/supabase-js'
 import { readFileSync } from 'fs'
@@ -40,21 +12,6 @@ import { join } from 'path'
 export const RESERVED = ['welcome', 'menu', 'item', 'cart', 'checkout', 'confirmation']
 export const SUB_ROUTES = ['cart', 'checkout', 'confirmation', 'item']
 export const CANONICAL_BASE_URL = 'https://order.bistrovite.com'
-
-// The actual request routing (which paths reach this function at all) is
-// defined entirely in vercel.json's "rewrites" array — Vercel's rewrite
-// "source" patterns are matched with path-to-regexp, which does NOT support
-// regex lookahead/lookbehind (a single lookahead-based pattern here used to
-// be deployed and was rejected at deploy time: "Rewrite at index 0 has
-// invalid source pattern"). vercel.json now uses several explicit,
-// lookahead-free rules instead of one clever regex: literal passthroughs for
-// RESERVED routes/assets/api (checked first, so they never reach this
-// function), then two plain path-to-regexp rules for a bare slug and a
-// slug+rest, then the existing SPA catch-all. restaurant-meta.test.js reads
-// vercel.json directly and asserts on its actual rule shapes/order, so the
-// two can't silently drift apart. RESERVED/SUB_ROUTES below are still the
-// one shared source of truth for sub-route classification, mirrored from
-// src/hooks/useSession.js as noted above.
 
 const DEFAULT_TITLE_TAG = '<title>BistroVite — Commandez en quelques secondes</title>'
 const DEFAULT_DESCRIPTION_TAG =
@@ -71,8 +28,6 @@ export function escapeHtml(value) {
     .replace(/'/g, '&#39;')
 }
 
-// Defensive — should be unreachable given escapeHtml above, but costs
-// nothing to check before trusting a value is safe to insert.
 export function looksDangerous(value) {
   return /<!--SEO_|<script/i.test(String(value ?? ''))
 }
@@ -87,10 +42,6 @@ export function isValidHttpUrl(value) {
   }
 }
 
-// A Facebook/Meta App ID is a plain numeric string (Meta's own apps are
-// typically 15-16 digits, but the format itself is just "digits"). Guards
-// against a misconfigured env var (placeholder text, a URL, etc.) silently
-// shipping as a broken fb:app_id tag.
 export function isValidFacebookAppId(value) {
   return typeof value === 'string' && /^\d{1,20}$/.test(value)
 }
@@ -101,15 +52,11 @@ export function pickLocalizedName(vendor, lang) {
   return vendor.name
 }
 
-// Only ever composed from verified fields that are actually present —
-// never invents cuisine, location, ratings, or anything else.
 export function buildDescription(displayName, vendor) {
   const parts = [displayName, vendor.cuisine_type, vendor.city].filter(Boolean)
   return parts.length ? parts.join(' — ') : null
 }
 
-// Classifies a (seg1, rest) pair exactly the way useSession.js's RESERVED/
-// SUB_ROUTES lists already do, so the two can't quietly diverge.
 export function classifyRequest(seg1, rest) {
   const restSegments = rest ? String(rest).split('/').filter(Boolean) : []
   const reserved = !seg1 || RESERVED.includes(seg1)
@@ -139,17 +86,12 @@ export function buildHeadExtra({
   const jsonLdScriptTag = buildJsonLdScriptTag(
     buildRestaurantJsonLd({ name: restaurantName, url: canonicalUrl, logoUrl, cuisineType, city })
   )
+
   const parts = [
     `<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />`,
     `<meta property="og:title" content="${escapeHtml(title)}" />`,
     description ? `<meta property="og:description" content="${escapeHtml(description)}" />` : null,
     `<meta property="og:url" content="${escapeHtml(canonicalUrl)}" />`,
-    // "website", not the Open Graph vertical "restaurant.restaurant": a
-    // non-basic og:type requires declaring its RDFa namespace on <html>
-    // (e.g. prefix="restaurant: http://ogp.me/ns/restaurant#"), which
-    // index.html never did, making the old value spec-invalid — and
-    // "website" is the one type every consumer (Twitter/Slack/iMessage/
-    // LinkedIn/Google) reliably understands without any extra setup.
     `<meta property="og:type" content="website" />`,
     hasFbAppId ? `<meta property="fb:app_id" content="${escapeHtml(fbAppId)}" />` : null,
     `<meta name="twitter:card" content="summary" />`,
@@ -165,26 +107,15 @@ export function buildHeadExtra({
       : null,
     jsonLdScriptTag,
   ].filter(Boolean)
+
   return parts.join('\n  ')
 }
 
-// Trims and treats null/undefined/empty/whitespace-only as "not provided" —
-// the one shared rule for every optional JSON-LD field below, so a blank
-// string in the database never produces an empty schema property.
 function meaningfulString(value) {
   const trimmed = typeof value === 'string' ? value.trim() : ''
   return trimmed || null
 }
 
-/**
- * Builds a Schema.org Restaurant object from already-resolved, already-
- * verified values (the same vendor record resolveRestaurant() returned —
- * no new Supabase query). Returns null when no valid Restaurant object can
- * be built (no display name), so callers never emit a misleading one.
- * Deliberately only includes properties this codebase can actually back
- * with a real, selected database field — no invented address/phone/hours/
- * rating/menu/price data.
- */
 export function buildRestaurantJsonLd({ name, url, logoUrl, cuisineType, city }) {
   const displayName = meaningfulString(name)
   if (!displayName || !url) return null
@@ -207,33 +138,19 @@ export function buildRestaurantJsonLd({ name, url, logoUrl, cuisineType, city })
   return jsonLd
 }
 
-/**
- * Serializes a JSON-LD object for safe embedding inside an
- * <script type="application/ld+json"> element. JSON.stringify alone is not
- * enough: a database value containing "</script>" would still terminate the
- * element early and let the rest be parsed as HTML/script content. Escaping
- * "<" (as "\u003c") inside the JSON string neutralizes that while staying
- * valid JSON — "\u003c" decodes right back to "<" for any JSON.parse caller,
- * so semantics (including accented/Arabic text, which JSON.stringify already
- * emits as literal UTF-8) are unaffected. ">" and "&" are escaped too, purely
- * as defense in depth; they are not required to break out of a script
- * element the way "<" is.
- */
 export function buildJsonLdScriptTag(jsonLd) {
   if (!jsonLd) return null
-  const json = JSON.stringify(jsonLd).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026')
+  const json = JSON.stringify(jsonLd)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+
   return `<script type="application/ld+json">${json}</script>`
 }
 
 const VENDOR_SELECT =
   'id, slug, name, name_fr, name_ar, cuisine_type, city, logo_url, active, venue_id'
 
-/**
- * Resolves a restaurant from an INJECTED Supabase client. Returns
- * `{ vendor, canonicalPath }` on success, `null` for a genuine
- * not-found/inactive/mismatch, and THROWS on any Supabase/infra error —
- * callers must keep that distinction, it's what separates 404 from 503.
- */
 export async function resolveRestaurant(supabase, { seg1, rest }) {
   const { looksLikeVenuePair, restSegments } = classifyRequest(seg1, rest)
 
@@ -247,6 +164,7 @@ export async function resolveRestaurant(supabase, { seg1, rest }) {
       .eq('slug', venueSlug)
       .eq('active', true)
       .maybeSingle()
+
     if (venueErr) throw venueErr
     if (!venueData) return null
 
@@ -254,9 +172,10 @@ export async function resolveRestaurant(supabase, { seg1, rest }) {
       .from('vendors')
       .select(VENDOR_SELECT)
       .eq('slug', vendorSlug)
-      .eq('venue_id', venueData.id) // guards against a venue/vendor mismatch
+      .eq('venue_id', venueData.id)
       .eq('active', true)
       .maybeSingle()
+
     if (vendorErr) throw vendorErr
     if (!vendorData) return null
 
@@ -273,11 +192,10 @@ export async function resolveRestaurant(supabase, { seg1, rest }) {
     .eq('slug', vendorSlug)
     .eq('active', true)
     .maybeSingle()
+
   if (vendorErr) throw vendorErr
   if (!vendorData) return null
 
-  // Approved canonical policy: a venue-attached vendor's canonical is the
-  // venue-prefixed URL, even when reached via its own standalone slug.
   if (vendorData.venue_id) {
     const { data: venueData, error: venueErr } = await supabase
       .from('venues')
@@ -285,6 +203,7 @@ export async function resolveRestaurant(supabase, { seg1, rest }) {
       .eq('id', vendorData.venue_id)
       .eq('active', true)
       .maybeSingle()
+
     if (venueErr) throw venueErr
     if (venueData) {
       return {
@@ -304,13 +223,6 @@ export async function resolveRestaurant(supabase, { seg1, rest }) {
   }
 }
 
-/**
- * Authoritative per the design review: vendor_languages + languages —
- * never vendors.supported_languages (confirmed unread anywhere in src/).
- * Deliberately lenient: a language-lookup problem is cosmetic, not a
- * reason to turn the whole page into a 503, so this swallows its own
- * errors and just falls back to 'en'.
- */
 export async function resolveLanguage(supabase, vendorId) {
   try {
     const { data: langRows } = await supabase
@@ -318,6 +230,7 @@ export async function resolveLanguage(supabase, vendorId) {
       .select('language_code, is_default')
       .eq('vendor_id', vendorId)
       .order('sort_order')
+
     const rows = langRows || []
     const def = rows.find((r) => r.is_default) || rows[0]
     return def?.language_code || 'en'
@@ -331,66 +244,57 @@ export function substituteTemplate(
   { title, description, lang, canonicalUrl, logoUrl, restaurantName, fbAppId, cuisineType, city }
 ) {
   if (looksDangerous(title) || looksDangerous(description) || looksDangerous(canonicalUrl)) {
-    // Should be unreachable given escaping, but if it ever triggers, fail
-    // toward the untouched template rather than risk injected markup.
-    // (restaurantName is always a literal prefix of title, so this check on
-    // title already covers it — no separate veto needed. fbAppId comes from
-    // an env var, not vendor data, so it's never user/DB-controlled input.)
     return template
   }
 
   let html = template
   html = html.replace(DEFAULT_HTML_TAG, `<html lang="${escapeHtml(lang)}">`)
   html = html.replace(DEFAULT_TITLE_TAG, `<title>${escapeHtml(title)}</title>`)
+
   if (description) {
     html = html.replace(
       DEFAULT_DESCRIPTION_TAG,
       `<meta name="description" content="${escapeHtml(description)}" />`
     )
   }
+
   html = html.replace(
     HEAD_EXTRA_MARKER,
     buildHeadExtra({ title, description, canonicalUrl, logoUrl, restaurantName, fbAppId, cuisineType, city })
   )
+
   return html
 }
 
 /**
- * dist/index.html is NOT reliably available to this function via the
- * filesystem on Vercel: @vercel/node's function bundler does not expose
- * @vercel/static-build's (framework: vite) output to sibling functions in
- * this project — confirmed directly via `vercel build`, where neither
- * `includeFiles` (tried as a literal path and as a glob) nor automatic
- * file-tracing bundled it, for a file that doesn't even need to be
- * build-generated to fail the same way.
- *
- * Fix: fetch the already-deployed /index.html from THIS SAME deployment,
- * using Vercel's own VERCEL_URL system environment variable — set
- * automatically for every deployment, Preview and Production alike, to
- * that deployment's own unique host. This is never a hardcoded URL and
- * never the incoming request's Host header (which is attacker-
- * controllable and explicitly not trusted anywhere in this file — see
- * CANONICAL_BASE_URL). /index.html itself is served by Vercel's static
- * "filesystem" phase, which runs before any rewrite, so this fetch cannot
- * recurse back into this function.
- *
- * Falls back to a local filesystem read when VERCEL_URL isn't set, which
- * is the case for local `npm run build` + local testing, where dist/ is
- * genuinely on disk next to this file (the two-builder isolation above
- * only happens on Vercel's own infrastructure).
+ * Loads the SPA shell. On Vercel, the function fetches the deployed index.html.
+ * The response must be the actual BistroVite app shell, not a Preview Protection
+ * login page or another HTML response. Locally, it reads dist/index.html.
  */
 export async function resolveTemplate({ vercelUrl, fetchImpl = fetch, readFileImpl = readFileSync } = {}) {
   if (vercelUrl) {
     const response = await fetchImpl(`https://${vercelUrl}/index.html`)
+
     if (!response.ok) {
       throw new Error(`Fetching the deployed index.html failed with status ${response.status}`)
     }
-    return response.text()
+
+    const html = await response.text()
+
+    // Prevent a Vercel Preview Protection login page (which may return HTTP 200)
+    // from being cached and served as the restaurant page.
+    if (!html.includes('<div id="root"></div>') || !html.includes('/assets/')) {
+      throw new Error('Fetched index.html is not the expected BistroVite app shell')
+    }
+
+    return html
   }
+
   return readFileImpl(join(process.cwd(), 'dist', 'index.html'), 'utf8')
 }
 
 let templateCache = null
+
 async function getTemplate() {
   if (!templateCache) {
     templateCache = await resolveTemplate({ vercelUrl: process.env.VERCEL_URL })
@@ -427,11 +331,10 @@ function sendInfraFailureMinimal(response) {
 
 export default async function handler(request, response) {
   let template
+
   try {
     template = await getTemplate()
   } catch (err) {
-    // No working shell exists to fall back to at all — a deployment/
-    // packaging problem, distinct from a Supabase/infra failure.
     console.error('restaurant-meta: could not read built index.html template', err)
     sendInfraFailureMinimal(response)
     return
@@ -441,8 +344,6 @@ export default async function handler(request, response) {
   const rest = typeof request.query.rest === 'string' ? request.query.rest : ''
   const { reserved } = classifyRequest(seg1, rest)
 
-  // Defensive — the vercel.json rewrite already excludes RESERVED segments,
-  // but a function should never trust its routing config alone.
   if (reserved) {
     sendShell(response, template, 200)
     return
@@ -452,10 +353,12 @@ export default async function handler(request, response) {
   const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY
 
   let supabase
+
   try {
     if (!supabaseUrl || !supabaseAnonKey) {
       throw new Error('Supabase env vars are not configured for this function')
     }
+
     supabase = createClient(supabaseUrl, supabaseAnonKey)
   } catch (err) {
     console.error('restaurant-meta: supabase client unavailable', err)
@@ -464,6 +367,7 @@ export default async function handler(request, response) {
   }
 
   let resolved
+
   try {
     resolved = await resolveRestaurant(supabase, { seg1, rest })
   } catch (err) {
@@ -493,10 +397,6 @@ export default async function handler(request, response) {
     restaurantName: displayName,
     cuisineType: vendor.cuisine_type,
     city: vendor.city,
-    // No BistroVite Facebook/Meta App ID exists in this project today (none
-    // found in .env, vercel.json, or docs) — FACEBOOK_APP_ID is read so the
-    // tag activates automatically once a real one is configured in Vercel's
-    // Environment Variables, but it is never invented here.
     fbAppId: process.env.FACEBOOK_APP_ID,
   })
 
