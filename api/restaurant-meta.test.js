@@ -21,6 +21,8 @@ import {
   buildHeadExtra,
   buildRestaurantJsonLd,
   buildJsonLdScriptTag,
+  parseTimeToHHMM,
+  normalizeClosedDays,
   resolveRestaurant,
   resolveLanguage,
   substituteTemplate,
@@ -30,7 +32,7 @@ import {
 // ---------------------------------------------------------------------------
 // Mock Supabase client.
 // ---------------------------------------------------------------------------
-function makeMockSupabase(byTable, fromCalls) {
+function makeMockSupabase(byTable, fromCalls, selectCalls) {
   return {
     from(table) {
       if (fromCalls) fromCalls.push(table)
@@ -39,7 +41,8 @@ function makeMockSupabase(byTable, fromCalls) {
       }
       const fixture = byTable[table]
       const chain = {
-        select() {
+        select(columns) {
+          if (selectCalls) selectCalls.push({ table, columns })
           return chain
         },
         eq() {
@@ -352,6 +355,238 @@ describe('buildRestaurantJsonLd / buildJsonLdScriptTag — Restaurant JSON-LD', 
     const arabicTag = buildJsonLdScriptTag(buildRestaurantJsonLd({ ...FULL, name: 'دكان القهوة' }))
     const arabicInner = arabicTag.slice('<script type="application/ld+json">'.length, -'</script>'.length)
     assert.equal(JSON.parse(arabicInner).name, 'دكان القهوة')
+  })
+})
+
+describe('parseTimeToHHMM — Postgres time -> Schema.org HH:MM', () => {
+  test('converts "HH:MM:SS" to "HH:MM"', () => {
+    assert.equal(parseTimeToHHMM('11:00:00'), '11:00')
+    assert.equal(parseTimeToHHMM('22:30:45'), '22:30')
+  })
+
+  test('accepts "HH:MM" as-is', () => {
+    assert.equal(parseTimeToHHMM('09:05'), '09:05')
+  })
+
+  test('rejects out-of-range or malformed values', () => {
+    assert.equal(parseTimeToHHMM('24:00:00'), null)
+    assert.equal(parseTimeToHHMM('12:60:00'), null)
+    assert.equal(parseTimeToHHMM('not-a-time'), null)
+    assert.equal(parseTimeToHHMM(''), null)
+  })
+
+  test('rejects null/undefined/non-string values', () => {
+    assert.equal(parseTimeToHHMM(null), null)
+    assert.equal(parseTimeToHHMM(undefined), null)
+    assert.equal(parseTimeToHHMM(42), null)
+  })
+})
+
+describe('normalizeClosedDays — closed_days format handling', () => {
+  test('recognizes full day names case-insensitively', () => {
+    assert.deepEqual(normalizeClosedDays(['Monday', 'tuesday']).sort(), ['Monday', 'Tuesday'])
+  })
+
+  test('recognizes common abbreviations', () => {
+    assert.deepEqual(normalizeClosedDays(['mon', 'Tue', 'thurs']).sort(), [
+      'Monday',
+      'Thursday',
+      'Tuesday',
+    ])
+  })
+
+  test('null/undefined cannot be reliably interpreted as "no closed days"', () => {
+    assert.equal(normalizeClosedDays(null), null)
+    assert.equal(normalizeClosedDays(undefined), null)
+  })
+
+  test('empty array means no closed days', () => {
+    assert.deepEqual(normalizeClosedDays([]), [])
+  })
+
+  test('dedupes repeated entries', () => {
+    assert.deepEqual(normalizeClosedDays(['Monday', 'monday', 'MON']), ['Monday'])
+  })
+
+  test('returns null for a non-array value (ambiguous/serialized format)', () => {
+    assert.equal(normalizeClosedDays('Monday,Tuesday'), null)
+    assert.equal(normalizeClosedDays(0), null)
+  })
+
+  test('returns null for an unrecognized entry (numeric codes, unknown names)', () => {
+    assert.equal(normalizeClosedDays(['0', '1']), null)
+    assert.equal(normalizeClosedDays(['Lundi']), null)
+    assert.equal(normalizeClosedDays(['Monday', 'not-a-day']), null)
+  })
+})
+
+describe('buildRestaurantJsonLd — streetAddress, openingHoursSpecification', () => {
+  const BASE = {
+    name: 'Khmer Express',
+    url: `${CANONICAL_BASE_URL}/khmer-express`,
+  }
+
+  test('never emits a telephone property (owner_phone is not a public business number)', () => {
+    const jsonLd = buildRestaurantJsonLd({
+      ...BASE,
+      openTime: '11:00:00',
+      closeTime: '22:00:00',
+      closedDays: [],
+    })
+    assert.ok(!('telephone' in jsonLd))
+  })
+
+  test('maps address to address.streetAddress when present', () => {
+    const jsonLd = buildRestaurantJsonLd({
+      ...BASE,
+      streetAddress: '37 Bd Curé-Labelle, Sainte-Rose, QC H7L 2Y8',
+      city: 'Laval',
+    })
+    assert.deepEqual(jsonLd.address, {
+      '@type': 'PostalAddress',
+      streetAddress: '37 Bd Curé-Labelle, Sainte-Rose, QC H7L 2Y8',
+      addressLocality: 'Laval',
+    })
+  })
+
+  test('streetAddress alone still produces an address object without addressLocality', () => {
+    const jsonLd = buildRestaurantJsonLd({ ...BASE, streetAddress: '123 Main St' })
+    assert.deepEqual(jsonLd.address, { '@type': 'PostalAddress', streetAddress: '123 Main St' })
+  })
+
+  test('addressLocality alone still works when streetAddress is absent (existing behavior)', () => {
+    const jsonLd = buildRestaurantJsonLd({ ...BASE, city: 'Laval' })
+    assert.deepEqual(jsonLd.address, { '@type': 'PostalAddress', addressLocality: 'Laval' })
+  })
+
+  test('omits address entirely when both city and streetAddress are missing', () => {
+    assert.ok(!('address' in buildRestaurantJsonLd({ ...BASE })))
+    assert.ok(!('address' in buildRestaurantJsonLd({ ...BASE, streetAddress: '   ', city: null })))
+  })
+
+  test('builds openingHoursSpecification with converted times and open days (closed days excluded)', () => {
+    const jsonLd = buildRestaurantJsonLd({
+      ...BASE,
+      openTime: '11:00:00',
+      closeTime: '22:00:00',
+      closedDays: ['Monday'],
+    })
+    assert.deepEqual(jsonLd.openingHoursSpecification, {
+      '@type': 'OpeningHoursSpecification',
+      dayOfWeek: ['Sunday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+      opens: '11:00',
+      closes: '22:00',
+    })
+  })
+
+  test('with no closed days, all seven days are open', () => {
+    const jsonLd = buildRestaurantJsonLd({
+      ...BASE,
+      openTime: '11:00:00',
+      closeTime: '22:00:00',
+      closedDays: [],
+    })
+    assert.equal(jsonLd.openingHoursSpecification.dayOfWeek.length, 7)
+  })
+
+  test('omits openingHoursSpecification when open/close time is missing or invalid', () => {
+    assert.ok(
+      !(
+        'openingHoursSpecification' in
+        buildRestaurantJsonLd({ ...BASE, openTime: null, closeTime: '22:00:00', closedDays: [] })
+      )
+    )
+    assert.ok(
+      !(
+        'openingHoursSpecification' in
+        buildRestaurantJsonLd({
+          ...BASE,
+          openTime: 'garbage',
+          closeTime: '22:00:00',
+          closedDays: [],
+        })
+      )
+    )
+  })
+
+  test('omits openingHoursSpecification for unrecognized/ambiguous closed_days formats', () => {
+    const jsonLd = buildRestaurantJsonLd({
+      ...BASE,
+      openTime: '11:00:00',
+      closeTime: '22:00:00',
+      closedDays: ['0', '1'],
+    })
+    assert.ok(!('openingHoursSpecification' in jsonLd))
+  })
+
+  test('omits openingHoursSpecification when every day is closed', () => {
+    const jsonLd = buildRestaurantJsonLd({
+      ...BASE,
+      openTime: '11:00:00',
+      closeTime: '22:00:00',
+      closedDays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+    })
+    assert.ok(!('openingHoursSpecification' in jsonLd))
+  })
+
+  test('existing JSON-LD behavior is unchanged when all new fields are absent', () => {
+    assert.deepEqual(buildRestaurantJsonLd(BASE), {
+      '@context': 'https://schema.org',
+      '@type': 'Restaurant',
+      name: 'Khmer Express',
+      url: BASE.url,
+    })
+  })
+
+  test('serialization safely escapes a hostile streetAddress value', () => {
+    const hostile = '</script><script>alert(1)</script>'
+    const tag = buildJsonLdScriptTag(buildRestaurantJsonLd({ ...BASE, streetAddress: hostile }))
+    assert.equal(tag.split('</script>').length - 1, 1)
+    assert.ok(!tag.includes('<script>alert(1)</script>'))
+    const inner = tag.slice('<script type="application/ld+json">'.length, -'</script>'.length)
+    const parsed = JSON.parse(inner)
+    assert.equal(parsed.address.streetAddress, hostile)
+  })
+})
+
+describe('vendors query — selects the new fields without an extra Supabase query', () => {
+  test('VENDOR_SELECT (via resolveRestaurant) includes address, open_time, close_time, closed_days', async () => {
+    const fromCalls = []
+    const selectCalls = []
+    const supabase = makeMockSupabase(
+      {
+        vendors: {
+          data: {
+            id: 'v1',
+            slug: 'khmer-express',
+            name: 'Khmer Express',
+            venue_id: null,
+            address: '123 Main St',
+            open_time: '11:00:00',
+            close_time: '22:00:00',
+            closed_days: ['Monday'],
+          },
+          error: null,
+        },
+      },
+      fromCalls,
+      selectCalls
+    )
+
+    await resolveRestaurant(supabase, { seg1: 'khmer-express', rest: '' })
+
+    assert.deepEqual(fromCalls, ['vendors'])
+    assert.equal(selectCalls.length, 1)
+    for (const field of ['address', 'open_time', 'close_time', 'closed_days']) {
+      assert.ok(
+        selectCalls[0].columns.includes(field),
+        `expected vendors select to include "${field}", got: ${selectCalls[0].columns}`
+      )
+    }
+    assert.ok(
+      !selectCalls[0].columns.includes('owner_phone'),
+      'vendors select must not fetch owner_phone (personal dashboard-login contact, not public data)'
+    )
   })
 })
 
