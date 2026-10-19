@@ -84,7 +84,6 @@ export function buildHeadExtra({
   fbAppId,
   cuisineType,
   city,
-  telephone,
   streetAddress,
   openTime,
   closeTime,
@@ -100,7 +99,6 @@ export function buildHeadExtra({
       logoUrl,
       cuisineType,
       city,
-      telephone,
       streetAddress,
       openTime,
       closeTime,
@@ -191,7 +189,9 @@ const DAY_ALIASES = {
  * than "closed no days".
  */
 export function normalizeClosedDays(closedDays) {
-  if (closedDays == null) return []
+  // Only an actual array (including an empty one, matching the column's
+  // '{}' default) has a reliably known meaning. null/undefined/other types
+  // don't reliably mean "closed no days" — treat them as unknown.
   if (!Array.isArray(closedDays)) return null
 
   const normalized = new Set()
@@ -234,7 +234,6 @@ export function buildRestaurantJsonLd({
   logoUrl,
   cuisineType,
   city,
-  telephone,
   streetAddress,
   openTime,
   closeTime,
@@ -263,9 +262,6 @@ export function buildRestaurantJsonLd({
     if (locality) jsonLd.address.addressLocality = locality
   }
 
-  const phone = meaningfulString(telephone)
-  if (phone) jsonLd.telephone = phone
-
   const openingHoursSpecification = buildOpeningHoursSpecification({
     openTime,
     closeTime,
@@ -289,7 +285,7 @@ export function buildJsonLdScriptTag(jsonLd) {
 
 const VENDOR_SELECT =
   'id, slug, name, name_fr, name_ar, cuisine_type, city, logo_url, active, venue_id, ' +
-  'owner_phone, address, open_time, close_time, closed_days'
+  'address, open_time, close_time, closed_days'
 
 export async function resolveRestaurant(supabase, { seg1, rest }) {
   const { looksLikeVenuePair, restSegments } = classifyRequest(seg1, rest)
@@ -401,7 +397,6 @@ export function substituteTemplate(
     fbAppId,
     cuisineType,
     city,
-    telephone,
     streetAddress,
     openTime,
     closeTime,
@@ -435,7 +430,6 @@ export function substituteTemplate(
       fbAppId,
       cuisineType,
       city,
-      telephone,
       streetAddress,
       openTime,
       closeTime,
@@ -566,7 +560,6 @@ export default async function handler(request, response) {
     restaurantName: displayName,
     cuisineType: vendor.cuisine_type,
     city: vendor.city,
-    telephone: vendor.owner_phone,
     streetAddress: vendor.address,
     openTime: vendor.open_time,
     closeTime: vendor.close_time,

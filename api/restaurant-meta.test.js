@@ -395,9 +395,9 @@ describe('normalizeClosedDays — closed_days format handling', () => {
     ])
   })
 
-  test('null/undefined means no closed days', () => {
-    assert.deepEqual(normalizeClosedDays(null), [])
-    assert.deepEqual(normalizeClosedDays(undefined), [])
+  test('null/undefined cannot be reliably interpreted as "no closed days"', () => {
+    assert.equal(normalizeClosedDays(null), null)
+    assert.equal(normalizeClosedDays(undefined), null)
   })
 
   test('empty array means no closed days', () => {
@@ -420,22 +420,20 @@ describe('normalizeClosedDays — closed_days format handling', () => {
   })
 })
 
-describe('buildRestaurantJsonLd — telephone, streetAddress, openingHoursSpecification', () => {
+describe('buildRestaurantJsonLd — streetAddress, openingHoursSpecification', () => {
   const BASE = {
     name: 'Khmer Express',
     url: `${CANONICAL_BASE_URL}/khmer-express`,
   }
 
-  test('maps owner_phone to telephone when present', () => {
-    const jsonLd = buildRestaurantJsonLd({ ...BASE, telephone: '+15145550123' })
-    assert.equal(jsonLd.telephone, '+15145550123')
-  })
-
-  test('omits telephone when owner_phone is missing, empty, or blank', () => {
-    assert.ok(!('telephone' in buildRestaurantJsonLd({ ...BASE, telephone: null })))
-    assert.ok(!('telephone' in buildRestaurantJsonLd({ ...BASE, telephone: '' })))
-    assert.ok(!('telephone' in buildRestaurantJsonLd({ ...BASE, telephone: '   ' })))
-    assert.ok(!('telephone' in buildRestaurantJsonLd({ ...BASE })))
+  test('never emits a telephone property (owner_phone is not a public business number)', () => {
+    const jsonLd = buildRestaurantJsonLd({
+      ...BASE,
+      openTime: '11:00:00',
+      closeTime: '22:00:00',
+      closedDays: [],
+    })
+    assert.ok(!('telephone' in jsonLd))
   })
 
   test('maps address to address.streetAddress when present', () => {
@@ -540,22 +538,19 @@ describe('buildRestaurantJsonLd — telephone, streetAddress, openingHoursSpecif
     })
   })
 
-  test('serialization safely escapes hostile telephone/streetAddress values', () => {
+  test('serialization safely escapes a hostile streetAddress value', () => {
     const hostile = '</script><script>alert(1)</script>'
-    const tag = buildJsonLdScriptTag(
-      buildRestaurantJsonLd({ ...BASE, telephone: hostile, streetAddress: hostile })
-    )
+    const tag = buildJsonLdScriptTag(buildRestaurantJsonLd({ ...BASE, streetAddress: hostile }))
     assert.equal(tag.split('</script>').length - 1, 1)
     assert.ok(!tag.includes('<script>alert(1)</script>'))
     const inner = tag.slice('<script type="application/ld+json">'.length, -'</script>'.length)
     const parsed = JSON.parse(inner)
-    assert.equal(parsed.telephone, hostile)
     assert.equal(parsed.address.streetAddress, hostile)
   })
 })
 
 describe('vendors query — selects the new fields without an extra Supabase query', () => {
-  test('VENDOR_SELECT (via resolveRestaurant) includes owner_phone, address, open_time, close_time, closed_days', async () => {
+  test('VENDOR_SELECT (via resolveRestaurant) includes address, open_time, close_time, closed_days', async () => {
     const fromCalls = []
     const selectCalls = []
     const supabase = makeMockSupabase(
@@ -566,7 +561,6 @@ describe('vendors query — selects the new fields without an extra Supabase que
             slug: 'khmer-express',
             name: 'Khmer Express',
             venue_id: null,
-            owner_phone: '+15145550123',
             address: '123 Main St',
             open_time: '11:00:00',
             close_time: '22:00:00',
@@ -583,12 +577,16 @@ describe('vendors query — selects the new fields without an extra Supabase que
 
     assert.deepEqual(fromCalls, ['vendors'])
     assert.equal(selectCalls.length, 1)
-    for (const field of ['owner_phone', 'address', 'open_time', 'close_time', 'closed_days']) {
+    for (const field of ['address', 'open_time', 'close_time', 'closed_days']) {
       assert.ok(
         selectCalls[0].columns.includes(field),
         `expected vendors select to include "${field}", got: ${selectCalls[0].columns}`
       )
     }
+    assert.ok(
+      !selectCalls[0].columns.includes('owner_phone'),
+      'vendors select must not fetch owner_phone (personal dashboard-login contact, not public data)'
+    )
   })
 })
 
