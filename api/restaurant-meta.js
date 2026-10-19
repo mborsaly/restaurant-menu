@@ -84,6 +84,11 @@ export function buildHeadExtra({
   fbAppId,
   cuisineType,
   city,
+  telephone,
+  streetAddress,
+  openTime,
+  closeTime,
+  closedDays,
 }) {
   const hasImage = isValidHttpUrl(logoUrl)
   const hasFbAppId = isValidFacebookAppId(fbAppId)
@@ -95,6 +100,11 @@ export function buildHeadExtra({
       logoUrl,
       cuisineType,
       city,
+      telephone,
+      streetAddress,
+      openTime,
+      closeTime,
+      closedDays,
     })
   )
 
@@ -133,7 +143,103 @@ function meaningfulString(value) {
   return trimmed || null
 }
 
-export function buildRestaurantJsonLd({ name, url, logoUrl, cuisineType, city }) {
+// Postgres `time` columns come back from Supabase as "HH:MM:SS" (sometimes
+// "HH:MM"); Schema.org's openingHoursSpecification expects "HH:MM".
+const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/
+
+export function parseTimeToHHMM(value) {
+  if (typeof value !== 'string') return null
+  const match = TIME_PATTERN.exec(value.trim())
+  return match ? `${match[1]}:${match[2]}` : null
+}
+
+const DAY_NAMES = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+]
+
+const DAY_ALIASES = {
+  sun: 'Sunday',
+  sunday: 'Sunday',
+  mon: 'Monday',
+  monday: 'Monday',
+  tue: 'Tuesday',
+  tues: 'Tuesday',
+  tuesday: 'Tuesday',
+  wed: 'Wednesday',
+  wednesday: 'Wednesday',
+  thu: 'Thursday',
+  thur: 'Thursday',
+  thurs: 'Thursday',
+  thursday: 'Thursday',
+  fri: 'Friday',
+  friday: 'Friday',
+  sat: 'Saturday',
+  saturday: 'Saturday',
+}
+
+/**
+ * Normalizes `vendors.closed_days` into canonical Schema.org day names.
+ * Returns `null` when the format can't be reliably determined (not an
+ * array, or containing an entry that isn't a recognized English day
+ * name/abbreviation) — callers must treat `null` as "don't know" rather
+ * than "closed no days".
+ */
+export function normalizeClosedDays(closedDays) {
+  if (closedDays == null) return []
+  if (!Array.isArray(closedDays)) return null
+
+  const normalized = new Set()
+
+  for (const entry of closedDays) {
+    if (typeof entry !== 'string') return null
+    const key = entry.trim().toLowerCase()
+    if (!key) continue
+    const dayName = DAY_ALIASES[key]
+    if (!dayName) return null
+    normalized.add(dayName)
+  }
+
+  return Array.from(normalized)
+}
+
+function buildOpeningHoursSpecification({ openTime, closeTime, closedDays }) {
+  const opens = parseTimeToHHMM(openTime)
+  const closes = parseTimeToHHMM(closeTime)
+  if (!opens || !closes) return null
+
+  const normalizedClosedDays = normalizeClosedDays(closedDays)
+  if (normalizedClosedDays === null) return null
+
+  const closedSet = new Set(normalizedClosedDays)
+  const dayOfWeek = DAY_NAMES.filter((day) => !closedSet.has(day))
+  if (dayOfWeek.length === 0) return null
+
+  return {
+    '@type': 'OpeningHoursSpecification',
+    dayOfWeek,
+    opens,
+    closes,
+  }
+}
+
+export function buildRestaurantJsonLd({
+  name,
+  url,
+  logoUrl,
+  cuisineType,
+  city,
+  telephone,
+  streetAddress,
+  openTime,
+  closeTime,
+  closedDays,
+}) {
   const displayName = meaningfulString(name)
   if (!displayName || !url) return null
 
@@ -150,12 +256,22 @@ export function buildRestaurantJsonLd({ name, url, logoUrl, cuisineType, city })
   if (cuisine) jsonLd.servesCuisine = cuisine
 
   const locality = meaningfulString(city)
-  if (locality) {
-    jsonLd.address = {
-      '@type': 'PostalAddress',
-      addressLocality: locality,
-    }
+  const street = meaningfulString(streetAddress)
+  if (locality || street) {
+    jsonLd.address = { '@type': 'PostalAddress' }
+    if (street) jsonLd.address.streetAddress = street
+    if (locality) jsonLd.address.addressLocality = locality
   }
+
+  const phone = meaningfulString(telephone)
+  if (phone) jsonLd.telephone = phone
+
+  const openingHoursSpecification = buildOpeningHoursSpecification({
+    openTime,
+    closeTime,
+    closedDays,
+  })
+  if (openingHoursSpecification) jsonLd.openingHoursSpecification = openingHoursSpecification
 
   return jsonLd
 }
@@ -172,7 +288,8 @@ export function buildJsonLdScriptTag(jsonLd) {
 }
 
 const VENDOR_SELECT =
-  'id, slug, name, name_fr, name_ar, cuisine_type, city, logo_url, active, venue_id'
+  'id, slug, name, name_fr, name_ar, cuisine_type, city, logo_url, active, venue_id, ' +
+  'owner_phone, address, open_time, close_time, closed_days'
 
 export async function resolveRestaurant(supabase, { seg1, rest }) {
   const { looksLikeVenuePair, restSegments } = classifyRequest(seg1, rest)
@@ -284,6 +401,11 @@ export function substituteTemplate(
     fbAppId,
     cuisineType,
     city,
+    telephone,
+    streetAddress,
+    openTime,
+    closeTime,
+    closedDays,
   }
 ) {
   if (looksDangerous(title) || looksDangerous(description) || looksDangerous(canonicalUrl)) {
@@ -313,6 +435,11 @@ export function substituteTemplate(
       fbAppId,
       cuisineType,
       city,
+      telephone,
+      streetAddress,
+      openTime,
+      closeTime,
+      closedDays,
     })
   )
 
@@ -439,6 +566,11 @@ export default async function handler(request, response) {
     restaurantName: displayName,
     cuisineType: vendor.cuisine_type,
     city: vendor.city,
+    telephone: vendor.owner_phone,
+    streetAddress: vendor.address,
+    openTime: vendor.open_time,
+    closeTime: vendor.close_time,
+    closedDays: vendor.closed_days,
     fbAppId: process.env.FACEBOOK_APP_ID,
   })
 
