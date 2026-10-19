@@ -34,6 +34,7 @@ export function looksDangerous(value) {
 
 export function isValidHttpUrl(value) {
   if (!value) return false
+
   try {
     const parsed = new URL(value)
     return parsed.protocol === 'https:' || parsed.protocol === 'http:'
@@ -60,7 +61,9 @@ export function buildDescription(displayName, vendor) {
 export function classifyRequest(seg1, rest) {
   const restSegments = rest ? String(rest).split('/').filter(Boolean) : []
   const reserved = !seg1 || RESERVED.includes(seg1)
-  const looksLikeVenuePair = !reserved && !!restSegments[0] && !SUB_ROUTES.includes(restSegments[0])
+  const looksLikeVenuePair =
+    !reserved && !!restSegments[0] && !SUB_ROUTES.includes(restSegments[0])
+
   return { restSegments, reserved, looksLikeVenuePair }
 }
 
@@ -68,6 +71,7 @@ export function buildCanonicalPath({ looksLikeVenuePair, venueSlug, vendorSlug }
   if (looksLikeVenuePair) {
     return `/${encodeURIComponent(venueSlug)}/${encodeURIComponent(vendorSlug)}`
   }
+
   return `/${encodeURIComponent(vendorSlug)}`
 }
 
@@ -83,20 +87,33 @@ export function buildHeadExtra({
 }) {
   const hasImage = isValidHttpUrl(logoUrl)
   const hasFbAppId = isValidFacebookAppId(fbAppId)
+
   const jsonLdScriptTag = buildJsonLdScriptTag(
-    buildRestaurantJsonLd({ name: restaurantName, url: canonicalUrl, logoUrl, cuisineType, city })
+    buildRestaurantJsonLd({
+      name: restaurantName,
+      url: canonicalUrl,
+      logoUrl,
+      cuisineType,
+      city,
+    })
   )
 
   const parts = [
     `<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />`,
     `<meta property="og:title" content="${escapeHtml(title)}" />`,
-    description ? `<meta property="og:description" content="${escapeHtml(description)}" />` : null,
+    description
+      ? `<meta property="og:description" content="${escapeHtml(description)}" />`
+      : null,
     `<meta property="og:url" content="${escapeHtml(canonicalUrl)}" />`,
     `<meta property="og:type" content="website" />`,
-    hasFbAppId ? `<meta property="fb:app_id" content="${escapeHtml(fbAppId)}" />` : null,
+    hasFbAppId
+      ? `<meta property="fb:app_id" content="${escapeHtml(fbAppId)}" />`
+      : null,
     `<meta name="twitter:card" content="summary" />`,
     `<meta name="twitter:title" content="${escapeHtml(title)}" />`,
-    description ? `<meta name="twitter:description" content="${escapeHtml(description)}" />` : null,
+    description
+      ? `<meta name="twitter:description" content="${escapeHtml(description)}" />`
+      : null,
     hasImage ? `<meta property="og:image" content="${escapeHtml(logoUrl)}" />` : null,
     hasImage && restaurantName
       ? `<meta property="og:image:alt" content="${escapeHtml(restaurantName)}" />`
@@ -133,13 +150,19 @@ export function buildRestaurantJsonLd({ name, url, logoUrl, cuisineType, city })
   if (cuisine) jsonLd.servesCuisine = cuisine
 
   const locality = meaningfulString(city)
-  if (locality) jsonLd.address = { '@type': 'PostalAddress', addressLocality: locality }
+  if (locality) {
+    jsonLd.address = {
+      '@type': 'PostalAddress',
+      addressLocality: locality,
+    }
+  }
 
   return jsonLd
 }
 
 export function buildJsonLdScriptTag(jsonLd) {
   if (!jsonLd) return null
+
   const json = JSON.stringify(jsonLd)
     .replace(/</g, '\\u003c')
     .replace(/>/g, '\\u003e')
@@ -181,11 +204,16 @@ export async function resolveRestaurant(supabase, { seg1, rest }) {
 
     return {
       vendor: vendorData,
-      canonicalPath: buildCanonicalPath({ looksLikeVenuePair: true, venueSlug, vendorSlug }),
+      canonicalPath: buildCanonicalPath({
+        looksLikeVenuePair: true,
+        venueSlug,
+        vendorSlug,
+      }),
     }
   }
 
   const vendorSlug = seg1
+
   const { data: vendorData, error: vendorErr } = await supabase
     .from('vendors')
     .select(VENDOR_SELECT)
@@ -205,6 +233,7 @@ export async function resolveRestaurant(supabase, { seg1, rest }) {
       .maybeSingle()
 
     if (venueErr) throw venueErr
+
     if (venueData) {
       return {
         vendor: vendorData,
@@ -219,7 +248,10 @@ export async function resolveRestaurant(supabase, { seg1, rest }) {
 
   return {
     vendor: vendorData,
-    canonicalPath: buildCanonicalPath({ looksLikeVenuePair: false, vendorSlug }),
+    canonicalPath: buildCanonicalPath({
+      looksLikeVenuePair: false,
+      vendorSlug,
+    }),
   }
 }
 
@@ -233,6 +265,7 @@ export async function resolveLanguage(supabase, vendorId) {
 
     const rows = langRows || []
     const def = rows.find((r) => r.is_default) || rows[0]
+
     return def?.language_code || 'en'
   } catch {
     return 'en'
@@ -241,13 +274,24 @@ export async function resolveLanguage(supabase, vendorId) {
 
 export function substituteTemplate(
   template,
-  { title, description, lang, canonicalUrl, logoUrl, restaurantName, fbAppId, cuisineType, city }
+  {
+    title,
+    description,
+    lang,
+    canonicalUrl,
+    logoUrl,
+    restaurantName,
+    fbAppId,
+    cuisineType,
+    city,
+  }
 ) {
   if (looksDangerous(title) || looksDangerous(description) || looksDangerous(canonicalUrl)) {
     return template
   }
 
   let html = template
+
   html = html.replace(DEFAULT_HTML_TAG, `<html lang="${escapeHtml(lang)}">`)
   html = html.replace(DEFAULT_TITLE_TAG, `<title>${escapeHtml(title)}</title>`)
 
@@ -260,36 +304,29 @@ export function substituteTemplate(
 
   html = html.replace(
     HEAD_EXTRA_MARKER,
-    buildHeadExtra({ title, description, canonicalUrl, logoUrl, restaurantName, fbAppId, cuisineType, city })
+    buildHeadExtra({
+      title,
+      description,
+      canonicalUrl,
+      logoUrl,
+      restaurantName,
+      fbAppId,
+      cuisineType,
+      city,
+    })
   )
 
   return html
 }
 
 /**
- * Loads the SPA shell. On Vercel, the function fetches the deployed index.html.
- * The response must be the actual BistroVite app shell, not a Preview Protection
- * login page or another HTML response. Locally, it reads dist/index.html.
+ * Reads the built SPA shell from the local deployment bundle.
+ *
+ * vercel.json must include dist/index.html in this function's deployment
+ * bundle using functions.includeFiles. This avoids fetching the deployment's
+ * own URL, which can return a Preview Protection login page.
  */
-export async function resolveTemplate({ vercelUrl, fetchImpl = fetch, readFileImpl = readFileSync } = {}) {
-  if (vercelUrl) {
-    const response = await fetchImpl(`https://${vercelUrl}/index.html`)
-
-    if (!response.ok) {
-      throw new Error(`Fetching the deployed index.html failed with status ${response.status}`)
-    }
-
-    const html = await response.text()
-
-    // Prevent a Vercel Preview Protection login page (which may return HTTP 200)
-    // from being cached and served as the restaurant page.
-    if (!html.includes('<div id="root"></div>') || !html.includes('/assets/')) {
-      throw new Error('Fetched index.html is not the expected BistroVite app shell')
-    }
-
-    return html
-  }
-
+export function resolveTemplate({ readFileImpl = readFileSync } = {}) {
   return readFileImpl(join(process.cwd(), 'dist', 'index.html'), 'utf8')
 }
 
@@ -297,15 +334,20 @@ let templateCache = null
 
 async function getTemplate() {
   if (!templateCache) {
-    templateCache = await resolveTemplate({ vercelUrl: process.env.VERCEL_URL })
+    templateCache = await resolveTemplate()
   }
+
   return templateCache
 }
 
 function sendShell(response, template, status) {
   response.status(status)
   response.setHeader('Content-Type', 'text/html; charset=utf-8')
-  if (status !== 200) response.setHeader('Cache-Control', 'no-store')
+
+  if (status !== 200) {
+    response.setHeader('Cache-Control', 'no-store')
+  }
+
   response.send(template)
 }
 

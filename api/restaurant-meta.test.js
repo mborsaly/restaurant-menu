@@ -1,13 +1,5 @@
-
- // Local, dependency-free tests for api/restaurant-meta.js, using Node's
- // built-in test runner and assert module only (no package installed).
- // Run with: node --test api/restaurant-meta.test.js
- //
- // These exercise pure helpers and resolveRestaurant/resolveLanguage against
- // an in-memory mock Supabase client (fixtures below) — nothing here touches
- // a network, a real Supabase project, or production data. No claim is made
- // about live database behavior; see the accompanying report for what still
- // needs Preview-deployment and Vercel-dashboard verification.
+ // Local, dependency-free tests for api/restaurant-meta.js.
+// Run with: node --test api/restaurant-meta.test.js
 
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
@@ -36,13 +28,8 @@ import {
 } from './restaurant-meta.js'
 
 // ---------------------------------------------------------------------------
-// Mock Supabase client — maps table name -> a fixed { data, error } result.
-// Mimics just enough of the real supabase-js query-builder shape
-// (select/eq/order chain, then either .maybeSingle() or a bare await) for
-// resolveRestaurant/resolveLanguage to run against it unmodified.
+// Mock Supabase client.
 // ---------------------------------------------------------------------------
-// `fromCalls`, when passed, records every table name `.from()` is called
-// with — used to prove JSON-LD construction issues no extra Supabase query.
 function makeMockSupabase(byTable, fromCalls) {
   return {
     from(table) {
@@ -83,9 +70,6 @@ const SAMPLE_TEMPLATE = `<!DOCTYPE html>
 <body><div id="root"></div></body>
 </html>`
 
-// Representative built Vite app shell for resolveTemplate tests.
-// Keep the root element and /assets/ reference because production code
-// validates these markers to reject Vercel Preview Protection login HTML.
 const MOCK_APP_SHELL =
   '<!DOCTYPE html><html><head><script type="module" src="/assets/index.js"></script></head><body><div id="root"></div></body></html>'
 
@@ -105,7 +89,7 @@ describe('escaping and missing-optional-field handling', () => {
     assert.equal(looksDangerous('<script>alert(1)</script>'), true)
   })
 
-  test('isValidHttpUrl accepts https/http, rejects everything else', () => {
+  test('isValidHttpUrl accepts http/https and rejects other schemes', () => {
     assert.equal(isValidHttpUrl('https://example.com/logo.png'), true)
     assert.equal(isValidHttpUrl('http://example.com/logo.png'), true)
     assert.equal(isValidHttpUrl('javascript:alert(1)'), false)
@@ -163,7 +147,7 @@ describe('escaping and missing-optional-field handling', () => {
     assert.ok(withLogo.includes('https://example.com/logo.png'))
   })
 
-  test('buildHeadExtra omits description tags when there is no description', () => {
+  test('buildHeadExtra omits description tags when description is absent', () => {
     const headExtra = buildHeadExtra({
       title: 'A',
       description: null,
@@ -174,7 +158,7 @@ describe('escaping and missing-optional-field handling', () => {
     assert.ok(!headExtra.includes('twitter:description'))
   })
 
-  test('buildHeadExtra always uses the basic "website" og:type, never the unregistered restaurant vertical', () => {
+  test('buildHeadExtra always uses og:type website', () => {
     const headExtra = buildHeadExtra({
       title: 'A',
       description: 'B',
@@ -185,7 +169,7 @@ describe('escaping and missing-optional-field handling', () => {
     assert.ok(!headExtra.includes('restaurant.restaurant'))
   })
 
-  test('buildHeadExtra emits og:image:alt and twitter:image:alt from the restaurant name, only when an image is present', () => {
+  test('buildHeadExtra emits image alt text only when an image and restaurant name exist', () => {
     const withImageAndName = buildHeadExtra({
       title: 'Khmer Express — BistroVite',
       description: 'B',
@@ -214,7 +198,7 @@ describe('escaping and missing-optional-field handling', () => {
     assert.ok(!withNameNoImage.includes('image:alt'))
   })
 
-  test('buildHeadExtra escapes HTML-significant characters in the image alt text', () => {
+  test('buildHeadExtra escapes HTML in image alt text', () => {
     const headExtra = buildHeadExtra({
       title: 'A',
       description: 'B',
@@ -226,7 +210,7 @@ describe('escaping and missing-optional-field handling', () => {
     assert.ok(!headExtra.includes('<Fancy>'))
   })
 
-  test('buildHeadExtra emits fb:app_id only when a valid, numeric App ID is provided', () => {
+  test('buildHeadExtra emits fb:app_id only for a valid numeric App ID', () => {
     const withAppId = buildHeadExtra({
       title: 'A',
       description: 'B',
@@ -264,9 +248,8 @@ describe('buildRestaurantJsonLd / buildJsonLdScriptTag — Restaurant JSON-LD', 
     city: 'Laval',
   }
 
-  test('a complete record produces a valid Restaurant object with every mapped property', () => {
-    const jsonLd = buildRestaurantJsonLd(FULL)
-    assert.deepEqual(jsonLd, {
+  test('a complete record produces a valid Restaurant object', () => {
+    assert.deepEqual(buildRestaurantJsonLd(FULL), {
       '@context': 'https://schema.org',
       '@type': 'Restaurant',
       name: 'Khmer Express',
@@ -277,7 +260,7 @@ describe('buildRestaurantJsonLd / buildJsonLdScriptTag — Restaurant JSON-LD', 
     })
   })
 
-  test('missing optional fields (not present at all) are omitted, not emitted as empty/null', () => {
+  test('missing optional fields are omitted', () => {
     const jsonLd = buildRestaurantJsonLd({ name: 'Khmer Express', url: FULL.url })
     assert.deepEqual(jsonLd, {
       '@context': 'https://schema.org',
@@ -303,7 +286,7 @@ describe('buildRestaurantJsonLd / buildJsonLdScriptTag — Restaurant JSON-LD', 
     assert.ok(!('address' in jsonLd))
   })
 
-  test('empty and whitespace-only optional strings are omitted', () => {
+  test('empty optional strings are omitted', () => {
     const jsonLd = buildRestaurantJsonLd({
       name: 'Khmer Express',
       url: FULL.url,
@@ -314,65 +297,57 @@ describe('buildRestaurantJsonLd / buildJsonLdScriptTag — Restaurant JSON-LD', 
     assert.ok(!('address' in jsonLd))
   })
 
-  test('an invalid logo URL does not produce an image property', () => {
-    const jsonLd = buildRestaurantJsonLd({ ...FULL, logoUrl: 'javascript:alert(1)' })
-    assert.ok(!('image' in jsonLd))
-
-    const relativeLogo = buildRestaurantJsonLd({ ...FULL, logoUrl: '/relative/logo.png' })
-    assert.ok(!('image' in relativeLogo))
+  test('invalid logo URLs do not produce an image property', () => {
+    assert.ok(!('image' in buildRestaurantJsonLd({ ...FULL, logoUrl: 'javascript:alert(1)' })))
+    assert.ok(!('image' in buildRestaurantJsonLd({ ...FULL, logoUrl: '/relative/logo.png' })))
   })
 
-  test('a missing or blank name prevents generation of a Restaurant object entirely', () => {
+  test('a missing or blank name prevents generation of a Restaurant object', () => {
     assert.equal(buildRestaurantJsonLd({ ...FULL, name: null }), null)
     assert.equal(buildRestaurantJsonLd({ ...FULL, name: undefined }), null)
     assert.equal(buildRestaurantJsonLd({ ...FULL, name: '' }), null)
     assert.equal(buildRestaurantJsonLd({ ...FULL, name: '   ' }), null)
   })
 
-  test('a missing canonical url prevents generation of a Restaurant object entirely', () => {
+  test('a missing canonical URL prevents generation of a Restaurant object', () => {
     assert.equal(buildRestaurantJsonLd({ ...FULL, url: null }), null)
   })
 
-  test('follows pickLocalizedName for fr/ar/default display names', () => {
+  test('uses pickLocalizedName for French, Arabic, and default names', () => {
     const vendor = { name: 'Default Name', name_fr: 'Nom Français', name_ar: 'الاسم العربي' }
     assert.equal(buildRestaurantJsonLd({ ...FULL, name: pickLocalizedName(vendor, 'fr') }).name, 'Nom Français')
     assert.equal(buildRestaurantJsonLd({ ...FULL, name: pickLocalizedName(vendor, 'ar') }).name, 'الاسم العربي')
     assert.equal(buildRestaurantJsonLd({ ...FULL, name: pickLocalizedName(vendor, 'en') }).name, 'Default Name')
   })
 
-  test('buildJsonLdScriptTag returns null when no valid Restaurant object exists', () => {
+  test('buildJsonLdScriptTag returns null for an invalid Restaurant object', () => {
     assert.equal(buildJsonLdScriptTag(null), null)
   })
 
-  test('buildJsonLdScriptTag produces a <script type="application/ld+json"> element whose content parses with JSON.parse', () => {
+  test('buildJsonLdScriptTag output parses with JSON.parse', () => {
     const tag = buildJsonLdScriptTag(buildRestaurantJsonLd(FULL))
     assert.ok(tag.startsWith('<script type="application/ld+json">'))
     assert.ok(tag.endsWith('</script>'))
     const inner = tag.slice('<script type="application/ld+json">'.length, -'</script>'.length)
-    const parsed = JSON.parse(inner)
-    assert.deepEqual(parsed, buildRestaurantJsonLd(FULL))
+    assert.deepEqual(JSON.parse(inner), buildRestaurantJsonLd(FULL))
   })
 
-  test('hostile database text (</script><script>alert(1)</script>) cannot escape the JSON-LD script element', () => {
+  test('hostile text cannot escape the JSON-LD script element', () => {
     const hostile = '</script><script>alert(1)</script>'
     const tag = buildJsonLdScriptTag(buildRestaurantJsonLd({ ...FULL, cuisineType: hostile }))
-    const scriptCloseOccurrences = tag.split('</script>').length - 1
-    assert.equal(scriptCloseOccurrences, 1)
+    assert.equal(tag.split('</script>').length - 1, 1)
     assert.ok(!tag.includes('<script>alert(1)</script>'))
-
     const inner = tag.slice('<script type="application/ld+json">'.length, -'</script>'.length)
-    const parsed = JSON.parse(inner)
-    assert.equal(parsed.servesCuisine, hostile)
+    assert.equal(JSON.parse(inner).servesCuisine, hostile)
   })
 
-  test('preserves Unicode (accented French, Arabic) exactly through serialization', () => {
+  test('preserves Unicode through serialization', () => {
     const tag = buildJsonLdScriptTag(
       buildRestaurantJsonLd({ ...FULL, name: 'Café Chez l’Ami', city: 'Montréal' })
     )
     const inner = tag.slice('<script type="application/ld+json">'.length, -'</script>'.length)
-    const parsed = JSON.parse(inner)
-    assert.equal(parsed.name, 'Café Chez l’Ami')
-    assert.equal(parsed.address.addressLocality, 'Montréal')
+    assert.equal(JSON.parse(inner).name, 'Café Chez l’Ami')
+    assert.equal(JSON.parse(inner).address.addressLocality, 'Montréal')
 
     const arabicTag = buildJsonLdScriptTag(buildRestaurantJsonLd({ ...FULL, name: 'دكان القهوة' }))
     const arabicInner = arabicTag.slice('<script type="application/ld+json">'.length, -'</script>'.length)
@@ -381,7 +356,7 @@ describe('buildRestaurantJsonLd / buildJsonLdScriptTag — Restaurant JSON-LD', 
 })
 
 describe('buildHeadExtra — JSON-LD integration', () => {
-  test('emits the JSON-LD script tag when a valid name/url are supplied, alongside existing tags', () => {
+  test('emits JSON-LD alongside existing tags', () => {
     const headExtra = buildHeadExtra({
       title: 'Khmer Express — BistroVite',
       description: 'Cambodian — Laval',
@@ -396,7 +371,7 @@ describe('buildHeadExtra — JSON-LD integration', () => {
     assert.ok(headExtra.includes('<link rel="canonical"'))
   })
 
-  test('omits the JSON-LD script tag entirely when there is no restaurant name', () => {
+  test('omits JSON-LD when there is no restaurant name', () => {
     const headExtra = buildHeadExtra({
       title: 'A',
       description: 'B',
@@ -407,7 +382,7 @@ describe('buildHeadExtra — JSON-LD integration', () => {
   })
 
   test('a hostile restaurant name cannot break out of the JSON-LD script element', () => {
-    const hostile = `</script><script>alert(1)</script>`
+    const hostile = '</script><script>alert(1)</script>'
     const headExtra = buildHeadExtra({
       title: 'A',
       description: 'B',
@@ -419,8 +394,8 @@ describe('buildHeadExtra — JSON-LD integration', () => {
   })
 })
 
-describe('resolveRestaurant / resolveLanguage + JSON-LD — no extra Supabase query is introduced', () => {
-  test('building JSON-LD from the already-resolved vendor record issues zero additional .from() calls', async () => {
+describe('resolveRestaurant / resolveLanguage + JSON-LD — no extra Supabase query', () => {
+  test('building JSON-LD from the resolved vendor record issues no additional .from() calls', async () => {
     const fromCalls = []
     const supabase = makeMockSupabase(
       {
@@ -444,10 +419,8 @@ describe('resolveRestaurant / resolveLanguage + JSON-LD — no extra Supabase qu
     const resolved = await resolveRestaurant(supabase, { seg1: 'khmer-express', rest: '' })
     const lang = await resolveLanguage(supabase, resolved.vendor.id)
     const callsBeforeJsonLd = fromCalls.length
-
-    const displayName = pickLocalizedName(resolved.vendor, lang)
     const jsonLd = buildRestaurantJsonLd({
-      name: displayName,
+      name: pickLocalizedName(resolved.vendor, lang),
       url: `${CANONICAL_BASE_URL}${resolved.canonicalPath}`,
       logoUrl: resolved.vendor.logo_url,
       cuisineType: resolved.vendor.cuisine_type,
@@ -455,7 +428,7 @@ describe('resolveRestaurant / resolveLanguage + JSON-LD — no extra Supabase qu
     })
 
     assert.ok(jsonLd)
-    assert.equal(fromCalls.length, callsBeforeJsonLd, 'buildRestaurantJsonLd must not query Supabase')
+    assert.equal(fromCalls.length, callsBeforeJsonLd)
     assert.deepEqual(fromCalls, ['vendors', 'vendor_languages'])
   })
 })
@@ -475,14 +448,14 @@ describe('canonical URL construction', () => {
     )
   })
 
-  test('slug segments are URL-encoded, not trusted verbatim', () => {
+  test('slug segments are URL-encoded', () => {
     assert.equal(
       buildCanonicalPath({ looksLikeVenuePair: false, vendorSlug: 'a b/c' }),
       '/a%20b%2Fc'
     )
   })
 
-  test('canonical is always built from the fixed base URL, never from a Host header', () => {
+  test('canonical URL uses the fixed base URL, not a Host header', () => {
     const html = substituteTemplate(SAMPLE_TEMPLATE, {
       title: 'X',
       description: null,
@@ -501,32 +474,33 @@ describe('request classification: standalone vs. venue-prefixed vs. reserved', (
     }
   })
 
-  test('a bare restaurant slug is standalone, not a venue pair', () => {
+  test('a bare restaurant slug is standalone', () => {
     const { reserved, looksLikeVenuePair } = classifyRequest('la-saveur-colombienne', '')
     assert.equal(reserved, false)
     assert.equal(looksLikeVenuePair, false)
   })
 
-  test('restaurant slug + a SUB_ROUTE is still standalone (nested ordering route)', () => {
+  test('restaurant slug + a SUB_ROUTE is still standalone', () => {
     for (const sub of SUB_ROUTES) {
-      const { looksLikeVenuePair } = classifyRequest('la-saveur-colombienne', sub)
-      assert.equal(looksLikeVenuePair, false, `expected "${sub}" to stay standalone`)
+      assert.equal(
+        classifyRequest('la-saveur-colombienne', sub).looksLikeVenuePair,
+        false,
+        `expected "${sub}" to stay standalone`
+      )
     }
   })
 
   test('venue slug + vendor slug is a venue pair', () => {
-    const { looksLikeVenuePair } = classifyRequest('esc-giza', 'dokan-el-kahwa')
-    assert.equal(looksLikeVenuePair, true)
+    assert.equal(classifyRequest('esc-giza', 'dokan-el-kahwa').looksLikeVenuePair, true)
   })
 
   test('venue pair + nested ordering route is still a venue pair', () => {
-    const { looksLikeVenuePair } = classifyRequest('esc-giza', 'dokan-el-kahwa/cart')
-    assert.equal(looksLikeVenuePair, true)
+    assert.equal(classifyRequest('esc-giza', 'dokan-el-kahwa/cart').looksLikeVenuePair, true)
   })
 })
 
 // ---------------------------------------------------------------------------
-// vercel.json rewrite rules — read the real file, not a copy.
+// vercel.json rewrite rules — read the actual file.
 // ---------------------------------------------------------------------------
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const vercelConfig = JSON.parse(readFileSync(join(__dirname, '..', 'vercel.json'), 'utf8'))
@@ -547,7 +521,7 @@ function sourceToRegExp(source) {
   m = source.match(/^\/[a-zA-Z0-9.-]+$/)
   if (m) return new RegExp(`^${source.replace(/\./g, '\\.')}$`)
 
-  throw new Error(`sourceToRegExp: unrecognized vercel.json rewrite source shape: "${source}"`)
+  throw new Error(`sourceToRegExp: unrecognized rewrite source shape: "${source}"`)
 }
 
 function matchRewrite(pathname, rules) {
@@ -557,37 +531,42 @@ function matchRewrite(pathname, rules) {
   return null
 }
 
-describe('vercel.json rewrite rules (read from the real file, first-match-wins)', () => {
-  test('no rewrite source uses lookahead/lookbehind — the exact syntax Vercel rejected at deploy time', () => {
+describe('vercel.json rewrite rules', () => {
+  test('no rewrite source uses lookahead/lookbehind', () => {
     for (const rule of REWRITE_RULES) {
-      assert.ok(
-        !/\(\?[!=<]/.test(rule.source),
-        `expected "${rule.source}" not to contain a lookahead/lookbehind assertion`
-      )
+      assert.ok(!/\(\?[!=<]/.test(rule.source), `unexpected lookaround in "${rule.source}"`)
     }
   })
 
-  test('a standalone restaurant slug routes to the restaurant-meta function', () => {
-    const rule = matchRewrite('/la-saveur-colombienne', REWRITE_RULES)
-    assert.equal(rule.destination, '/api/restaurant-meta?seg1=:seg1')
+  test('a standalone restaurant slug routes to restaurant-meta', () => {
+    assert.equal(
+      matchRewrite('/la-saveur-colombienne', REWRITE_RULES).destination,
+      '/api/restaurant-meta?seg1=:seg1'
+    )
   })
 
-  test('a vendor + sub-route path (nested ordering route) routes to the restaurant-meta function', () => {
-    const rule = matchRewrite('/la-saveur-colombienne/cart', REWRITE_RULES)
-    assert.equal(rule.destination, '/api/restaurant-meta?seg1=:seg1&rest=:rest')
+  test('a restaurant + sub-route routes to restaurant-meta', () => {
+    assert.equal(
+      matchRewrite('/la-saveur-colombienne/cart', REWRITE_RULES).destination,
+      '/api/restaurant-meta?seg1=:seg1&rest=:rest'
+    )
   })
 
-  test('a venue + vendor path routes to the restaurant-meta function', () => {
-    const rule = matchRewrite('/esc-giza/dokan-el-kahwa', REWRITE_RULES)
-    assert.equal(rule.destination, '/api/restaurant-meta?seg1=:seg1&rest=:rest')
+  test('a venue + vendor path routes to restaurant-meta', () => {
+    assert.equal(
+      matchRewrite('/esc-giza/dokan-el-kahwa', REWRITE_RULES).destination,
+      '/api/restaurant-meta?seg1=:seg1&rest=:rest'
+    )
   })
 
-  test('a venue + vendor + nested sub-route path routes to the restaurant-meta function', () => {
-    const rule = matchRewrite('/esc-giza/dokan-el-kahwa/cart', REWRITE_RULES)
-    assert.equal(rule.destination, '/api/restaurant-meta?seg1=:seg1&rest=:rest')
+  test('a venue + vendor + nested route routes to restaurant-meta', () => {
+    assert.equal(
+      matchRewrite('/esc-giza/dokan-el-kahwa/cart', REWRITE_RULES).destination,
+      '/api/restaurant-meta?seg1=:seg1&rest=:rest'
+    )
   })
 
-  test('every RESERVED route, bare and nested, bypasses the function entirely', () => {
+  test('reserved routes bypass the function', () => {
     for (const word of RESERVED) {
       assert.equal(matchRewrite(`/${word}`, REWRITE_RULES).destination, '/index.html', `/${word}`)
       assert.equal(
@@ -598,17 +577,21 @@ describe('vercel.json rewrite rules (read from the real file, first-match-wins)'
     }
   })
 
-  test('static assets bypass the function and are served as themselves, not rewritten to index.html', () => {
-    const rule = matchRewrite('/assets/index-abc123.js', REWRITE_RULES)
-    assert.equal(rule.destination, '/assets/:rest*')
+  test('static assets bypass the function', () => {
+    assert.equal(
+      matchRewrite('/assets/index-abc123.js', REWRITE_RULES).destination,
+      '/assets/:rest*'
+    )
   })
 
-  test('/api/* bypasses the function and is served as itself — avoids a self-referential rewrite', () => {
-    const rule = matchRewrite('/api/restaurant-meta', REWRITE_RULES)
-    assert.equal(rule.destination, '/api/:rest*')
+  test('/api/* bypasses the function', () => {
+    assert.equal(
+      matchRewrite('/api/restaurant-meta', REWRITE_RULES).destination,
+      '/api/:rest*'
+    )
   })
 
-  test('root-level dotted static files fall through to the SPA catch-all within the rewrites array', () => {
+  test('root-level dotted static files fall through to the SPA catch-all', () => {
     for (const path of [
       '/robots.txt',
       '/favicon.svg',
@@ -622,19 +605,19 @@ describe('vercel.json rewrite rules (read from the real file, first-match-wins)'
     }
   })
 
-  test('/sitemap.xml routes to the sitemap function, not the SPA catch-all or restaurant-meta', () => {
-    const rule = matchRewrite('/sitemap.xml', REWRITE_RULES)
-    assert.equal(rule.destination, '/api/sitemap')
+  test('/sitemap.xml routes to the sitemap function', () => {
+    assert.equal(matchRewrite('/sitemap.xml', REWRITE_RULES).destination, '/api/sitemap')
   })
 
   test('the homepage falls through to the SPA catch-all', () => {
     assert.equal(matchRewrite('/', REWRITE_RULES).destination, '/index.html')
   })
 
-  test('passthrough rules are ordered before slug rules, which are ordered before the final catch-all', () => {
+  test('passthrough rules precede slug rules, which precede the catch-all', () => {
     const catchAllIndex = REWRITE_RULES.findIndex((r) => r.source === '/(.*)')
     const slugRuleIndexes = []
     const passthroughIndexes = []
+
     REWRITE_RULES.forEach((r, i) => {
       if (r.source === '/(.*)') return
       if (/^\/:[a-zA-Z0-9]+\(/.test(r.source)) slugRuleIndexes.push(i)
@@ -646,31 +629,37 @@ describe('vercel.json rewrite rules (read from the real file, first-match-wins)'
     assert.ok(Math.max(...slugRuleIndexes) < catchAllIndex)
   })
 
-  test('REMAINING, genuinely unresolved: live path-to-regexp behavior on Vercel itself', () => {
+  test('live path-to-regexp behavior on Vercel still requires deployment verification', () => {
     assert.ok(true)
   })
 })
 
-describe('resolveRestaurant — unknown / inactive / venue-vendor mismatch (all return null)', () => {
+describe('resolveRestaurant — unknown / inactive / venue-vendor mismatch', () => {
   test('unknown standalone slug returns null', async () => {
-    const supabase = makeMockSupabase({ vendors: { data: null, error: null } })
-    const result = await resolveRestaurant(supabase, { seg1: 'no-such-restaurant', rest: '' })
+    const result = await resolveRestaurant(
+      makeMockSupabase({ vendors: { data: null, error: null } }),
+      { seg1: 'no-such-restaurant', rest: '' }
+    )
     assert.equal(result, null)
   })
 
-  test('inactive vendor is indistinguishable from unknown', async () => {
-    const supabase = makeMockSupabase({ vendors: { data: null, error: null } })
-    const result = await resolveRestaurant(supabase, { seg1: 'some-inactive-vendor', rest: '' })
+  test('inactive vendor returns null', async () => {
+    const result = await resolveRestaurant(
+      makeMockSupabase({ vendors: { data: null, error: null } }),
+      { seg1: 'some-inactive-vendor', rest: '' }
+    )
     assert.equal(result, null)
   })
 
-  test('unknown venue slug returns null without ever querying vendors', async () => {
+  test('unknown venue returns null without querying vendors', async () => {
     const supabase = makeMockSupabase({
       venues: { data: null, error: null },
       vendors: { data: null, error: new Error('should not be called') },
     })
-    const result = await resolveRestaurant(supabase, { seg1: 'no-such-venue', rest: 'dokan-el-kahwa' })
-    assert.equal(result, null)
+    assert.equal(
+      await resolveRestaurant(supabase, { seg1: 'no-such-venue', rest: 'dokan-el-kahwa' }),
+      null
+    )
   })
 
   test('venue/vendor mismatch returns null', async () => {
@@ -678,13 +667,15 @@ describe('resolveRestaurant — unknown / inactive / venue-vendor mismatch (all 
       venues: { data: { id: 'venue-1', slug: 'esc-giza' }, error: null },
       vendors: { data: null, error: null },
     })
-    const result = await resolveRestaurant(supabase, { seg1: 'esc-giza', rest: 'wrong-vendor' })
-    assert.equal(result, null)
+    assert.equal(
+      await resolveRestaurant(supabase, { seg1: 'esc-giza', rest: 'wrong-vendor' }),
+      null
+    )
   })
 })
 
 describe('resolveRestaurant — success paths', () => {
-  test('standalone vendor with no venue_id resolves with a standalone canonical path', async () => {
+  test('standalone vendor resolves with a standalone canonical path', async () => {
     const supabase = makeMockSupabase({
       vendors: {
         data: { id: 'v1', slug: 'la-saveur-colombienne', name: 'La Saveur Colombienne', venue_id: null },
@@ -695,7 +686,7 @@ describe('resolveRestaurant — success paths', () => {
     assert.equal(result.canonicalPath, '/la-saveur-colombienne')
   })
 
-  test('standalone vendor WITH a venue_id canonicalizes to the venue-prefixed URL', async () => {
+  test('standalone vendor with venue_id canonicalizes to venue-prefixed URL', async () => {
     const supabase = makeMockSupabase({
       vendors: {
         data: { id: 'v1', slug: 'dokan-el-kahwa', name: 'Dokan El Kahwa', venue_id: 'venue-1' },
@@ -707,7 +698,7 @@ describe('resolveRestaurant — success paths', () => {
     assert.equal(result.canonicalPath, '/esc-giza/dokan-el-kahwa')
   })
 
-  test('venue-pair request resolves with a venue-prefixed canonical path', async () => {
+  test('venue-pair request resolves with venue-prefixed canonical path', async () => {
     const supabase = makeMockSupabase({
       venues: { data: { id: 'venue-1', slug: 'esc-giza' }, error: null },
       vendors: {
@@ -720,8 +711,8 @@ describe('resolveRestaurant — success paths', () => {
   })
 })
 
-describe('resolveRestaurant — infrastructure failures (must throw, never return null)', () => {
-  test('a Supabase error on the venues query throws, is not swallowed as "not found"', async () => {
+describe('resolveRestaurant — infrastructure failures', () => {
+  test('a Supabase venues-query error throws', async () => {
     const supabase = makeMockSupabase({
       venues: { data: null, error: new Error('connection timeout') },
     })
@@ -731,7 +722,7 @@ describe('resolveRestaurant — infrastructure failures (must throw, never retur
     )
   })
 
-  test('a Supabase error on the vendors query throws, is not swallowed as "not found"', async () => {
+  test('a Supabase vendors-query error throws', async () => {
     const supabase = makeMockSupabase({
       vendors: { data: null, error: new Error('network error') },
     })
@@ -742,8 +733,8 @@ describe('resolveRestaurant — infrastructure failures (must throw, never retur
   })
 })
 
-describe('resolveLanguage — deliberately lenient, falls back to "en", never throws', () => {
-  test('returns the is_default row\'s language_code', async () => {
+describe('resolveLanguage — lenient fallback to en', () => {
+  test('returns the is_default row language_code', async () => {
     const supabase = makeMockSupabase({
       vendor_languages: {
         data: [
@@ -756,19 +747,19 @@ describe('resolveLanguage — deliberately lenient, falls back to "en", never th
     assert.equal(await resolveLanguage(supabase, 'v1'), 'ar')
   })
 
-  test('falls back to the first row when none is marked default', async () => {
+  test('falls back to first row when none is default', async () => {
     const supabase = makeMockSupabase({
       vendor_languages: { data: [{ language_code: 'fr', is_default: false }], error: null },
     })
     assert.equal(await resolveLanguage(supabase, 'v1'), 'fr')
   })
 
-  test('falls back to "en" when there are no rows at all', async () => {
+  test('falls back to en when there are no rows', async () => {
     const supabase = makeMockSupabase({ vendor_languages: { data: [], error: null } })
     assert.equal(await resolveLanguage(supabase, 'v1'), 'en')
   })
 
-  test('falls back to "en" (never throws) on a Supabase error', async () => {
+  test('falls back to en on a Supabase error', async () => {
     const supabase = makeMockSupabase({
       vendor_languages: { data: null, error: new Error('boom') },
     })
@@ -776,8 +767,8 @@ describe('resolveLanguage — deliberately lenient, falls back to "en", never th
   })
 })
 
-describe('substituteTemplate — end-to-end escaping on a realistic template', () => {
-  test('escapes HTML-significant characters in a vendor name, injects all expected tags', () => {
+describe('substituteTemplate — end-to-end escaping', () => {
+  test('escapes vendor names and injects expected tags', () => {
     const html = substituteTemplate(SAMPLE_TEMPLATE, {
       title: `Café "Chez l'Ami" & <Fancy> — BistroVite`,
       description: 'Cambodian — Laval',
@@ -800,9 +791,9 @@ describe('substituteTemplate — end-to-end escaping on a realistic template', (
     assert.ok(!html.includes('<!--SEO_HEAD_EXTRA-->'))
   })
 
-  test('a title that smuggles a placeholder/script-like string is vetoed entirely, template stays untouched', () => {
+  test('a dangerous title vetoes substitution and leaves the template untouched', () => {
     const html = substituteTemplate(SAMPLE_TEMPLATE, {
-      title: `Evil <script>alert(1)</script> Name`,
+      title: 'Evil <script>alert(1)</script> Name',
       description: null,
       lang: 'en',
       canonicalUrl: `${CANONICAL_BASE_URL}/evil`,
@@ -822,12 +813,12 @@ describe('substituteTemplate — end-to-end escaping on a realistic template', (
     assert.ok(html.includes('Commandez chez vos restaurants préférés'))
   })
 
-  test('pickLocalizedName falls back to the base name when no translation exists', () => {
+  test('pickLocalizedName falls back to base name when translation is absent', () => {
     assert.equal(pickLocalizedName({ name: 'Default Name', name_fr: null, name_ar: null }, 'fr'), 'Default Name')
     assert.equal(pickLocalizedName({ name: 'Default Name', name_fr: 'Nom Français' }, 'fr'), 'Nom Français')
   })
 
-  test('end-to-end: the JSON-LD script can be extracted from the generated HTML and parsed with JSON.parse', () => {
+  test('generated JSON-LD can be extracted and parsed', () => {
     const html = substituteTemplate(SAMPLE_TEMPLATE, {
       title: 'Khmer Express — BistroVite',
       description: 'Cambodian — Laval',
@@ -839,7 +830,7 @@ describe('substituteTemplate — end-to-end escaping on a realistic template', (
       city: 'Laval',
     })
     const match = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)
-    assert.ok(match, 'expected a JSON-LD <script> tag in the generated HTML')
+    assert.ok(match)
     const jsonLd = JSON.parse(match[1])
     assert.equal(jsonLd['@context'], 'https://schema.org')
     assert.equal(jsonLd['@type'], 'Restaurant')
@@ -850,7 +841,7 @@ describe('substituteTemplate — end-to-end escaping on a realistic template', (
     assert.equal(jsonLd.address.addressLocality, 'Laval')
   })
 
-  test('end-to-end: a missing restaurant name omits the JSON-LD script but preserves the rest of the response', () => {
+  test('missing restaurant name omits JSON-LD but preserves the response', () => {
     const html = substituteTemplate(SAMPLE_TEMPLATE, {
       title: 'Some Restaurant',
       description: null,
@@ -864,111 +855,67 @@ describe('substituteTemplate — end-to-end escaping on a realistic template', (
   })
 })
 
-describe('resolveTemplate — fetches the deployed SPA shell via VERCEL_URL, never the filesystem, on Vercel', () => {
-  test('with vercelUrl set, fetches https://<vercelUrl>/index.html and returns its text', async () => {
+// ---------------------------------------------------------------------------
+// resolveTemplate — current implementation reads the local built SPA shell.
+// It deliberately does not fetch VERCEL_URL, avoiding Preview Protection HTML.
+// ---------------------------------------------------------------------------
+describe('resolveTemplate — reads the local dist/index.html', () => {
+  test('reads dist/index.html and returns the injected contents', () => {
     const calls = []
-    const fetchImpl = async (url) => {
-      calls.push(url)
-      return { ok: true, text: async () => MOCK_APP_SHELL }
+    const readFileImpl = (path, encoding) => {
+      calls.push({ path, encoding })
+      return MOCK_APP_SHELL
     }
 
-    const html = await resolveTemplate({
-      vercelUrl: 'my-app-abc123.vercel.app',
-      fetchImpl,
-    })
+    const html = resolveTemplate({ readFileImpl })
 
     assert.equal(html, MOCK_APP_SHELL)
-    assert.deepEqual(calls, ['https://my-app-abc123.vercel.app/index.html'])
+    assert.equal(calls.length, 1)
+    assert.ok(calls[0].path.endsWith(join('dist', 'index.html')))
+    assert.equal(calls[0].encoding, 'utf8')
   })
 
-  test('uses only the injected vercelUrl, not a request Host header or hardcoded URL', async () => {
-    const calls = []
-    const fetchImpl = async (url) => {
-      calls.push(url)
-      return { ok: true, text: async () => MOCK_APP_SHELL }
+  test('reads the local shell even when vercelUrl is supplied', () => {
+    const readFileImpl = (path, encoding) => {
+      assert.ok(path.endsWith(join('dist', 'index.html')))
+      assert.equal(encoding, 'utf8')
+      return MOCK_APP_SHELL
     }
 
-    const html = await resolveTemplate({
+    const html = resolveTemplate({
       vercelUrl: 'some-preview-deployment-xyz.vercel.app',
-      fetchImpl,
-    })
-
-    assert.equal(html, MOCK_APP_SHELL)
-    assert.deepEqual(calls, ['https://some-preview-deployment-xyz.vercel.app/index.html'])
-  })
-
-  test('rejects a Vercel Preview Protection login page even when it returns HTTP 200', async () => {
-    const loginPage = '<!DOCTYPE html><html><body>Skip to content Sign in to Vercel</body></html>'
-    const fetchImpl = async () => ({
-      ok: true,
-      text: async () => loginPage,
-    })
-
-    await assert.rejects(
-      () => resolveTemplate({
-        vercelUrl: 'my-app-abc123.vercel.app',
-        fetchImpl,
-      }),
-      /not the expected BistroVite app shell/
-    )
-  })
-
-  test('a non-ok fetch response throws so the infrastructure-error path runs', async () => {
-    const fetchImpl = async () => ({
-      ok: false,
-      status: 503,
-      text: async () => 'should not be read',
-    })
-
-    await assert.rejects(
-      () => resolveTemplate({
-        vercelUrl: 'my-app-abc123.vercel.app',
-        fetchImpl,
-      }),
-      /503/
-    )
-  })
-
-  test('a network error from fetch propagates, not swallowed', async () => {
-    const fetchImpl = async () => {
-      throw new Error('network unreachable')
-    }
-
-    await assert.rejects(
-      () => resolveTemplate({
-        vercelUrl: 'my-app-abc123.vercel.app',
-        fetchImpl,
-      }),
-      /network unreachable/
-    )
-  })
-
-  test('with no vercelUrl, reads the local filesystem instead', async () => {
-    const readFileImpl = (path, encoding) => `read:${path}:${encoding}`
-    const html = await resolveTemplate({
-      vercelUrl: undefined,
       readFileImpl,
     })
 
-    assert.ok(html.startsWith('read:'))
-    assert.ok(html.includes(join('dist', 'index.html')))
-    assert.ok(html.endsWith('utf8'))
+    assert.equal(html, MOCK_APP_SHELL)
   })
 
-  test('with no vercelUrl, never calls fetch', async () => {
+  test('never calls fetch', () => {
     let fetchCalled = false
     const fetchImpl = async () => {
       fetchCalled = true
-      return { ok: true, text: async () => MOCK_APP_SHELL }
+      throw new Error('fetch should not be called')
     }
-    const readFileImpl = () => 'local shell'
 
-    await resolveTemplate({
-      vercelUrl: undefined,
+    const html = resolveTemplate({
+      vercelUrl: 'my-app-abc123.vercel.app',
       fetchImpl,
-      readFileImpl,
+      readFileImpl: () => MOCK_APP_SHELL,
     })
 
+    assert.equal(html, MOCK_APP_SHELL)
     assert.equal(fetchCalled, false)
+  })
+
+  test('propagates local filesystem read errors', () => {
+    assert.throws(
+      () =>
+        resolveTemplate({
+          readFileImpl: () => {
+            throw new Error('index.html not found')
+          },
+        }),
+      /index\.html not found/
+    )
   })
 })

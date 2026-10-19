@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "api/restaurant-meta.js": {
+      "includeFiles": "dist/**"
+    }
+  },
   "rewrites": [
     { "source": "/welcome/:rest*", "destination": "/index.html" },
     { "source": "/menu/:rest*", "destination": "/index.html" },
